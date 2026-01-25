@@ -1,13 +1,32 @@
-from .base import *  # noqa
+from .base import *  # noqa: F403
+from .base import _env
+from .base import _env_list
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "x%8_&vxjhi#3g&6f51=&k_!-7#zjlj*kk9a)jf+^&dafcukf!e"
+SECRET_KEY = _env("SECRET_KEY", "")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is required for production.")
 
 # Add your site's domain name(s) here.
-ALLOWED_HOSTS = ["localhost"]
+ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "localhost")
+CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS", "")
+
+
+def _env_bool(name: str, default: str = "false") -> bool:
+    return _env(name, default).lower() in {"1", "true", "yes", "on"}
+
+
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", "false")
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", "false")
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", "false")
+
+SECURE_HSTS_SECONDS = int(_env("SECURE_HSTS_SECONDS", "0") or "0")
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", "false")
+SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", "false")
 
 # To send email from the server, we recommend django_sendmail_backend
 # Or specify your own email backend such as an SMTP server.

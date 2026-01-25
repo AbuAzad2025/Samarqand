@@ -51,6 +51,51 @@ Open this directory in a command prompt, then:
 3. Go to http://localhost:8000/ in your browser, or http://localhost:8000/admin/
    to log in and get to work!
 
+## Production deployment
+
+This project is a standard Django + Wagtail site. A common deployment setup is Nginx (or a load balancer) in front of Gunicorn.
+
+### Environment variables
+
+- Copy `.env.example` to `.env` and fill values.
+- Set `DJANGO_SETTINGS_MODULE=contracting_site.settings.prod`
+- Set `SECRET_KEY` to a strong random value
+- Set `ALLOWED_HOSTS` as a comma-separated list (example: `example.com,www.example.com`)
+- Set `CSRF_TRUSTED_ORIGINS` as a comma-separated list of full origins (example: `https://example.com,https://www.example.com`)
+- Set `WAGTAILADMIN_BASE_URL` (example: `https://example.com`)
+
+### Build and run
+
+1. Install Python dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+2. Apply migrations:
+   ```
+   python manage.py migrate
+   ```
+
+3. Build the Samarqand SPA into Django static files (requires Node.js + npm):
+   ```
+   python manage.py sync_samarqand_spa
+   ```
+
+4. Collect static files:
+   ```
+   python manage.py collectstatic --noinput
+   ```
+
+5. Run Gunicorn:
+   ```
+   gunicorn -c gunicorn.conf.py contracting_site.wsgi:application
+   ```
+
+### Static and media
+
+- `STATIC_ROOT` is `static/` and should be served at `/static/`.
+- `MEDIA_ROOT` is `media/` and should be served at `/media/`.
+
 ## Documentation links
 
 * To customize the content, design, and features of the site see
