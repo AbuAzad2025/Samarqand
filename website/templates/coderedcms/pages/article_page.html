@@ -1,0 +1,122 @@
+{% extends "coderedcms/pages/base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block content_pre_body %}
+  {% if page.cover_image %}
+    {% image page.cover_image fill-1920x420 format-webp preserve-svg as banner_image %}
+  {% endif %}
+
+  <div id="banner-area" class="banner-area" style="background-image:url({% if page.cover_image %}{{ banner_image.url }}{% else %}{% static 'website/constra/images/banner/banner1.jpg' %}{% endif %})">
+    <div class="banner-text">
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="banner-heading">
+              <h1 class="banner-title">{{ page.title }}</h1>
+              {% if page.first_published_at %}
+                <div class="text-white-50 mt-2"><i class="far fa-calendar ml-1"></i>{{ page.first_published_at|date:"d M Y" }}</div>
+              {% endif %}
+              {% if page.search_description %}
+                <div class="text-white-50 mt-2">{{ page.search_description }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block content_body %}
+  <section id="main-container" class="main-container pb-4">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-8 mb-5 mb-lg-0">
+          <div class="post-content post-single">
+            {% if page.cover_image %}
+              {% image page.cover_image fill-1400x900 format-webp preserve-svg as cimg %}
+              <div class="post-media post-image">
+                <img loading="lazy" src="{{ cimg.url }}" class="img-fluid" alt="{{ page.title }}">
+              </div>
+            {% endif %}
+
+            <div class="post-body">
+              <div class="entry-header">
+                <div class="post-meta">
+                  {% if page.first_published_at %}
+                    <span class="post-meta-date"><i class="far fa-calendar"></i> {{ page.first_published_at|date:"d M Y" }}</span>
+                  {% endif %}
+                </div>
+                <h2 class="entry-title">{{ page.title }}</h2>
+              </div>
+
+              <div class="entry-content">
+                {% if page.search_description %}
+                  <p>{{ page.search_description }}</p>
+                {% endif %}
+                {% for block in page.body %}
+                  {% include_block block with settings=settings %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="sidebar sidebar-right">
+            <div class="widget">
+              <h3 class="widget-title">بحث</h3>
+              <form action="/search/" method="get">
+                <div class="input-group">
+                  <input type="text" name="query" class="form-control" placeholder="ابحث...">
+                  <div class="input-group-append">
+                    <button class="btn btn-primary" type="submit" aria-label="بحث">
+                      <i class="fa fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div class="widget recent-posts">
+              <h3 class="widget-title">أحدث المقالات</h3>
+              <ul class="list-unstyled">
+                {% with parent=page.get_parent %}
+                  {% for child in parent.get_children.live|slice:":3" %}
+                    {% with item=child.specific %}
+                      <li class="d-flex align-items-center">
+                        <div class="posts-thumb">
+                          <a href="{% pageurl item %}">
+                            {% if item.cover_image %}
+                              {% image item.cover_image fill-120x80 format-webp preserve-svg as timg %}
+                              <img loading="lazy" alt="{{ item.title }}" src="{{ timg.url }}">
+                            {% else %}
+                              <img loading="lazy" alt="{{ item.title }}" src="{% static 'website/constra/images/news/news1.jpg' %}">
+                            {% endif %}
+                          </a>
+                        </div>
+                        <div class="post-info">
+                          <h4 class="entry-title">
+                            <a href="{% pageurl item %}">{{ item.title }}</a>
+                          </h4>
+                        </div>
+                      </li>
+                    {% endwith %}
+                  {% endfor %}
+                {% endwith %}
+              </ul>
+            </div>
+
+            <div class="widget">
+              <h3 class="widget-title">روابط سريعة</h3>
+              <ul class="arrow nav nav-tabs">
+                <li><a href="/">الرئيسية</a></li>
+                <li><a href="/search/">بحث</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

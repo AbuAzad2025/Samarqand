@@ -1,0 +1,471 @@
+{% load static wagtailcore_tags %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>{% block title %}{% if page %}{{ page.seo_title|default:page.title }}{% else %}الموقع{% endif %}{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'website/constra/images/favicon.png' %}">
+    <link id="bootstrap-css" rel="stylesheet" href="{% static 'website/constra/plugins/bootstrap/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/animate-css/animate.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/slick/slick.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/slick/slick-theme.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/colorbox/colorbox.css' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/css/style.css' %}">
+    <style>
+      body { direction: rtl; text-align: right; }
+      .top-info { padding-right: 0; }
+      .top-info-box { padding-right: 0; }
+      .navbar-nav { padding-right: 0; }
+      .navbar-nav .nav-link { text-align: right; }
+    </style>
+    {% block custom_assets %}
+      <link rel="stylesheet" href="{% static 'website/css/custom.css' %}">
+    {% endblock %}
+    <link id="bootswatch-css" rel="stylesheet" href="" media="not all">
+    <link id="theme-fonts" rel="stylesheet" href="" media="not all">
+  </head>
+  <body>
+    <div class="body-inner">
+      {% with company=settings.website.CompanySettings %}
+      <div class="sq-topbar">
+        <div class="container">
+          <div class="d-flex align-items-center justify-content-between flex-wrap">
+            <div class="d-flex align-items-center gap-4">
+              {% if company.phone_1 %}
+                <a class="sq-topbar-link" href="tel:{{ company.phone_1 }}" dir="ltr">
+                  <i class="fas fa-phone"></i>
+                  <span>{{ company.phone_1 }}</span>
+                </a>
+              {% endif %}
+              {% if company.phone_2 %}
+                <a class="sq-topbar-link" href="tel:{{ company.phone_2 }}" dir="ltr">
+                  <i class="fas fa-phone"></i>
+                  <span>{{ company.phone_2 }}</span>
+                </a>
+              {% endif %}
+              {% if company.headquarters %}
+                <div class="sq-topbar-link">
+                  <i class="fas fa-map-marker-alt"></i>
+                  <span>{{ company.headquarters }}</span>
+                </div>
+              {% endif %}
+            </div>
+            {% if company.topbar_slogan %}<div class="sq-topbar-slogan">{{ company.topbar_slogan }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <header class="sq-navbar">
+        <div class="container">
+          <nav class="d-flex align-items-center justify-content-between">
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#sqNavbar" aria-controls="sqNavbar" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div id="sqNavbar" class="collapse navbar-collapse">
+              <ul class="navbar-nav ml-auto align-items-lg-center">
+                <li class="nav-item"><a href="/" class="nav-link">الصفحة الرئيسية</a></li>
+                {% if about_page %}<li class="nav-item"><a href="{% pageurl about_page %}" class="nav-link">من نحن</a></li>{% endif %}
+                {% if projects_index %}<li class="nav-item"><a href="{% pageurl projects_index %}" class="nav-link">مشاريعنا</a></li>{% endif %}
+                {% if services_index %}<li class="nav-item"><a href="/#services" class="nav-link">خدماتنا</a></li>{% endif %}
+                {% if contact_page %}<li class="nav-item"><a href="{% pageurl contact_page %}" class="nav-link">اتصل بنا</a></li>{% endif %}
+                <li class="nav-item">
+                  <div class="sq-lang">
+                    <img src="https://flagcdn.com/w20/ps.png" alt="فلسطين">
+                    <span>▼</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <a href="/" class="sq-logo">
+              <div class="sq-logo-text">
+                <div class="sq-logo-title">{{ company.brand_title|default:company.name }}</div>
+                {% if company.brand_subtitle %}<div class="sq-logo-sub">{{ company.brand_subtitle }}</div>{% endif %}
+              </div>
+              <div class="sq-logo-mark">
+                <img src="{% static 'website/constra/images/logo.png' %}" alt="شعار شركة سمر قند للمقاولات">
+              </div>
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        {% block content_pre_body %}{% endblock %}
+        {% block content_body %}{% endblock %}
+      </main>
+
+      <footer class="sq-footer">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+              <h3 class="sq-footer-title">{{ company.name }}</h3>
+              {% if company.slogan %}<p>{{ company.slogan }}</p>{% endif %}
+              {% if company.footer_about %}<p class="sq-footer-muted">{{ company.footer_about }}</p>{% endif %}
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+              <h3 class="sq-footer-title">روابط سريعة</h3>
+              <ul class="sq-footer-links">
+                <li><a href="/">الرئيسية</a></li>
+                {% if about_page %}<li><a href="{% pageurl about_page %}">من نحن</a></li>{% endif %}
+                {% if projects_index %}<li><a href="{% pageurl projects_index %}">مشاريعنا</a></li>{% endif %}
+                {% if contact_page %}<li><a href="{% pageurl contact_page %}">تواصل معنا</a></li>{% endif %}
+              </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+              <h3 class="sq-footer-title">معلومات التواصل</h3>
+              <ul class="sq-footer-contact">
+                {% if company.phone_1 %}<li><i class="fas fa-phone"></i><a href="tel:{{ company.phone_1 }}" dir="ltr">{{ company.phone_1 }}</a></li>{% endif %}
+                {% if company.phone_2 %}<li><i class="fas fa-phone"></i><a href="tel:{{ company.phone_2 }}" dir="ltr">{{ company.phone_2 }}</a></li>{% endif %}
+                {% if company.email %}<li><i class="fas fa-envelope"></i><a href="mailto:{{ company.email }}">{{ company.email }}</a></li>{% endif %}
+                {% if company.fax %}<li><i class="fas fa-fax"></i><span dir="ltr">{{ company.fax }}</span></li>{% endif %}
+                {% if company.address %}<li><i class="fas fa-map-marker-alt"></i><span>{{ company.address }}</span></li>{% endif %}
+              </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+              <h3 class="sq-footer-title">تابعنا</h3>
+              <div class="sq-footer-social">
+                {% if company.facebook_url %}<a href="{{ company.facebook_url }}" aria-label="Facebook" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f"></i></a>{% endif %}
+                {% if company.instagram_url %}<a href="{{ company.instagram_url }}" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><i class="fab fa-instagram"></i></a>{% endif %}
+                {% if company.linkedin_url %}<a href="{{ company.linkedin_url }}" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer"><i class="fab fa-linkedin-in"></i></a>{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="sq-footer-copy">© {% now "Y" %} {{ company.name }}. جميع الحقوق محفوظة.</div>
+        </div>
+      </footer>
+      {% endwith %}
+    </div>
+
+    <script src="{% static 'website/constra/plugins/jQuery/jquery.min.js' %}"></script>
+    <script src="{% static 'website/constra/plugins/bootstrap/bootstrap.min.js' %}"></script>
+    <script src="{% static 'website/constra/plugins/slick/slick.min.js' %}"></script>
+    <script src="{% static 'website/constra/plugins/slick/slick-animation.min.js' %}"></script>
+    <script src="{% static 'website/constra/plugins/colorbox/jquery.colorbox.js' %}"></script>
+    <script src="{% static 'website/constra/plugins/shuffle/shuffle.min.js' %}"></script>
+    <script src="{% static 'website/constra/js/script.js' %}"></script>
+    <script>
+      (function () {
+        var themeLink = document.getElementById("bootswatch-css");
+        if (!themeLink) return;
+        var fontLink = document.getElementById("theme-fonts");
+
+        var themes = {
+          lux: "{% static 'website/themes/bootswatch/lux.min.css' %}",
+          litera: "{% static 'website/themes/bootswatch/litera.min.css' %}",
+          sandstone: "{% static 'website/themes/bootswatch/sandstone.min.css' %}",
+          flatly: "{% static 'website/themes/bootswatch/flatly.min.css' %}",
+          minty: "{% static 'website/themes/bootswatch/minty.min.css' %}",
+          materia: "{% static 'website/themes/bootswatch/materia.min.css' %}",
+          yeti: "{% static 'website/themes/bootswatch/yeti.min.css' %}",
+          cosmo: "{% static 'website/themes/bootswatch/cosmo.min.css' %}",
+          darkly: "{% static 'website/themes/bootswatch/darkly.min.css' %}",
+          cyborg: "{% static 'website/themes/bootswatch/cyborg.min.css' %}",
+        };
+
+        var palettes = {
+          default: {
+            primary: "#4a90e2",
+            accent: "#4a90e2",
+            ink: "#0f172a",
+            bg: "#f9fafb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#4a90e2",
+            success: "#22c55e",
+            warning: "#f59e0b",
+            danger: "#ef4444",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            radius: 10,
+            radiusLg: 14,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          lux: {
+            primary: "#1a1a1a",
+            accent: "#f0ad4e",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#1a1a1a",
+            success: "#4bbf73",
+            warning: "#f0ad4e",
+            danger: "#d9534f",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Noto Kufi Arabic\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          litera: {
+            primary: "#4582ec",
+            accent: "#f0ad4e",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#4582ec",
+            success: "#02b875",
+            warning: "#f0ad4e",
+            danger: "#d9534f",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            radius: 9,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          sandstone: {
+            primary: "#325d88",
+            accent: "#f47c3c",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#325d88",
+            success: "#93c54b",
+            warning: "#f47c3c",
+            danger: "#d9534f",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"El Messiri\", \"Cairo\", Arial, sans-serif",
+            radius: 10,
+            radiusLg: 14,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          flatly: {
+            primary: "#2c3e50",
+            accent: "#f39c12",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2c3e50",
+            success: "#18bc9c",
+            warning: "#f39c12",
+            danger: "#e74c3c",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Changa\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          minty: {
+            primary: "#78c2ad",
+            accent: "#ffce67",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#78c2ad",
+            success: "#56cc9d",
+            warning: "#ffce67",
+            danger: "#ff7851",
+            font: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Readex Pro\", \"Tajawal\", Arial, sans-serif",
+            radius: 12,
+            radiusLg: 16,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          materia: {
+            primary: "#2196f3",
+            accent: "#ff9800",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2196f3",
+            success: "#4caf50",
+            warning: "#ff9800",
+            danger: "#e51c23",
+            font: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            radius: 6,
+            radiusLg: 10,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          yeti: {
+            primary: "#008cba",
+            accent: "#e99002",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#008cba",
+            success: "#43ac6a",
+            warning: "#e99002",
+            danger: "#f04124",
+            font: "\"Almarai\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Almarai\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          cosmo: {
+            primary: "#2780e3",
+            accent: "#ff7518",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2780e3",
+            success: "#3fb618",
+            warning: "#ff7518",
+            danger: "#ff0039",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Cairo\", \"Noto Sans Arabic\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          darkly: {
+            primary: "#375a7f",
+            accent: "#f39c12",
+            ink: "#f8fafc",
+            bg: "#111827",
+            card: "#0b1220",
+            border: "rgba(255, 255, 255, 0.12)",
+            info: "#3498db",
+            success: "#00bc8c",
+            warning: "#f39c12",
+            danger: "#e74c3c",
+            font: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Noto Kufi Arabic\", \"IBM Plex Sans Arabic\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
+          },
+          cyborg: {
+            primary: "#2a9fd6",
+            accent: "#f80",
+            ink: "#f8fafc",
+            bg: "#0b0f1a",
+            card: "#0f172a",
+            border: "rgba(255, 255, 255, 0.12)",
+            info: "#2a9fd6",
+            success: "#77b300",
+            warning: "#f80",
+            danger: "#c00",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Changa\", \"Noto Sans Arabic\", Arial, sans-serif",
+            radius: 6,
+            radiusLg: 10,
+            shadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
+          },
+        };
+
+        var themeFonts = {
+          default: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@500;700&display=swap",
+          lux: "https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+          litera: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@500;700&display=swap",
+          sandstone: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=El+Messiri:wght@600;700&display=swap",
+          flatly: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Changa:wght@600;700&display=swap",
+          minty: "https://fonts.googleapis.com/css2?family=Readex+Pro:wght@600;700&family=Tajawal:wght@400;600;700&display=swap",
+          materia: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap",
+          yeti: "https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&display=swap",
+          cosmo: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+          darkly: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Noto+Kufi+Arabic:wght@600;700&display=swap",
+          cyborg: "https://fonts.googleapis.com/css2?family=Changa:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+        };
+
+        function shadeHex(hex, percent) {
+          var h = String(hex || "").replace("#", "");
+          if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+          if (h.length !== 6) return hex;
+          var num = parseInt(h, 16);
+          var r = (num >> 16) & 255;
+          var g = (num >> 8) & 255;
+          var b = num & 255;
+          var t = percent < 0 ? 0 : 255;
+          var p = Math.abs(percent);
+          var nr = Math.round((t - r) * p) + r;
+          var ng = Math.round((t - g) * p) + g;
+          var nb = Math.round((t - b) * p) + b;
+          return (
+            "#" +
+            (16777216 + (nr << 16) + (ng << 8) + nb)
+              .toString(16)
+              .slice(1)
+          );
+        }
+
+        function applyVars(key) {
+          var pal = palettes[key] || palettes.default;
+          var root = document.documentElement;
+          root.style.setProperty("--sq-primary", pal.primary);
+          root.style.setProperty("--sq-primary-2", shadeHex(pal.primary, -0.18));
+          root.style.setProperty("--sq-accent", pal.accent);
+          root.style.setProperty("--sq-ink", pal.ink);
+          root.style.setProperty(
+            "--sq-muted",
+            shadeHex(
+              pal.ink,
+              key === "darkly" || key === "cyborg" ? -0.45 : 0.55
+            )
+          );
+          root.style.setProperty("--sq-bg", pal.bg);
+          root.style.setProperty("--sq-card", pal.card);
+          root.style.setProperty("--sq-border", pal.border);
+          root.style.setProperty("--sq-info", pal.info || pal.primary);
+          root.style.setProperty("--sq-success", pal.success);
+          root.style.setProperty("--sq-warning", pal.warning);
+          root.style.setProperty("--sq-danger", pal.danger);
+          root.style.setProperty("--sq-font", pal.font);
+          root.style.setProperty("--sq-font-heading", pal.headingFont || pal.font);
+          root.style.setProperty("--sq-radius", pal.radius + "px");
+          root.style.setProperty("--sq-radius-lg", pal.radiusLg + "px");
+          root.style.setProperty("--sq-shadow", pal.shadow);
+        }
+
+        function applyFonts(key) {
+          if (!fontLink) return;
+          var href = themeFonts[key] || themeFonts.default;
+          if (href) {
+            fontLink.setAttribute("href", href);
+            fontLink.setAttribute("media", "all");
+            return;
+          }
+          fontLink.setAttribute("href", "");
+          fontLink.setAttribute("media", "not all");
+        }
+
+        function applyTheme(key) {
+          if (key && key !== "default" && themes[key]) {
+            themeLink.setAttribute("href", themes[key]);
+            themeLink.setAttribute("media", "all");
+            applyFonts(key);
+            applyVars(key);
+            return;
+          }
+          themeLink.setAttribute("href", "");
+          themeLink.setAttribute("media", "not all");
+          applyFonts("default");
+          applyVars("default");
+        }
+
+        var saved = "default";
+        try {
+          saved = localStorage.getItem("sq_theme") || "default";
+        } catch (e) {}
+
+        applyTheme(saved);
+
+        var select = document.getElementById("theme-switcher");
+        if (!select) return;
+
+        select.value = themes[saved] ? saved : "default";
+        select.addEventListener("change", function () {
+          var next = select.value || "default";
+          try {
+            localStorage.setItem("sq_theme", next);
+          } catch (e) {}
+          applyTheme(next);
+        });
+      })();
+    </script>
+    {% block custom_scripts %}
+      <script src="{% static 'website/js/custom.js' %}"></script>
+    {% endblock %}
+  </body>
+</html>

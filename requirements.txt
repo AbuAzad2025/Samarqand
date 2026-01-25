@@ -1,0 +1,3 @@
+coderedcms==6.0.*
+wagtail==7.2.*
+psycopg[binary]==3.2.*

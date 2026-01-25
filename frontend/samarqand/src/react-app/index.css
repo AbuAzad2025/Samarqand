@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'Noto Naskh Arabic', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+}
+
+body {
+  direction: rtl;
+}
+
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body.rfq-printing #root * {
+    visibility: hidden;
+  }
+
+  body.rfq-printing #rfq-print,
+  body.rfq-printing #rfq-print * {
+    visibility: visible;
+  }
+
+  body.rfq-printing #rfq-print {
+    position: fixed;
+    inset: 0;
+    overflow: visible;
+    background: white;
+  }
+
+  body.rfq-printing #rfq-print table {
+    page-break-inside: auto;
+  }
+
+  body.rfq-printing #rfq-print tr,
+  body.rfq-printing #rfq-print td,
+  body.rfq-printing #rfq-print th {
+    page-break-inside: avoid;
+  }
+
+  body.rfq-printing #rfq-print * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

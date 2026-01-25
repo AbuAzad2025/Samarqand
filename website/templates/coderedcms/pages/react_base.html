@@ -1,0 +1,143 @@
+{% load static wagtailcore_tags wagtailimages_tags %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% if page %}{{ page.seo_title|default:page.title }}{% else %}الموقع{% endif %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root { font-family: 'Cairo', sans-serif; }
+      body { direction: rtl; }
+    </style>
+    <link rel="stylesheet" href="{% static 'website/css/react.css' %}">
+  </head>
+  <body class="min-h-screen bg-white">
+    {% with company=settings.website.CompanySettings %}
+      <div class="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-3">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center text-sm">
+          <div class="flex gap-6">
+            {% if company.phone_1 %}
+              <a href="tel:{{ company.phone_1 }}" class="flex items-center gap-2 hover:text-gray-100 transition" dir="ltr">
+                <span class="font-medium">{{ company.phone_1 }}</span>
+              </a>
+            {% endif %}
+            {% if company.headquarters %}
+              <div class="flex items-center gap-2">
+                <span class="font-medium">{{ company.headquarters }}</span>
+              </div>
+            {% endif %}
+          </div>
+          {% if company.topbar_slogan %}
+            <div class="text-sm font-medium">{{ company.topbar_slogan }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <nav class="bg-white shadow-md border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4">
+          <div class="flex items-center justify-between h-28">
+            <button class="p-2 hover:bg-sky-50 rounded-full transition" aria-label="بحث">
+              <span class="text-gray-600 text-lg">⌕</span>
+            </button>
+
+            <div class="flex items-center gap-10">
+              <a href="/" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">الصفحة الرئيسية</a>
+              {% if about_page %}<a href="{% pageurl about_page %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">من نحن</a>{% endif %}
+              {% if projects_index %}<a href="{% pageurl projects_index %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">مشاريعنا</a>{% endif %}
+              {% if services_index %}<a href="/#services" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">خدماتنا</a>{% endif %}
+              {% if tools_index %}<a href="{% pageurl tools_index %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">الأدوات الذكية</a>{% endif %}
+              {% if contact_page %}<a href="{% pageurl contact_page %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">اتصل بنا</a>{% endif %}
+              <div class="flex items-center gap-2 text-sm">
+                <img src="https://flagcdn.com/w20/ps.png" alt="فلسطين" class="w-5 h-3">
+                <span class="text-gray-700">▼</span>
+              </div>
+            </div>
+
+            <a href="/" class="flex items-center gap-5">
+              <div class="text-right max-w-xs">
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] bg-clip-text text-transparent mb-2">
+                  {{ company.brand_title|default:company.name }}
+                </h1>
+                {% if company.brand_subtitle %}
+                  <p class="text-sm text-gray-600 font-medium leading-relaxed">{{ company.brand_subtitle }}</p>
+                {% endif %}
+              </div>
+              <div class="w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden bg-white">
+                {% if company.logo_image %}
+                  {% image company.logo_image fill-160x160 format-webp preserve-svg as logo_img %}
+                  <img src="{{ logo_img.url }}" alt="شعار شركة سمر قند للمقاولات" class="w-full h-full object-contain p-1">
+                {% else %}
+                  <img src="{% static 'website/constra/images/logo.png' %}" alt="شعار شركة سمر قند للمقاولات" class="w-full h-full object-contain p-1">
+                {% endif %}
+              </div>
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      <main>
+        {% block content_pre_body %}{% endblock %}
+        {% block content_body %}{% endblock %}
+      </main>
+
+      <footer class="bg-gray-800 text-white" dir="rtl">
+        <div class="container mx-auto px-4 py-12">
+          <div class="grid md:grid-cols-4 gap-8">
+            <div>
+              <h3 class="text-xl font-bold mb-4">{{ company.name }}</h3>
+              {% if company.slogan %}<p class="text-gray-300 mb-4">{{ company.slogan }}</p>{% endif %}
+              {% if company.footer_about %}<p class="text-gray-400 text-sm">{{ company.footer_about }}</p>{% endif %}
+            </div>
+            <div>
+              <h3 class="text-xl font-bold mb-4">روابط سريعة</h3>
+              <ul class="space-y-2">
+                <li><a href="/" class="text-gray-300 hover:text-white transition">الرئيسية</a></li>
+                {% if about_page %}<li><a href="{% pageurl about_page %}" class="text-gray-300 hover:text-white transition">من نحن</a></li>{% endif %}
+                {% if projects_index %}<li><a href="{% pageurl projects_index %}" class="text-gray-300 hover:text-white transition">مشاريعنا</a></li>{% endif %}
+                {% if contact_page %}<li><a href="{% pageurl contact_page %}" class="text-gray-300 hover:text-white transition">تواصل معنا</a></li>{% endif %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold mb-4">معلومات التواصل</h3>
+              <ul class="space-y-3">
+                {% if company.phone_1 %}
+                  <li class="flex items-center gap-2">
+                    <span class="text-[#4A90E2]">☎</span>
+                    <a href="tel:{{ company.phone_1 }}" class="text-gray-300 hover:text-white transition" dir="ltr">{{ company.phone_1 }}</a>
+                  </li>
+                {% endif %}
+                {% if company.email %}
+                  <li class="flex items-center gap-2">
+                    <span class="text-[#4A90E2]">@</span>
+                    <a href="mailto:{{ company.email }}" class="text-gray-300 hover:text-white transition">{{ company.email }}</a>
+                  </li>
+                {% endif %}
+                {% if company.address %}
+                  <li class="flex items-center gap-2">
+                    <span class="text-[#4A90E2]">⌂</span>
+                    <span class="text-gray-300">{{ company.address }}</span>
+                  </li>
+                {% endif %}
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold mb-4">تابعنا</h3>
+              <div class="flex gap-4">
+                {% if company.facebook_url %}<a href="{{ company.facebook_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">f</a>{% endif %}
+                {% if company.instagram_url %}<a href="{{ company.instagram_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">ig</a>{% endif %}
+                {% if company.linkedin_url %}<a href="{{ company.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">in</a>{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="border-t border-gray-700 mt-8 pt-8 text-center">
+            <p class="text-gray-400">© {% now "Y" %} {{ company.name }}. جميع الحقوق محفوظة.</p>
+          </div>
+        </div>
+      </footer>
+    {% endwith %}
+  </body>
+</html>

@@ -1,0 +1,402 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>{% block title %}لوحة التحكم{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'website/constra/images/favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'website/constra/plugins/bootstrap/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'adminlte/plugins/fontawesome-free/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'adminlte/plugins/overlayScrollbars/css/OverlayScrollbars.min.css' %}">
+    <link rel="stylesheet" href="{% static 'adminlte/css/adminlte.min.css' %}">
+    <link rel="stylesheet" href="{% static 'website/css/custom.css' %}">
+    <link id="bootswatch-css" rel="stylesheet" href="" media="not all">
+    <link id="theme-fonts" rel="stylesheet" href="" media="not all">
+  </head>
+  <body class="hold-transition sidebar-mini">
+    <div class="wrapper">
+      <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+          </li>
+          <li class="nav-item d-none d-sm-inline-block">
+            <a href="/" class="nav-link">الموقع</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <select id="theme-switcher" class="form-control form-control-sm ml-2" aria-label="تبديل الثيم" style="max-width: 190px;">
+              <option value="default">الثيم الافتراضي</option>
+              <option value="lux">Lux</option>
+              <option value="litera">Litera</option>
+              <option value="sandstone">Sandstone</option>
+              <option value="flatly">Flatly</option>
+              <option value="minty">Minty</option>
+              <option value="materia">Materia</option>
+              <option value="yeti">Yeti</option>
+              <option value="cosmo">Cosmo</option>
+              <option value="darkly">Darkly</option>
+              <option value="cyborg">Cyborg</option>
+            </select>
+          </li>
+        </ul>
+      </nav>
+
+      <aside class="main-sidebar sidebar-dark-primary elevation-4">
+        <a href="/" class="brand-link">
+          <span class="brand-text font-weight-light">لوحة التحكم</span>
+        </a>
+        <div class="sidebar">
+          <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+              <li class="nav-item">
+                <a href="#" class="nav-link active">
+                  <i class="nav-icon fas fa-tachometer-alt"></i>
+                  <p>الرئيسية</p>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </aside>
+
+      <div class="content-wrapper">
+        <section class="content pt-3">
+          <div class="container-fluid">
+            {% block content %}{% endblock %}
+          </div>
+        </section>
+      </div>
+
+      <footer class="main-footer text-center">
+        <strong>© {% now "Y" %} سمرقند للمقاولات</strong>
+      </footer>
+    </div>
+
+    <script src="{% static 'adminlte/plugins/jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'adminlte/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js' %}"></script>
+    <script src="{% static 'adminlte/js/adminlte.min.js' %}"></script>
+    <script>
+      (function () {
+        var themeLink = document.getElementById("bootswatch-css");
+        if (!themeLink) return;
+        var fontLink = document.getElementById("theme-fonts");
+
+        var themes = {
+          lux: "{% static 'website/themes/bootswatch/lux.min.css' %}",
+          litera: "{% static 'website/themes/bootswatch/litera.min.css' %}",
+          sandstone: "{% static 'website/themes/bootswatch/sandstone.min.css' %}",
+          flatly: "{% static 'website/themes/bootswatch/flatly.min.css' %}",
+          minty: "{% static 'website/themes/bootswatch/minty.min.css' %}",
+          materia: "{% static 'website/themes/bootswatch/materia.min.css' %}",
+          yeti: "{% static 'website/themes/bootswatch/yeti.min.css' %}",
+          cosmo: "{% static 'website/themes/bootswatch/cosmo.min.css' %}",
+          darkly: "{% static 'website/themes/bootswatch/darkly.min.css' %}",
+          cyborg: "{% static 'website/themes/bootswatch/cyborg.min.css' %}",
+        };
+
+        var palettes = {
+          default: {
+            primary: "#0b3a67",
+            accent: "#f2b544",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#0b3a67",
+            success: "#22c55e",
+            warning: "#f59e0b",
+            danger: "#ef4444",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            radius: 10,
+            radiusLg: 14,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          lux: {
+            primary: "#1a1a1a",
+            accent: "#f0ad4e",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#1a1a1a",
+            success: "#4bbf73",
+            warning: "#f0ad4e",
+            danger: "#d9534f",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Noto Kufi Arabic\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          litera: {
+            primary: "#4582ec",
+            accent: "#f0ad4e",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#4582ec",
+            success: "#02b875",
+            warning: "#f0ad4e",
+            danger: "#d9534f",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            radius: 9,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          sandstone: {
+            primary: "#325d88",
+            accent: "#f47c3c",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#325d88",
+            success: "#93c54b",
+            warning: "#f47c3c",
+            danger: "#d9534f",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"El Messiri\", \"Cairo\", Arial, sans-serif",
+            radius: 10,
+            radiusLg: 14,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          flatly: {
+            primary: "#2c3e50",
+            accent: "#f39c12",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2c3e50",
+            success: "#18bc9c",
+            warning: "#f39c12",
+            danger: "#e74c3c",
+            font: "\"Cairo\", \"Segoe UI\", Arial, sans-serif",
+            headingFont: "\"Changa\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          minty: {
+            primary: "#78c2ad",
+            accent: "#ffce67",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#78c2ad",
+            success: "#56cc9d",
+            warning: "#ffce67",
+            danger: "#ff7851",
+            font: "\"Tajawal\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Readex Pro\", \"Tajawal\", Arial, sans-serif",
+            radius: 12,
+            radiusLg: 16,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          materia: {
+            primary: "#2196f3",
+            accent: "#ff9800",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2196f3",
+            success: "#4caf50",
+            warning: "#ff9800",
+            danger: "#e51c23",
+            font: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            radius: 6,
+            radiusLg: 10,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          yeti: {
+            primary: "#008cba",
+            accent: "#e99002",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#008cba",
+            success: "#43ac6a",
+            warning: "#e99002",
+            danger: "#f04124",
+            font: "\"Almarai\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Almarai\", \"Cairo\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          cosmo: {
+            primary: "#2780e3",
+            accent: "#ff7518",
+            ink: "#0f172a",
+            bg: "#f6f8fb",
+            card: "#ffffff",
+            border: "rgba(15, 23, 42, 0.08)",
+            info: "#2780e3",
+            success: "#3fb618",
+            warning: "#ff7518",
+            danger: "#ff0039",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Cairo\", \"Noto Sans Arabic\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+          },
+          darkly: {
+            primary: "#375a7f",
+            accent: "#f39c12",
+            ink: "#f8fafc",
+            bg: "#111827",
+            card: "#0b1220",
+            border: "rgba(255, 255, 255, 0.12)",
+            info: "#3498db",
+            success: "#00bc8c",
+            warning: "#f39c12",
+            danger: "#e74c3c",
+            font: "\"IBM Plex Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Noto Kufi Arabic\", \"IBM Plex Sans Arabic\", Arial, sans-serif",
+            radius: 8,
+            radiusLg: 12,
+            shadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
+          },
+          cyborg: {
+            primary: "#2a9fd6",
+            accent: "#f80",
+            ink: "#f8fafc",
+            bg: "#0b0f1a",
+            card: "#0f172a",
+            border: "rgba(255, 255, 255, 0.12)",
+            info: "#2a9fd6",
+            success: "#77b300",
+            warning: "#f80",
+            danger: "#c00",
+            font: "\"Noto Sans Arabic\", \"Cairo\", Arial, sans-serif",
+            headingFont: "\"Changa\", \"Noto Sans Arabic\", Arial, sans-serif",
+            radius: 6,
+            radiusLg: 10,
+            shadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
+          },
+        };
+
+        var themeFonts = {
+          default: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@500;700&display=swap",
+          lux: "https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+          litera: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@500;700&display=swap",
+          sandstone: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=El+Messiri:wght@600;700&display=swap",
+          flatly: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Changa:wght@600;700&display=swap",
+          minty: "https://fonts.googleapis.com/css2?family=Readex+Pro:wght@600;700&family=Tajawal:wght@400;600;700&display=swap",
+          materia: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap",
+          yeti: "https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&display=swap",
+          cosmo: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+          darkly: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Noto+Kufi+Arabic:wght@600;700&display=swap",
+          cyborg: "https://fonts.googleapis.com/css2?family=Changa:wght@600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap",
+        };
+
+        function shadeHex(hex, percent) {
+          var h = String(hex || "").replace("#", "");
+          if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+          if (h.length !== 6) return hex;
+          var num = parseInt(h, 16);
+          var r = (num >> 16) & 255;
+          var g = (num >> 8) & 255;
+          var b = num & 255;
+          var t = percent < 0 ? 0 : 255;
+          var p = Math.abs(percent);
+          var nr = Math.round((t - r) * p) + r;
+          var ng = Math.round((t - g) * p) + g;
+          var nb = Math.round((t - b) * p) + b;
+          return (
+            "#" +
+            (16777216 + (nr << 16) + (ng << 8) + nb)
+              .toString(16)
+              .slice(1)
+          );
+        }
+
+        function applyVars(key) {
+          var pal = palettes[key] || palettes.default;
+          var root = document.documentElement;
+          root.style.setProperty("--sq-primary", pal.primary);
+          root.style.setProperty("--sq-primary-2", shadeHex(pal.primary, -0.18));
+          root.style.setProperty("--sq-accent", pal.accent);
+          root.style.setProperty("--sq-ink", pal.ink);
+          root.style.setProperty(
+            "--sq-muted",
+            shadeHex(
+              pal.ink,
+              key === "darkly" || key === "cyborg" ? -0.45 : 0.55
+            )
+          );
+          root.style.setProperty("--sq-bg", pal.bg);
+          root.style.setProperty("--sq-card", pal.card);
+          root.style.setProperty("--sq-border", pal.border);
+          root.style.setProperty("--sq-info", pal.info || pal.primary);
+          root.style.setProperty("--sq-success", pal.success);
+          root.style.setProperty("--sq-warning", pal.warning);
+          root.style.setProperty("--sq-danger", pal.danger);
+          root.style.setProperty("--sq-font", pal.font);
+          root.style.setProperty("--sq-font-heading", pal.headingFont || pal.font);
+          root.style.setProperty("--sq-radius", pal.radius + "px");
+          root.style.setProperty("--sq-radius-lg", pal.radiusLg + "px");
+          root.style.setProperty("--sq-shadow", pal.shadow);
+        }
+
+        function applyFonts(key) {
+          if (!fontLink) return;
+          var href = themeFonts[key] || themeFonts.default;
+          if (href) {
+            fontLink.setAttribute("href", href);
+            fontLink.setAttribute("media", "all");
+            return;
+          }
+          fontLink.setAttribute("href", "");
+          fontLink.setAttribute("media", "not all");
+        }
+
+        function applyTheme(key) {
+          if (key && key !== "default" && themes[key]) {
+            themeLink.setAttribute("href", themes[key]);
+            themeLink.setAttribute("media", "all");
+            applyFonts(key);
+            applyVars(key);
+            return;
+          }
+          themeLink.setAttribute("href", "");
+          themeLink.setAttribute("media", "not all");
+          applyFonts("default");
+          applyVars("default");
+        }
+
+        var saved = "default";
+        try {
+          saved = localStorage.getItem("sq_theme") || "default";
+        } catch (e) {}
+
+        applyTheme(saved);
+
+        var select = document.getElementById("theme-switcher");
+        if (!select) return;
+
+        select.value = themes[saved] ? saved : "default";
+        select.addEventListener("change", function () {
+          var next = select.value || "default";
+          try {
+            localStorage.setItem("sq_theme", next);
+          } catch (e) {}
+          applyTheme(next);
+        });
+      })();
+    </script>
+  </body>
+</html>
