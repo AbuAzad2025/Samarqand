@@ -24,6 +24,7 @@ def cms_redirect(request, *args, **kwargs):
 urlpatterns = [
     # Admin
     path("django-admin/", admin.site.urls),
+    path("admin-backup/", api_views.admin_backup_portal),
     re_path(r"^cms/.*$", cms_redirect),
     # Documents
     path("docs/", include(wagtaildocs_urls)),

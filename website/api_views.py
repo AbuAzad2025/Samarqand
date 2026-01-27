@@ -6,11 +6,14 @@ import secrets
 import string
 import tempfile
 import time
+import zipfile
 from io import BytesIO
 from io import StringIO
+from pathlib import Path
 from typing import Any
 from typing import Iterator
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login as django_login
@@ -3381,6 +3384,132 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
                 pass
 
     return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+def admin_backup_portal(request: HttpRequest) -> HttpResponse:
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False) or not getattr(user, "is_superuser", False):
+        return HttpResponse("forbidden", status=403, content_type="text/plain; charset=utf-8")
+
+    if request.method == "GET" and str(request.GET.get("export") or "") == "1":
+        out = StringIO()
+        call_command(
+            "dumpdata",
+            "website",
+            "wagtailcore",
+            "wagtailimages",
+            "wagtaildocs",
+            "coderedcms",
+            "taggit",
+            "auth",
+            indent=2,
+            stdout=out,
+            exclude=["contenttypes", "admin.logentry", "sessions"],
+        )
+        payload = out.getvalue()
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        resp = HttpResponse(payload, content_type="application/json; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="backup-{ts}.json"'
+        return resp
+
+    status_msg = ""
+    if request.method == "POST":
+        backup_file = request.FILES.get("backup_file")
+        if backup_file:
+            tmp_path = ""
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp:
+                    tmp.write(backup_file.read())
+                    tmp_path = tmp.name
+                with transaction.atomic():
+                    call_command("loaddata", tmp_path, verbosity=0)
+                status_msg = "تمت استعادة بيانات قاعدة البيانات بنجاح."
+            except Exception:
+                status_msg = "فشلت استعادة قاعدة البيانات."
+            finally:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+
+        media_zip = request.FILES.get("media_zip")
+        if media_zip:
+            try:
+                media_root = Path(settings.MEDIA_ROOT).resolve()
+                media_root.mkdir(parents=True, exist_ok=True)
+                extracted = 0
+                with zipfile.ZipFile(media_zip) as zf:
+                    for info in zf.infolist():
+                        if info.is_dir():
+                            continue
+                        name = str(info.filename or "")
+                        if not name or name.endswith("/"):
+                            continue
+                        dest = (media_root / name).resolve()
+                        if media_root not in dest.parents and dest != media_root:
+                            continue
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(info) as src, open(dest, "wb") as out_f:
+                            out_f.write(src.read())
+                        extracted += 1
+                status_msg = (
+                    status_msg + " " if status_msg else ""
+                ) + f"تم رفع ملفات media: {extracted} ملف."
+            except Exception:
+                status_msg = (status_msg + " " if status_msg else "") + "فشل رفع ملفات media."
+
+    html = f"""<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>استعادة/نسخ احتياطي</title>
+    <style>
+      body {{ font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; padding: 32px; }}
+      .box {{ max-width: 840px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }}
+      h1 {{ margin: 0 0 12px; font-size: 18px; }}
+      h2 {{ margin: 18px 0 10px; font-size: 16px; }}
+      p {{ margin: 0 0 10px; color: #374151; line-height: 1.6; }}
+      .row {{ display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }}
+      input[type=file] {{ max-width: 100%; }}
+      button, a.btn {{ display: inline-block; border: 1px solid #d1d5db; background: #fff; padding: 8px 12px; border-radius: 10px; text-decoration: none; color: #111827; cursor: pointer; }}
+      .msg {{ margin-top: 12px; padding: 10px 12px; background: #f3f4f6; border-radius: 10px; }}
+      code {{ background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }}
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>نسخ احتياطي / استعادة (سوبر أدمن)</h1>
+      <p>هذه الصفحة تعمل بدون واجهة React. استخدمها إذا كانت صفحات <code>/</code> أو <code>/control</code> تظهر فارغة.</p>
+      <div class="row">
+        <a class="btn" href="/admin-backup/?export=1">تنزيل نسخة احتياطية (JSON)</a>
+        <a class="btn" href="/django-admin/">فتح Django Admin</a>
+      </div>
+
+      <h2>استعادة قاعدة البيانات</h2>
+      <form method="post" enctype="multipart/form-data">
+        <div class="row">
+          <input type="file" name="backup_file" accept=".json,application/json" required>
+          <button type="submit">استعادة</button>
+        </div>
+      </form>
+
+      <h2>رفع ملفات الصور/المرفقات (media.zip)</h2>
+      <form method="post" enctype="multipart/form-data">
+        <div class="row">
+          <input type="file" name="media_zip" accept=".zip,application/zip" required>
+          <button type="submit">رفع</button>
+        </div>
+        <p>ارفع ملف ZIP يحتوي نفس بنية مجلد <code>media/</code> من جهازك.</p>
+      </form>
+
+      {f'<div class="msg">{status_msg}</div>' if status_msg else ''}
+    </div>
+  </body>
+</html>"""
+    return HttpResponse(html, content_type="text/html; charset=utf-8")
 
 
 def _generate_password(length: int = 16) -> str:

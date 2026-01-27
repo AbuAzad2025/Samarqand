@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from django import template
+from django.conf import settings
 from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 
@@ -11,12 +12,17 @@ register = template.Library()
 
 def _load_index_html() -> str:
     base_dir = Path(__file__).resolve().parents[1]
-    index_path = (
-        base_dir / "static" / "website" / "samarqand_spa" / "index.html"
-    )
-    if not index_path.exists():
-        return ""
-    return index_path.read_text(encoding="utf-8")
+    candidates = [
+        base_dir / "static" / "website" / "samarqand_spa" / "index.html",
+    ]
+    static_root = getattr(settings, "STATIC_ROOT", None)
+    if static_root:
+        candidates.append(Path(static_root) / "website" / "samarqand_spa" / "index.html")
+
+    for index_path in candidates:
+        if index_path.exists():
+            return index_path.read_text(encoding="utf-8")
+    return ""
 
 
 def _rewrite_root_paths(html: str) -> str:
