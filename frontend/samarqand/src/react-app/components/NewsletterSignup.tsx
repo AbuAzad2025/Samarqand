@@ -18,7 +18,7 @@ export default function NewsletterSignup() {
   };
 
   return (
-    <section className="py-16 bg-gradient-to-r from-[#4A90E2] to-[#5DADE2]">
+    <section className="py-16 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126]">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-block p-4 bg-white/20 rounded-full mb-6">
@@ -48,7 +48,7 @@ export default function NewsletterSignup() {
               />
               <button
                 type="submit"
-                className="bg-white text-[#4A90E2] px-8 py-4 rounded-lg font-bold hover:bg-gray-100 transition flex items-center justify-center gap-2 whitespace-nowrap"
+                className="bg-white text-[#007A3D] px-8 py-4 rounded-lg font-bold hover:bg-gray-100 transition flex items-center justify-center gap-2 whitespace-nowrap"
               >
                 <span>اشترك الآن</span>
                 <Send size={20} />

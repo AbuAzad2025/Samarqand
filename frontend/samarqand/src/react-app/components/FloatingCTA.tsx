@@ -34,7 +34,7 @@ export default function FloatingCTA() {
 
   return (
     <div className="fixed bottom-24 left-8 z-40 animate-slide-up" dir="rtl">
-      <div className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white rounded-2xl shadow-2xl p-6 max-w-sm relative">
+      <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white rounded-2xl shadow-2xl p-6 max-w-sm relative">
         {/* Close Button */}
         <button
           onClick={() => {
@@ -67,7 +67,7 @@ export default function FloatingCTA() {
           }
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full bg-white text-[#4A90E2] text-center py-3 rounded-lg font-bold hover:bg-gray-100 transition"
+          className="block w-full bg-white text-[#007A3D] text-center py-3 rounded-lg font-bold hover:bg-gray-100 transition"
         >
           اتصل الآن
         </a>

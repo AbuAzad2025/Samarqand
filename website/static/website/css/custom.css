@@ -1,7 +1,7 @@
 :root {
-  --sq-primary: #4a90e2;
-  --sq-primary-2: #5dade2;
-  --sq-accent: #4a90e2;
+  --sq-primary: #007a3d;
+  --sq-primary-2: #ce1126;
+  --sq-accent: #ce1126;
   --sq-ink: #0f172a;
   --sq-muted: #64748b;
   --sq-bg: #ffffff;
@@ -12,7 +12,7 @@
   --sq-font-heading: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
   --sq-radius: 10px;
   --sq-radius-lg: 14px;
-  --sq-info: #4a90e2;
+  --sq-info: #007a3d;
   --sq-success: #22c55e;
   --sq-warning: #f59e0b;
   --sq-danger: #ef4444;

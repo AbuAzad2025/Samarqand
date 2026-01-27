@@ -76,7 +76,7 @@ export default function AnimatedStats() {
   const stats: Stat[] = useMemo(() => {
     const icons = [Building2, Users, Award, Briefcase] as const;
     const colors = [
-      "from-blue-500 to-blue-600",
+      "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
       "from-green-500 to-green-600",
       "from-yellow-500 to-yellow-600",
       "from-purple-500 to-purple-600",

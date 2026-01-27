@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Brain, Sparkles, DollarSign, Clock, Package, Lightbulb } from 'lucide-react';
+import { apiFetch } from '@/react-app/api/site';
 
 interface AnalysisResult {
   design: string;
@@ -35,7 +36,7 @@ export default function AIDesignAnalyzer() {
     setResult(null);
 
     try {
-      const response = await fetch('/api/ai/analyze-design', {
+      const response = await apiFetch('/api/ai/analyze-design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectType, area, description }),
@@ -200,7 +201,7 @@ export default function AIDesignAnalyzer() {
                   {/* Duration */}
                   <div className="bg-white rounded-lg p-4 shadow">
                     <div className="flex items-center gap-2 mb-2">
-                      <Clock className="text-blue-500" />
+                      <Clock className="text-[#007A3D]" />
                       <h4 className="font-bold text-gray-800">المدة الزمنية</h4>
                     </div>
                     <p className="text-gray-700 text-sm">{result.duration}</p>
@@ -236,7 +237,7 @@ export default function AIDesignAnalyzer() {
                     href="https://wa.me/970569953362?text=أريد الحصول على عرض سعر دقيق لمشروعي"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر دقيق
                   </a>

@@ -47,7 +47,7 @@ export default function ControlCompanySettings() {
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+          className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
         >
           {saving ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -148,7 +148,7 @@ export default function ControlCompanySettings() {
             <input
               value={data.name}
               onChange={(e) => setData({ ...data, name: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
 
@@ -158,7 +158,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.brandTitle}
                 onChange={(e) => setData({ ...data, brandTitle: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
             <div>
@@ -166,7 +166,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.brandSubtitle}
                 onChange={(e) => setData({ ...data, brandSubtitle: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function ControlCompanySettings() {
             <input
               value={data.slogan}
               onChange={(e) => setData({ ...data, slogan: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
 
@@ -185,7 +185,7 @@ export default function ControlCompanySettings() {
             <textarea
               value={data.description}
               onChange={(e) => setData({ ...data, description: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.phone1}
                 onChange={(e) => setData({ ...data, phone1: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 dir="ltr"
               />
             </div>
@@ -208,7 +208,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.phone2}
                 onChange={(e) => setData({ ...data, phone2: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 dir="ltr"
               />
             </div>
@@ -219,7 +219,7 @@ export default function ControlCompanySettings() {
             <input
               value={data.email}
               onChange={(e) => setData({ ...data, email: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>
@@ -229,7 +229,7 @@ export default function ControlCompanySettings() {
             <input
               value={data.address}
               onChange={(e) => setData({ ...data, address: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
 
@@ -239,7 +239,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.classification}
                 onChange={(e) => setData({ ...data, classification: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
             <div>
@@ -247,7 +247,7 @@ export default function ControlCompanySettings() {
               <input
                 value={data.registrationStatus}
                 onChange={(e) => setData({ ...data, registrationStatus: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function ControlCompanySettings() {
             <input
               value={data.chamberMembership}
               onChange={(e) => setData({ ...data, chamberMembership: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
 
@@ -269,7 +269,7 @@ export default function ControlCompanySettings() {
                 <input
                   value={data.facebookUrl}
                   onChange={(e) => setData({ ...data, facebookUrl: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -278,7 +278,7 @@ export default function ControlCompanySettings() {
                 <input
                   value={data.instagramUrl}
                   onChange={(e) => setData({ ...data, instagramUrl: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -287,7 +287,7 @@ export default function ControlCompanySettings() {
                 <input
                   value={data.linkedinUrl}
                   onChange={(e) => setData({ ...data, linkedinUrl: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>

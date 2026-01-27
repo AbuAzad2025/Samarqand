@@ -33,7 +33,7 @@ export default function Projects() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-20">
+      <section className="relative bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">مشاريعنا</h1>
           <p className="text-xl max-w-3xl mx-auto">نفخر بإنجازاتنا ونلتزم بتقديم أفضل الخدمات</p>
@@ -68,9 +68,9 @@ export default function Projects() {
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#4A90E2] to-[#5DADE2]" />
+                    <div className="w-full h-full bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
                   )}
-                  <div className="absolute top-4 right-4 bg-[#4A90E2] text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  <div className="absolute top-4 right-4 bg-[#007A3D] text-white px-4 py-2 rounded-full text-sm font-semibold">
                     {project.category}
                   </div>
                 </div>
@@ -81,11 +81,11 @@ export default function Projects() {
                   
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
-                      <MapPin size={16} className="text-[#4A90E2]" />
+                      <MapPin size={16} className="text-[#007A3D]" />
                       <span>{project.location}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-[#4A90E2]" />
+                      <Calendar size={16} className="text-[#007A3D]" />
                       <span>{project.year}</span>
                     </div>
                   </div>
@@ -107,7 +107,7 @@ export default function Projects() {
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+              className="inline-block bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
             >
               تواصل معنا
             </a>

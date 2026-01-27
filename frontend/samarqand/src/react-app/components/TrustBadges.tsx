@@ -27,7 +27,7 @@ export default function TrustBadges() {
               key={badge.id}
               className="flex items-center gap-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[#4A90E2] to-[#5DADE2] rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center flex-shrink-0">
                 <Icon className="text-white" size={24} />
               </div>
               <div>

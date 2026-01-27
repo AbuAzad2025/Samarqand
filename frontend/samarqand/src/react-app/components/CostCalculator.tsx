@@ -33,7 +33,7 @@ export default function CostCalculator() {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-br from-[#4A90E2] to-[#5DADE2]" dir="rtl">
+    <section className="py-20 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" dir="rtl">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -53,13 +53,13 @@ export default function CostCalculator() {
               {/* Building Type */}
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-bold mb-3">
-                  <Home size={20} className="text-[#4A90E2]" />
+                  <Home size={20} className="text-[#007A3D]" />
                   نوع المبنى
                 </label>
                 <select
                   value={buildingType}
                   onChange={(e) => setBuildingType(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#4A90E2] focus:outline-none transition"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
                 >
                   <option value="residential">سكني</option>
                   <option value="commercial">تجاري</option>
@@ -70,13 +70,13 @@ export default function CostCalculator() {
               {/* Quality */}
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-bold mb-3">
-                  <DollarSign size={20} className="text-[#4A90E2]" />
+                  <DollarSign size={20} className="text-[#007A3D]" />
                   مستوى التشطيب
                 </label>
                 <select
                   value={quality}
                   onChange={(e) => setQuality(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#4A90E2] focus:outline-none transition"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
                 >
                   <option value="standard">عادي</option>
                   <option value="premium">ممتاز</option>
@@ -87,7 +87,7 @@ export default function CostCalculator() {
               {/* Area */}
               <div>
                 <label className="flex items-center gap-2 text-gray-700 font-bold mb-3">
-                  <Ruler size={20} className="text-[#4A90E2]" />
+                  <Ruler size={20} className="text-[#007A3D]" />
                   المساحة (م²): {area}
                 </label>
                 <input
@@ -97,7 +97,7 @@ export default function CostCalculator() {
                   step="10"
                   value={area}
                   onChange={(e) => setArea(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#4A90E2]"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#007A3D]"
                 />
                 <div className="flex justify-between text-sm text-gray-500 mt-1">
                   <span>50 م²</span>
@@ -117,7 +117,7 @@ export default function CostCalculator() {
                   step="1"
                   value={floors}
                   onChange={(e) => setFloors(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#4A90E2]"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#007A3D]"
                 />
                 <div className="flex justify-between text-sm text-gray-500 mt-1">
                   <span>طابق واحد</span>
@@ -127,7 +127,7 @@ export default function CostCalculator() {
             </div>
 
             {/* Result */}
-            <div className="bg-gradient-to-br from-[#4A90E2] to-[#5DADE2] rounded-xl p-8 text-center">
+            <div className="bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-xl p-8 text-center">
               <p className="text-white/90 text-lg mb-2">التكلفة التقريبية</p>
               <p className="text-5xl font-bold text-white mb-2">${calculateCost()}</p>
               <p className="text-white/80 text-sm mb-6">* هذا تقدير أولي وقد يختلف السعر النهائي</p>
@@ -136,7 +136,7 @@ export default function CostCalculator() {
                 href={`https://wa.me/970569953362?text=${encodeURIComponent(`مرحباً، أريد استشارة عن مشروع ${buildingType === 'residential' ? 'سكني' : buildingType === 'commercial' ? 'تجاري' : 'فيلا'} بمساحة ${area} م² و ${floors} طوابق`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block bg-white text-[#4A90E2] px-8 py-3 rounded-lg font-bold hover:bg-gray-100 transition"
+                className="inline-block bg-white text-[#007A3D] px-8 py-3 rounded-lg font-bold hover:bg-gray-100 transition"
               >
                 احصل على عرض سعر دقيق
               </a>

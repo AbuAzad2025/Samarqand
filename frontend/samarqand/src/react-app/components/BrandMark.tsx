@@ -39,8 +39,9 @@ export default function BrandMark({
     >
       <defs>
         <linearGradient id="sq_grad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#4A90E2" />
-          <stop offset="100%" stopColor="#5DADE2" />
+          <stop offset="0%" stopColor="#007A3D" />
+          <stop offset="70%" stopColor="#0B0F19" />
+          <stop offset="100%" stopColor="#CE1126" />
         </linearGradient>
         <filter id="sq_shadow" x="-20%" y="-20%" width="140%" height="140%">
           <feDropShadow dx="0" dy="8" stdDeviation="6" floodOpacity="0.25" />
@@ -59,6 +60,18 @@ export default function BrandMark({
       />
       <circle cx="50" cy="50" r="36" fill="rgba(255,255,255,0.10)" />
 
+      <g opacity="0.85" stroke="#007A3D" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M30 66 C38 60 46 60 50 66 C54 72 62 72 70 66" />
+        <path d="M36 65 C34 63 32 63 30 65" />
+        <path d="M40 63 C38 61 36 61 34 63" />
+        <path d="M66 65 C68 63 70 63 72 65" />
+        <path d="M62 63 C64 61 66 61 68 63" />
+      </g>
+      <rect x="26" y="70" width="48" height="6" rx="3" fill="#0B0F19" opacity="0.65" />
+      <rect x="26" y="70" width="16" height="6" rx="3" fill="#CE1126" />
+      <rect x="42" y="70" width="16" height="6" rx="0" fill="#FFFFFF" />
+      <rect x="58" y="70" width="16" height="6" rx="3" fill="#007A3D" />
+
       <text
         x="50"
         y="58"
@@ -73,4 +86,3 @@ export default function BrandMark({
     </svg>
   );
 }
-

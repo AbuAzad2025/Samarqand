@@ -106,7 +106,7 @@ export default function ControlMedia() {
             />
           </div>
           {tab === "images" ? (
-            <label className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition cursor-pointer">
+            <label className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition cursor-pointer">
               {uploading ? "جارٍ الرفع..." : "رفع صورة"}
               <input
                 type="file"
@@ -137,7 +137,7 @@ export default function ControlMedia() {
               />
             </label>
           ) : (
-            <label className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition cursor-pointer">
+            <label className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition cursor-pointer">
               {uploading ? "جارٍ الرفع..." : "رفع ملف"}
               <input
                 type="file"

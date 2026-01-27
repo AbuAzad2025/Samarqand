@@ -91,10 +91,24 @@ export type HomeSectionPayload = {
   }[];
 };
 
+const _apiBaseUrlRaw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || "";
+const _apiBaseUrl = _apiBaseUrlRaw.replace(/\/+$/, "");
+
+export function apiUrl(input: string): string {
+  if (!_apiBaseUrl) return input;
+  if (/^https?:\/\//i.test(input) || input.startsWith("//")) return input;
+  if (input.startsWith("/")) return `${_apiBaseUrl}${input}`;
+  return `${_apiBaseUrl}/${input}`;
+}
+
+export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  return fetch(apiUrl(input), init);
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: "same-origin" });
+  const res = await apiFetch(url, { credentials: "same-origin" });
   if (!res.ok) {
-    throw new Error(`${url} ${res.status}`);
+    throw new Error(`${apiUrl(url)} ${res.status}`);
   }
   return (await res.json()) as T;
 }
@@ -174,7 +188,7 @@ export async function login(input: {
     }
   }
 
-  const res = await fetch("/api/auth/login", {
+  const res = await apiFetch("/api/auth/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -191,7 +205,7 @@ export async function createOrUpdateUser(input: {
   password?: string;
   role: "manager" | "superadmin";
 }): Promise<{ ok: boolean; created?: boolean; generatedPassword?: string; error?: string }> {
-  const res = await fetch("/api/admin/users", {
+  const res = await apiFetch("/api/admin/users", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -208,7 +222,7 @@ export async function createOrUpdateUser(input: {
 }
 
 export async function logout(): Promise<{ ok: boolean }> {
-  const res = await fetch("/api/auth/logout", {
+  const res = await apiFetch("/api/auth/logout", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -224,7 +238,7 @@ export async function changePassword(input: {
   oldPassword: string;
   newPassword: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/auth/change-password", {
+  const res = await apiFetch("/api/auth/change-password", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -264,7 +278,7 @@ export async function fetchAdminCompanySettings(): Promise<AdminCompanySettingsP
 export async function updateAdminCompanySettings(
   payload: Partial<AdminCompanySettingsPayload>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/settings/company/update", {
+  const res = await apiFetch("/api/admin/settings/company/update", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -301,7 +315,7 @@ export async function fetchAdminHomeSettings(): Promise<AdminHomeSettingsPayload
 export async function updateAdminHomeSettings(
   payload: Partial<AdminHomeSettingsPayload>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/settings/home/update", {
+  const res = await apiFetch("/api/admin/settings/home/update", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -342,7 +356,7 @@ export async function fetchAdminAISettings(): Promise<AdminAISettingsPayload> {
 export async function updateAdminAISettings(
   payload: Partial<AdminAISettingsPayload>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/settings/ai/update", {
+  const res = await apiFetch("/api/admin/settings/ai/update", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -401,7 +415,7 @@ export async function fetchAdminCalculatorSettings(): Promise<AdminCalculatorSet
 export async function updateAdminCalculatorSettings(
   payload: Partial<AdminCalculatorSettingsPayload>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/settings/calculator/update", {
+  const res = await apiFetch("/api/admin/settings/calculator/update", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -446,7 +460,7 @@ export async function fetchAdminVisibilitySettings(): Promise<AdminVisibilitySet
 export async function updateAdminVisibilitySettings(
   payload: Partial<AdminVisibilitySettingsPayload>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/settings/visibility/update", {
+  const res = await apiFetch("/api/admin/settings/visibility/update", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -487,7 +501,7 @@ export async function createAdminTeamMember(payload: {
   bio?: string;
   imageId?: number | null;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/team/create", {
+  const res = await apiFetch("/api/admin/team/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -534,7 +548,7 @@ export async function deleteAdminTeamMember(memberId: number): Promise<{ ok: boo
 }
 
 export async function reorderAdminTeam(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/team/reorder", {
+  const res = await apiFetch("/api/admin/team/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -581,7 +595,7 @@ export async function createAdminService(payload: {
   slug?: string;
   shortDescription?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/services/create", {
+  const res = await apiFetch("/api/admin/services/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -657,7 +671,7 @@ export async function createAdminTestimonial(payload: {
   text: string;
   rating?: number;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/testimonials/create", {
+  const res = await apiFetch("/api/admin/testimonials/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -694,7 +708,7 @@ export async function deleteAdminTestimonial(itemId: number): Promise<{ ok: bool
 }
 
 export async function reorderAdminTestimonials(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/testimonials/reorder", {
+  const res = await apiFetch("/api/admin/testimonials/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -723,7 +737,7 @@ export async function createAdminHomeTrustBadge(payload: {
   description?: string;
   iconClass?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/home/trust-badges/create", {
+  const res = await apiFetch("/api/admin/home/trust-badges/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -760,7 +774,7 @@ export async function deleteAdminHomeTrustBadge(itemId: number): Promise<{ ok: b
 }
 
 export async function reorderAdminHomeTrustBadges(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/home/trust-badges/reorder", {
+  const res = await apiFetch("/api/admin/home/trust-badges/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -789,7 +803,7 @@ export async function createAdminHomeStat(payload: {
   value: string;
   iconClass?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/home/stats/create", {
+  const res = await apiFetch("/api/admin/home/stats/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -826,7 +840,7 @@ export async function deleteAdminHomeStat(itemId: number): Promise<{ ok: boolean
 }
 
 export async function reorderAdminHomeStats(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/home/stats/reorder", {
+  const res = await apiFetch("/api/admin/home/stats/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -855,7 +869,7 @@ export async function createAdminHomeTimelineStep(payload: {
   description?: string;
   iconClass?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/home/timeline/create", {
+  const res = await apiFetch("/api/admin/home/timeline/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -892,7 +906,7 @@ export async function deleteAdminHomeTimelineStep(itemId: number): Promise<{ ok:
 }
 
 export async function reorderAdminHomeTimeline(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/home/timeline/reorder", {
+  const res = await apiFetch("/api/admin/home/timeline/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -921,7 +935,7 @@ export async function createAdminHomeAIFeature(payload: {
   description?: string;
   badgeText?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/home/ai-features/create", {
+  const res = await apiFetch("/api/admin/home/ai-features/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -958,7 +972,7 @@ export async function deleteAdminHomeAIFeature(itemId: number): Promise<{ ok: bo
 }
 
 export async function reorderAdminHomeAIFeatures(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/home/ai-features/reorder", {
+  const res = await apiFetch("/api/admin/home/ai-features/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -985,7 +999,7 @@ export async function createAdminHomeAIMetric(payload: {
   value: string;
   label: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/home/ai-metrics/create", {
+  const res = await apiFetch("/api/admin/home/ai-metrics/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -1022,7 +1036,7 @@ export async function deleteAdminHomeAIMetric(itemId: number): Promise<{ ok: boo
 }
 
 export async function reorderAdminHomeAIMetrics(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("/api/admin/home/ai-metrics/reorder", {
+  const res = await apiFetch("/api/admin/home/ai-metrics/reorder", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -1078,7 +1092,7 @@ export async function createAdminProject(payload: {
   slug?: string;
   shortDescription?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/projects/create", {
+  const res = await apiFetch("/api/admin/projects/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -1169,7 +1183,7 @@ export async function createAdminArticle(payload: {
   title: string;
   slug?: string;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/articles/create", {
+  const res = await apiFetch("/api/admin/articles/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -1256,7 +1270,7 @@ export async function createAdminRfqDocument(payload: {
   currency?: string;
   data?: Record<string, unknown>;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/rfq/documents/create", {
+  const res = await apiFetch("/api/admin/rfq/documents/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
@@ -1314,7 +1328,7 @@ export async function uploadAdminImage(file: File, title?: string): Promise<{ ok
   const form = new FormData();
   form.append("file", file);
   if (title) form.append("title", title);
-  const res = await fetch("/api/admin/images/upload", {
+  const res = await apiFetch("/api/admin/images/upload", {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: form,
@@ -1386,7 +1400,7 @@ export async function uploadAdminDocument(file: File, title?: string): Promise<{
   const form = new FormData();
   form.append("file", file);
   if (title) form.append("title", title);
-  const res = await fetch("/api/admin/media/documents/upload", {
+  const res = await apiFetch("/api/admin/media/documents/upload", {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: form,
@@ -1482,7 +1496,7 @@ export async function createAdminPage(input: {
   slug?: string;
   live?: boolean;
 }): Promise<{ ok: boolean; id?: number; error?: string }> {
-  const res = await fetch("/api/admin/pages/create", {
+  const res = await apiFetch("/api/admin/pages/create", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
@@ -1558,7 +1572,7 @@ export async function removeAdminProjectGalleryItem(projectId: number, itemId: n
 }
 
 export async function downloadAdminBackup(): Promise<void> {
-  const res = await fetch("/api/admin/backup/export", {
+  const res = await apiFetch("/api/admin/backup/export", {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     credentials: "same-origin",
@@ -1578,7 +1592,7 @@ export async function downloadAdminBackup(): Promise<void> {
 export async function restoreAdminBackup(file: File): Promise<{ ok: boolean; error?: string }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch("/api/admin/backup/import", {
+  const res = await apiFetch("/api/admin/backup/import", {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: form,

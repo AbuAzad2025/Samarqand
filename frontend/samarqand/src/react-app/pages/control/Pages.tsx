@@ -169,7 +169,7 @@ export default function ControlPages() {
                 setCreating(false);
               }
             }}
-            className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {creating ? "جارٍ الإنشاء..." : "إنشاء"}
           </button>

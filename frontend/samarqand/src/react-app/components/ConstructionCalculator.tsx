@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Calculator, DollarSign, Package, Users, FileText, Download } from 'lucide-react';
+import { apiFetch } from '@/react-app/api/site';
 
 type LineItem = { item: string; quantity: number; unit: string; unitPrice: number; total: number };
 
@@ -57,7 +58,7 @@ export default function ConstructionCalculator() {
     setResult(null);
 
     try {
-      const response = await fetch('/api/calculator/calculate', {
+      const response = await apiFetch('/api/calculator/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,7 +200,7 @@ export default function ConstructionCalculator() {
                   <select
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
@@ -220,7 +221,7 @@ export default function ConstructionCalculator() {
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="مثال: 200"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
                     required
                     min="1"
                     step="0.01"
@@ -235,7 +236,7 @@ export default function ConstructionCalculator() {
                     type="number"
                     value={floors}
                     onChange={(e) => setFloors(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
                     required
                     min="1"
                     max="20"
@@ -307,7 +308,7 @@ export default function ConstructionCalculator() {
 
                   {/* Summary Cards */}
                   <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+                    <div className="bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-4 rounded-lg">
                       <Package className="mb-2" size={24} />
                       <p className="text-sm opacity-90">المواد</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.materialsCost)}</p>
@@ -329,7 +330,7 @@ export default function ConstructionCalculator() {
                       {result.boq.sections.map((sec) => (
                         <div key={sec.label} className="bg-gray-50 rounded-lg p-4">
                           <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <Package className="text-blue-500" size={20} />
+                            <Package className="text-[#007A3D]" size={20} />
                             {sec.label}
                           </h4>
                           <div className="space-y-2">
@@ -351,7 +352,7 @@ export default function ConstructionCalculator() {
                     <>
                       <div className="bg-gray-50 rounded-lg p-4">
                         <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                          <Package className="text-blue-500" size={20} />
+                          <Package className="text-[#007A3D]" size={20} />
                           الأعمال الإنشائية
                         </h4>
                         <div className="space-y-2">
@@ -412,9 +413,9 @@ export default function ConstructionCalculator() {
 
                   {/* Notes */}
                   {result.notes.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-bold text-blue-800 mb-2">ملاحظات مهمة:</h4>
-                      <ul className="space-y-1 text-sm text-blue-700">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                      <h4 className="font-bold text-emerald-900 mb-2">ملاحظات مهمة:</h4>
+                      <ul className="space-y-1 text-sm text-emerald-800">
                         {result.notes.map((note, idx) => (
                           <li key={idx}>• {note}</li>
                         ))}
@@ -426,7 +427,7 @@ export default function ConstructionCalculator() {
                     href="https://wa.me/970569953362?text=أريد الحصول على عرض سعر دقيق لمشروعي"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر نهائي
                   </a>

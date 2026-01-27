@@ -22,7 +22,7 @@ export default function ServicesPage() {
       <TopBar />
       <Navigation />
 
-      <section className="relative bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-20">
+      <section className="relative bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">خدماتنا</h1>
           <p className="text-xl max-w-3xl mx-auto">

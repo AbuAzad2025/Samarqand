@@ -83,7 +83,7 @@ export default function ControlRFQDocuments() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="بحث: عنوان، رقم، قالب، عملة..."
-            className="w-[320px] max-w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-[320px] max-w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
           />
           <button
             type="button"
@@ -119,8 +119,8 @@ export default function ControlRFQDocuments() {
                     return (
                       <div key={t.key} className="border border-gray-200 rounded-2xl p-4 hover:shadow-sm transition bg-white">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center">
-                            <Icon size={20} className="text-sky-700" />
+                          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                            <Icon size={20} className="text-emerald-700" />
                           </div>
                           <div className="text-xs font-bold px-3 py-1 rounded-lg bg-gray-100 text-gray-700" dir="ltr">
                             {t.defaultCurrency}
@@ -143,7 +143,7 @@ export default function ControlRFQDocuments() {
                             type="button"
                             disabled={Boolean(creatingKey)}
                             onClick={() => createFromTemplate(t.key)}
-                            className="flex-1 bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                            className="flex-1 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                           >
                             {busy ? "جارٍ الإنشاء..." : "استخدم القالب"}
                           </button>
@@ -175,7 +175,7 @@ export default function ControlRFQDocuments() {
                     <span className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-200 text-gray-800" dir="ltr">
                       {d.number || `#${d.id}`}
                     </span>
-                    <span className="px-3 py-1 rounded-lg text-xs font-bold bg-sky-50 text-sky-800" dir="ltr">
+                    <span className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800" dir="ltr">
                       {d.currency || "—"}
                     </span>
                   </div>

@@ -86,7 +86,7 @@ export default function VoiceSearch({ onResult }: VoiceSearchProps) {
         className={`p-3 rounded-full transition-all ${
           isListening
             ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-            : 'bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] hover:shadow-lg'
+            : 'bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] hover:shadow-lg'
         }`}
         title={isListening ? 'إيقاف التسجيل' : 'البحث الصوتي'}
       >
@@ -107,7 +107,7 @@ export default function VoiceSearch({ onResult }: VoiceSearchProps) {
       )}
 
       {transcript && !isListening && (
-        <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white border-2 border-[#4A90E2] px-4 py-2 rounded-lg text-sm text-gray-700 whitespace-nowrap shadow-lg">
+        <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white border-2 border-[#007A3D] px-4 py-2 rounded-lg text-sm text-gray-700 whitespace-nowrap shadow-lg">
           "{transcript}"
         </div>
       )}

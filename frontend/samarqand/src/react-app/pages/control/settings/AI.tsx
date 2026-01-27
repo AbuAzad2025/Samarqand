@@ -43,7 +43,7 @@ export default function ControlAISettings() {
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+          className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
         >
           {saving ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -88,7 +88,7 @@ export default function ControlAISettings() {
               <input
                 value={data.geminiModel}
                 onChange={(e) => setData({ ...data, geminiModel: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 dir="ltr"
               />
             </div>
@@ -97,7 +97,7 @@ export default function ControlAISettings() {
               <input
                 value={data.geminiApiKeyEnvVar}
                 onChange={(e) => setData({ ...data, geminiApiKeyEnvVar: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 dir="ltr"
               />
             </div>
@@ -109,7 +109,7 @@ export default function ControlAISettings() {
               <input
                 value={data.temperature}
                 onChange={(e) => setData({ ...data, temperature: Number(e.target.value) })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 type="number"
                 step="0.1"
                 dir="ltr"
@@ -120,7 +120,7 @@ export default function ControlAISettings() {
               <input
                 value={data.maxOutputTokens}
                 onChange={(e) => setData({ ...data, maxOutputTokens: Number(e.target.value) })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 type="number"
                 step="1"
                 dir="ltr"
@@ -133,7 +133,7 @@ export default function ControlAISettings() {
             <textarea
               value={data.companyContext}
               onChange={(e) => setData({ ...data, companyContext: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-40"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-40"
             />
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function ControlAISettings() {
             <textarea
               value={data.designAnalyzerPrompt}
               onChange={(e) => setData({ ...data, designAnalyzerPrompt: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
 
@@ -155,7 +155,7 @@ export default function ControlAISettings() {
             <textarea
               value={data.contentGeneratorPrompt}
               onChange={(e) => setData({ ...data, contentGeneratorPrompt: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
 
@@ -164,7 +164,7 @@ export default function ControlAISettings() {
             <textarea
               value={data.chatPrompt}
               onChange={(e) => setData({ ...data, chatPrompt: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
 
@@ -173,7 +173,7 @@ export default function ControlAISettings() {
             <textarea
               value={data.visualizerPrompt}
               onChange={(e) => setData({ ...data, visualizerPrompt: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function ControlAISettings() {
             <input
               value={data.visualizerDefaultStyle}
               onChange={(e) => setData({ ...data, visualizerDefaultStyle: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>
@@ -196,7 +196,7 @@ export default function ControlAISettings() {
             <input
               value={data.visualizerDefaultAspectRatio}
               onChange={(e) => setData({ ...data, visualizerDefaultAspectRatio: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>
@@ -205,7 +205,7 @@ export default function ControlAISettings() {
             <input
               value={data.visualizerPlaceholderFooterText}
               onChange={(e) => setData({ ...data, visualizerPlaceholderFooterText: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
           <div>
@@ -213,7 +213,7 @@ export default function ControlAISettings() {
             <input
               value={data.visualizerPlaceholderPrimaryHex}
               onChange={(e) => setData({ ...data, visualizerPlaceholderPrimaryHex: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>
@@ -222,7 +222,7 @@ export default function ControlAISettings() {
             <input
               value={data.visualizerPlaceholderSecondaryHex}
               onChange={(e) => setData({ ...data, visualizerPlaceholderSecondaryHex: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>

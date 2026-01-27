@@ -74,14 +74,14 @@ export default function Home() {
                   to="/services"
                   className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center mb-4">
-                    <Layers size={22} className="text-[#4A90E2]" />
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
+                    <Layers size={22} className="text-[#007A3D]" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">خدماتنا</h3>
                   <p className="text-gray-600">
                     المقاولات، الاستشارات، التشطيبات، والتصميم المعماري
                   </p>
-                  <div className="mt-4 text-[#4A90E2] font-semibold group-hover:underline">
+                  <div className="mt-4 text-[#007A3D] font-semibold group-hover:underline">
                     فتح الصفحة
                   </div>
                 </Link>
@@ -92,14 +92,14 @@ export default function Home() {
                   to="/tools"
                   className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center mb-4">
-                    <Wrench size={22} className="text-[#4A90E2]" />
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
+                    <Wrench size={22} className="text-[#007A3D]" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">الأدوات الذكية</h3>
                   <p className="text-gray-600">
                     محلل التصميم بالذكاء الاصطناعي، الحاسبة، والمصور المعماري
                   </p>
-                  <div className="mt-4 text-[#4A90E2] font-semibold group-hover:underline">
+                  <div className="mt-4 text-[#007A3D] font-semibold group-hover:underline">
                     فتح الصفحة
                   </div>
                 </Link>
@@ -110,14 +110,14 @@ export default function Home() {
                   to="/showcase"
                   className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center mb-4">
-                    <Sparkles size={22} className="text-[#4A90E2]" />
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
+                    <Sparkles size={22} className="text-[#007A3D]" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">معرض الأعمال</h3>
                   <p className="text-gray-600">
                     شاهد التحولات، فريق العمل، وآراء العملاء
                   </p>
-                  <div className="mt-4 text-[#4A90E2] font-semibold group-hover:underline">
+                  <div className="mt-4 text-[#007A3D] font-semibold group-hover:underline">
                     فتح الصفحة
                   </div>
                 </Link>
@@ -128,14 +128,14 @@ export default function Home() {
                   to="/#rfq-templates"
                   className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center mb-4">
-                    <FileText size={22} className="text-[#4A90E2]" />
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
+                    <FileText size={22} className="text-[#007A3D]" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">نماذج عروض الأسعار</h3>
                   <p className="text-gray-600">
                     قوالب جاهزة لطلب عرض سعر بسرعة عبر واتساب
                   </p>
-                  <div className="mt-4 text-[#4A90E2] font-semibold group-hover:underline">
+                  <div className="mt-4 text-[#007A3D] font-semibold group-hover:underline">
                     فتح القسم
                   </div>
                 </Link>
@@ -167,15 +167,15 @@ export default function Home() {
                           key={t.key}
                           className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
                         >
-                          <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center mb-4">
-                            <Icon size={22} className="text-[#4A90E2]" />
+                          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
+                            <Icon size={22} className="text-[#007A3D]" />
                           </div>
                           <h3 className="text-xl font-bold text-gray-800 mb-2">{t.title}</h3>
                           <p className="text-gray-600">{t.description}</p>
                           <div className="mt-5">
                             <Link
                               to={`/contact?rfqTemplate=${encodeURIComponent(t.key)}`}
-                              className="inline-flex items-center justify-center w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition"
+                              className="inline-flex items-center justify-center w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition"
                             >
                               ابدأ الطلب
                             </Link>
@@ -211,9 +211,9 @@ export default function Home() {
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#4A90E2] to-[#5DADE2]" />
+                    <div className="w-full h-full bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
                   )}
-                  <div className="absolute top-4 right-4 bg-[#4A90E2] text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  <div className="absolute top-4 right-4 bg-[#CE1126] text-white px-4 py-2 rounded-full text-sm font-semibold">
                     {project.category}
                   </div>
                 </div>
@@ -224,11 +224,11 @@ export default function Home() {
                   
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
-                      <MapPin size={16} className="text-[#4A90E2]" />
+                      <MapPin size={16} className="text-[#007A3D]" />
                       <span>{project.location}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-[#4A90E2]" />
+                      <Calendar size={16} className="text-[#007A3D]" />
                       <span>{project.year}</span>
                     </div>
                   </div>
@@ -241,13 +241,13 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/projects"
-                className="inline-block bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+                className="inline-block bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
               >
                 عرض جميع المشاريع
               </Link>
               <Link
                 to="/contact"
-                className="inline-block bg-white text-[#4A90E2] px-8 py-3 rounded-lg font-semibold border border-[#4A90E2] hover:bg-sky-50 transition"
+                className="inline-block bg-white text-[#007A3D] px-8 py-3 rounded-lg font-semibold border border-[#007A3D] hover:bg-emerald-50 transition"
               >
                 اطلب عرض سعر
               </Link>
@@ -285,7 +285,7 @@ export default function Home() {
           <div className="text-center mt-12">
             <Link
               to="/showcase"
-              className="inline-block bg-white text-[#4A90E2] px-8 py-3 rounded-lg font-semibold border border-[#4A90E2] hover:bg-sky-50 transition"
+              className="inline-block bg-white text-[#007A3D] px-8 py-3 rounded-lg font-semibold border border-[#007A3D] hover:bg-emerald-50 transition"
             >
               فتح المعرض الكامل
             </Link>
@@ -324,7 +324,7 @@ export default function Home() {
           <div className="text-center mt-12">
             <Link
               to="/showcase"
-              className="inline-block bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+              className="inline-block bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
             >
               قراءة المزيد
             </Link>

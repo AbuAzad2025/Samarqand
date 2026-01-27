@@ -76,7 +76,7 @@ export default function ControlCalculatorSettings() {
         <input
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
           type="number"
           step={opts?.step || "0.01"}
           min={opts?.min}
@@ -95,13 +95,13 @@ export default function ControlCalculatorSettings() {
     const curr = next[index];
     if (!curr) return;
     next[index] = { ...curr, ...patch };
-    setData({ ...data, items: next });
+    setData((prev) => (prev ? { ...prev, items: next } : prev));
   }
 
   function removeItem(index: number) {
     const next = items.slice();
     next.splice(index, 1);
-    setData({ ...data, items: next });
+    setData((prev) => (prev ? { ...prev, items: next } : prev));
   }
 
   function addItem(category: string) {
@@ -117,7 +117,7 @@ export default function ControlCalculatorSettings() {
       unitPriceIls: 0,
       enabled: true,
     });
-    setData({ ...data, items: next });
+    setData((prev) => (prev ? { ...prev, items: next } : prev));
   }
 
   return (
@@ -133,7 +133,7 @@ export default function ControlCalculatorSettings() {
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+          className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
         >
           {saving ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -164,7 +164,7 @@ export default function ControlCalculatorSettings() {
                   currencyDefault: (e.target.value as "ILS" | "USD") || "ILS",
                 })
               }
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             >
               <option value="ILS">₪ شيكل</option>
               <option value="USD">$ دولار</option>
@@ -225,7 +225,7 @@ export default function ControlCalculatorSettings() {
                   <button
                     type="button"
                     onClick={() => addItem(category)}
-                    className="text-sm font-semibold text-[#4A90E2] hover:underline"
+                    className="text-sm font-semibold text-[#007A3D] hover:underline"
                   >
                     إضافة بند
                   </button>

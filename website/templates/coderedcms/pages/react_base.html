@@ -17,7 +17,9 @@
   </head>
   <body class="min-h-screen bg-white">
     {% with company=settings.website.CompanySettings %}
-      <div class="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-3">
+      <div class="text-white">
+        <div class="h-1 bg-gradient-to-r from-[#CE1126] via-[#0B0F19] to-[#007A3D]"></div>
+        <div class="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] py-3">
         <div class="max-w-7xl mx-auto px-4 flex justify-between items-center text-sm">
           <div class="flex gap-6">
             {% if company.phone_1 %}
@@ -36,21 +38,23 @@
           {% endif %}
         </div>
       </div>
+      </div>
+      </div>
 
       <nav class="bg-white shadow-md border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4">
           <div class="flex items-center justify-between h-28">
-            <button class="p-2 hover:bg-sky-50 rounded-full transition" aria-label="بحث">
+            <button class="p-2 hover:bg-emerald-50 rounded-full transition" aria-label="بحث">
               <span class="text-gray-600 text-lg">⌕</span>
             </button>
 
             <div class="flex items-center gap-10">
-              <a href="/" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">الصفحة الرئيسية</a>
-              {% if about_page %}<a href="{% pageurl about_page %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">من نحن</a>{% endif %}
-              {% if projects_index %}<a href="{% pageurl projects_index %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">مشاريعنا</a>{% endif %}
-              {% if services_index %}<a href="/#services" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">خدماتنا</a>{% endif %}
-              {% if tools_index %}<a href="{% pageurl tools_index %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">الأدوات الذكية</a>{% endif %}
-              {% if contact_page %}<a href="{% pageurl contact_page %}" class="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">اتصل بنا</a>{% endif %}
+              <a href="/" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">الصفحة الرئيسية</a>
+              {% if about_page %}<a href="{% pageurl about_page %}" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">من نحن</a>{% endif %}
+              {% if projects_index %}<a href="{% pageurl projects_index %}" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">مشاريعنا</a>{% endif %}
+              {% if services_index %}<a href="/#services" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">خدماتنا</a>{% endif %}
+              {% if tools_index %}<a href="{% pageurl tools_index %}" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">الأدوات الذكية</a>{% endif %}
+              {% if contact_page %}<a href="{% pageurl contact_page %}" class="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">اتصل بنا</a>{% endif %}
               <div class="flex items-center gap-2 text-sm">
                 <img src="https://flagcdn.com/w20/ps.png" alt="فلسطين" class="w-5 h-3">
                 <span class="text-gray-700">▼</span>
@@ -59,7 +63,7 @@
 
             <a href="/" class="flex items-center gap-5">
               <div class="text-right max-w-xs">
-                <h1 class="text-3xl font-bold bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] bg-clip-text text-transparent mb-2">
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-[#007A3D] to-[#CE1126] bg-clip-text text-transparent mb-2">
                   {{ company.brand_title|default:company.name }}
                 </h1>
                 {% if company.brand_subtitle %}
@@ -85,6 +89,7 @@
       </main>
 
       <footer class="bg-gray-800 text-white" dir="rtl">
+        <div class="h-1 bg-gradient-to-r from-[#CE1126] via-[#0B0F19] to-[#007A3D]"></div>
         <div class="container mx-auto px-4 py-12">
           <div class="grid md:grid-cols-4 gap-8">
             <div>
@@ -106,19 +111,19 @@
               <ul class="space-y-3">
                 {% if company.phone_1 %}
                   <li class="flex items-center gap-2">
-                    <span class="text-[#4A90E2]">☎</span>
+                    <span class="text-[#007A3D]">☎</span>
                     <a href="tel:{{ company.phone_1 }}" class="text-gray-300 hover:text-white transition" dir="ltr">{{ company.phone_1 }}</a>
                   </li>
                 {% endif %}
                 {% if company.email %}
                   <li class="flex items-center gap-2">
-                    <span class="text-[#4A90E2]">@</span>
+                    <span class="text-[#007A3D]">@</span>
                     <a href="mailto:{{ company.email }}" class="text-gray-300 hover:text-white transition">{{ company.email }}</a>
                   </li>
                 {% endif %}
                 {% if company.address %}
                   <li class="flex items-center gap-2">
-                    <span class="text-[#4A90E2]">⌂</span>
+                    <span class="text-[#007A3D]">⌂</span>
                     <span class="text-gray-300">{{ company.address }}</span>
                   </li>
                 {% endif %}
@@ -127,9 +132,9 @@
             <div>
               <h3 class="text-xl font-bold mb-4">تابعنا</h3>
               <div class="flex gap-4">
-                {% if company.facebook_url %}<a href="{{ company.facebook_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">f</a>{% endif %}
-                {% if company.instagram_url %}<a href="{{ company.instagram_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">ig</a>{% endif %}
-                {% if company.linkedin_url %}<a href="{{ company.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#4A90E2] transition">in</a>{% endif %}
+                {% if company.facebook_url %}<a href="{{ company.facebook_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#007A3D] transition">f</a>{% endif %}
+                {% if company.instagram_url %}<a href="{{ company.instagram_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#007A3D] transition">ig</a>{% endif %}
+                {% if company.linkedin_url %}<a href="{{ company.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-[#007A3D] transition">in</a>{% endif %}
               </div>
             </div>
           </div>

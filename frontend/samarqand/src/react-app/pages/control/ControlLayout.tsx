@@ -64,18 +64,18 @@ export default function ControlLayout() {
       <header className="border-b bg-white">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/" className="font-bold text-gray-900 hover:text-[#4A90E2] transition">
+            <Link to="/" className="font-bold text-gray-900 hover:text-[#007A3D] transition">
               الموقع
             </Link>
             <div className="text-gray-300">/</div>
-            <Link to="/control" className="font-semibold text-gray-700 hover:text-[#4A90E2] transition">
+            <Link to="/control" className="font-semibold text-gray-700 hover:text-[#007A3D] transition">
               لوحة التحكم
             </Link>
           </div>
           <div className="text-sm text-gray-600">
             {me?.authenticated ? (
               <div className="flex items-center gap-4">
-                <Link to="/control/password" className="text-[#4A90E2] font-semibold hover:underline">
+                <Link to="/control/password" className="text-[#007A3D] font-semibold hover:underline">
                   تغيير كلمة المرور
                 </Link>
                 <Link to="/control/dashboard" className="text-gray-700 hover:text-gray-900 font-semibold">
@@ -94,7 +94,7 @@ export default function ControlLayout() {
                 </span>
               </div>
             ) : (
-              <Link to="/control/login" className="text-[#4A90E2] font-semibold hover:underline">
+              <Link to="/control/login" className="text-[#007A3D] font-semibold hover:underline">
                 تسجيل الدخول
               </Link>
             )}

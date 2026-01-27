@@ -26,7 +26,7 @@ export default function AIFeaturesBanner() {
   );
   const gradients = useMemo(
     () => [
-      "from-blue-500 to-cyan-500",
+      "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
       "from-purple-500 to-pink-500",
       "from-indigo-500 to-purple-500",
       "from-yellow-500 to-orange-500",

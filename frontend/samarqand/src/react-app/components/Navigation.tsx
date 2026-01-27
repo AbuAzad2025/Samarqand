@@ -18,50 +18,51 @@ export default function Navigation() {
 
   return (
     <nav className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-gray-200">
+      <div className="h-1 bg-gradient-to-r from-[#CE1126] via-[#0B0F19] to-[#007A3D]" />
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Search Icon */}
-          <button className="p-2 hover:bg-sky-50 rounded-full transition">
+          <button className="p-2 hover:bg-emerald-50 rounded-full transition">
             <Search size={22} className="text-gray-600" />
           </button>
 
           {/* Navigation Menu */}
           <div className="hidden lg:flex items-center gap-8">
-            <Link to="/" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+            <Link to="/" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
               الصفحة الرئيسية
             </Link>
             {(v?.showAbout ?? true) && (
-              <Link to="/about" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/about" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 من نحن
               </Link>
             )}
             {(v?.showProjects ?? true) && (
-              <Link to="/projects" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/projects" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 مشاريعنا
               </Link>
             )}
             {(v?.showServices ?? true) && (
-              <Link to="/services" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/services" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 خدماتنا
               </Link>
             )}
             {(v?.showRfqTemplates ?? true) && (
-              <Link to="/#rfq-templates" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/#rfq-templates" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 نماذج عروض الأسعار
               </Link>
             )}
             {(v?.showTools ?? true) && (
-              <Link to="/tools" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/tools" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 الأدوات الذكية
               </Link>
             )}
             {(v?.showShowcase ?? true) && (
-              <Link to="/showcase" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/showcase" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 معرض الأعمال
               </Link>
             )}
             {(v?.showContact ?? true) && (
-              <Link to="/contact" className="text-gray-700 hover:text-[#4A90E2] transition font-semibold text-base">
+              <Link to="/contact" className="text-gray-700 hover:text-[#007A3D] transition font-semibold text-base">
                 اتصل بنا
               </Link>
             )}
@@ -76,7 +77,7 @@ export default function Navigation() {
           {/* Logo and Company Info */}
           <Link to="/" className="flex items-center gap-5">
             <div className="text-right max-w-xs">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] bg-clip-text text-transparent mb-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#007A3D] to-[#CE1126] bg-clip-text text-transparent mb-2">
                 {company?.brandTitle || "سمر قند"}
               </h1>
               <p className="text-sm text-gray-600 font-medium leading-relaxed">

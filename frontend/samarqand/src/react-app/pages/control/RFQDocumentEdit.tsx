@@ -283,7 +283,7 @@ export default function ControlRFQDocumentEdit() {
             type="button"
             onClick={onSave}
             disabled={!hasChanges || saving}
-            className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
           </button>
@@ -310,7 +310,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div className="grid md:grid-cols-2 gap-4">
@@ -319,7 +319,7 @@ export default function ControlRFQDocumentEdit() {
                   <input
                     value={templateKey}
                     onChange={(e) => setTemplateKey(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>
@@ -328,7 +328,7 @@ export default function ControlRFQDocumentEdit() {
                   <input
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>
@@ -344,7 +344,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={vendor.name}
                   onChange={(e) => setVendor((v) => ({ ...v, name: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -352,7 +352,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={vendor.contactName}
                   onChange={(e) => setVendor((v) => ({ ...v, contactName: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -360,7 +360,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={vendor.phone}
                   onChange={(e) => setVendor((v) => ({ ...v, phone: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -369,7 +369,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={vendor.email}
                   onChange={(e) => setVendor((v) => ({ ...v, email: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -378,7 +378,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={vendor.address}
                   onChange={(e) => setVendor((v) => ({ ...v, address: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
             </div>
@@ -392,7 +392,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={rfq.subject}
                   onChange={(e) => setRfq((r) => ({ ...r, subject: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -401,7 +401,7 @@ export default function ControlRFQDocumentEdit() {
                   type="date"
                   value={rfq.dueDate}
                   onChange={(e) => setRfq((r) => ({ ...r, dueDate: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -410,7 +410,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={rfq.deliveryLocation}
                   onChange={(e) => setRfq((r) => ({ ...r, deliveryLocation: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -421,7 +421,7 @@ export default function ControlRFQDocumentEdit() {
                   step="1"
                   value={String(rfq.validityDays ?? "")}
                   onChange={(e) => setRfq((r) => ({ ...r, validityDays: toNumber(e.target.value, 14) }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -430,7 +430,7 @@ export default function ControlRFQDocumentEdit() {
                 <input
                   value={rfq.paymentTerms}
                   onChange={(e) => setRfq((r) => ({ ...r, paymentTerms: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div className="md:col-span-2">
@@ -438,7 +438,7 @@ export default function ControlRFQDocumentEdit() {
                 <textarea
                   value={rfq.notes}
                   onChange={(e) => setRfq((r) => ({ ...r, notes: e.target.value }))}
-                  className="w-full min-h-[110px] px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full min-h-[110px] px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
             </div>
@@ -480,7 +480,7 @@ export default function ControlRFQDocumentEdit() {
                             onChange={(e) =>
                               setItems((prev) => prev.map((r, i) => (i === idx ? { ...r, description: e.target.value } : r)))
                             }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                           />
                         </td>
                         <td className="p-3">
@@ -492,7 +492,7 @@ export default function ControlRFQDocumentEdit() {
                             onChange={(e) =>
                               setItems((prev) => prev.map((r, i) => (i === idx ? { ...r, qty: toNumber(e.target.value, 0) } : r)))
                             }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                             dir="ltr"
                           />
                         </td>
@@ -503,7 +503,7 @@ export default function ControlRFQDocumentEdit() {
                             onChange={(e) =>
                               setItems((prev) => prev.map((r, i) => (i === idx ? { ...r, unit: e.target.value } : r)))
                             }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                           />
                         </td>
                         <td className="p-3">
@@ -517,7 +517,7 @@ export default function ControlRFQDocumentEdit() {
                                 prev.map((r, i) => (i === idx ? { ...r, unitPrice: toNumber(e.target.value, 0) } : r)),
                               )
                             }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                             dir="ltr"
                           />
                         </td>
@@ -623,7 +623,7 @@ export default function ControlRFQDocumentEdit() {
                   step="0.01"
                   value={String(discountRatePct)}
                   onChange={(e) => setDiscountRatePct(toNumber(e.target.value, 0))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -635,7 +635,7 @@ export default function ControlRFQDocumentEdit() {
                   step="0.01"
                   value={String(taxRatePct)}
                   onChange={(e) => setTaxRatePct(toNumber(e.target.value, 0))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>

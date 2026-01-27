@@ -223,7 +223,7 @@ export default function ControlBlogEdit() {
             type="button"
             onClick={onSave}
             disabled={!hasChanges || saving}
-            className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
           </button>
@@ -250,7 +250,7 @@ export default function ControlBlogEdit() {
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -258,7 +258,7 @@ export default function ControlBlogEdit() {
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -267,7 +267,7 @@ export default function ControlBlogEdit() {
                 <textarea
                   value={searchDescription}
                   onChange={(e) => setSearchDescription(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-[110px]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-[110px]"
                 />
               </div>
             </div>

@@ -49,7 +49,7 @@ export default function ControlLogin() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             autoComplete="username"
             required
           />
@@ -59,7 +59,7 @@ export default function ControlLogin() {
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             type="password"
             autoComplete="current-password"
             required
@@ -75,7 +75,7 @@ export default function ControlLogin() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white font-bold py-3 rounded-lg hover:shadow-lg transition disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white font-bold py-3 rounded-lg hover:shadow-lg transition disabled:opacity-50"
         >
           {loading ? "جارٍ الدخول..." : "دخول"}
         </button>

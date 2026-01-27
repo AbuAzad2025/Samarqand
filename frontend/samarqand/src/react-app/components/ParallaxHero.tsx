@@ -28,7 +28,7 @@ export default function ParallaxHero() {
   const hero = useMemo(() => {
     const title1 = home?.heroTitleLine1 || company?.brandTitle || "شركة سمر قند";
     const title2 = home?.heroTitleLine2 || "للمقاولات";
-    const lead = home?.heroLead || company?.slogan || "نبني أحلامك بأيدٍ فلسطينية ماهرة";
+    const lead = home?.heroLead || company?.slogan || "نبني مشاريعكم بإتقان وخبرة فلسطينية";
     const bg =
       home?.heroBackgroundUrl ||
       "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1920&h=1080&fit=crop";
@@ -61,7 +61,7 @@ export default function ParallaxHero() {
           transform: `translateY(${scrollY * 0.5}px)`,
         }}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(74,144,226,0.25),transparent_40%),radial-gradient(circle_at_80%_30%,rgba(93,173,226,0.20),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,122,61,0.22),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(206,17,38,0.18),transparent_48%)]" />
       </div>
 
       {/* Content */}
@@ -81,7 +81,7 @@ export default function ParallaxHero() {
 
           {/* Text */}
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 animate-fade-in-up">
-            <span className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#007A3D] via-white to-[#CE1126] bg-clip-text text-transparent">
               {hero.title1}
             </span>
             <br />
@@ -96,7 +96,7 @@ export default function ParallaxHero() {
           <div className="flex flex-wrap gap-4 justify-center animate-fade-in-up animation-delay-400">
             <a
               href={hero.primaryUrl}
-              className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
+              className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
             >
               {hero.primaryLabel}
             </a>

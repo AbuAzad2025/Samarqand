@@ -18,7 +18,9 @@ export default function TopBar() {
   }, [company?.phone1, company?.phone2]);
 
   return (
-    <div className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-3">
+    <div className="text-white">
+      <div className="h-1 bg-gradient-to-r from-[#CE1126] via-[#0B0F19] to-[#007A3D]" />
+      <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] py-3">
       <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-sm">
         <div className="flex gap-6">
           <div className="flex items-center gap-4">
@@ -44,6 +46,7 @@ export default function TopBar() {
           {company?.topbarSlogan || "نحن نؤمن بجودة العمل والإلتزام بالمواعيد الإنشائية"}
         </div>
       </div>
+    </div>
     </div>
   );
 }

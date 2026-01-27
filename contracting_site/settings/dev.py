@@ -1,14 +1,23 @@
 from .base import *  # noqa: F403
 from .base import _env
 
+import secrets
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = _env("SECRET_KEY", "x%8_&vxjhi#3g&6f51=&k_!-7#zjlj*kk9a)jf+^&dafcukf!e")
+_secret_key = _env("SECRET_KEY", "")
+if not _secret_key:
+    _secret_key = secrets.token_urlsafe(64)
+SECRET_KEY = _secret_key
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in _env("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 

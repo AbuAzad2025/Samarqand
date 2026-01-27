@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Share2, Sparkles, Copy, Check } from 'lucide-react';
+import { apiFetch } from '@/react-app/api/site';
 
 export default function AIContentShowcase() {
   const [contentType, setContentType] = useState<'blog' | 'social'>('blog');
@@ -16,7 +17,7 @@ export default function AIContentShowcase() {
     setContent('');
 
     try {
-      const response = await fetch('/api/ai/generate-content', {
+      const response = await apiFetch('/api/ai/generate-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: contentType, topic }),

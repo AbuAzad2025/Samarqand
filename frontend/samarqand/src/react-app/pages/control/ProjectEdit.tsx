@@ -117,7 +117,7 @@ export default function ControlProjectEdit() {
             </span>
           </div>
           <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-            <Link to="/control/projects" className="text-[#4A90E2] font-semibold hover:underline">
+            <Link to="/control/projects" className="text-[#007A3D] font-semibold hover:underline">
               المشاريع
             </Link>
             <span className="text-gray-300">/</span>
@@ -141,7 +141,7 @@ export default function ControlProjectEdit() {
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
           </button>
@@ -174,7 +174,7 @@ export default function ControlProjectEdit() {
             <input
               value={data.title}
               onChange={(e) => setData({ ...data, title: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
           <div>
@@ -182,7 +182,7 @@ export default function ControlProjectEdit() {
             <input
               value={data.slug}
               onChange={(e) => setData({ ...data, slug: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               dir="ltr"
             />
           </div>
@@ -191,7 +191,7 @@ export default function ControlProjectEdit() {
             <input
               value={data.shortDescription}
               onChange={(e) => setData({ ...data, shortDescription: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -200,7 +200,7 @@ export default function ControlProjectEdit() {
               <input
                 value={data.clientName}
                 onChange={(e) => setData({ ...data, clientName: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
             <div>
@@ -208,7 +208,7 @@ export default function ControlProjectEdit() {
               <input
                 value={data.projectLocation}
                 onChange={(e) => setData({ ...data, projectLocation: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
           </div>
@@ -220,7 +220,7 @@ export default function ControlProjectEdit() {
                 onChange={(e) =>
                   setData({ ...data, completionYear: e.target.value ? Number(e.target.value) : null })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 dir="ltr"
               />
             </div>
@@ -229,7 +229,7 @@ export default function ControlProjectEdit() {
               <input
                 value={data.executingAgency}
                 onChange={(e) => setData({ ...data, executingAgency: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
               />
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function ControlProjectEdit() {
             <textarea
               value={data.scopeOfWork}
               onChange={(e) => setData({ ...data, scopeOfWork: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
             />
           </div>
         </div>
@@ -267,7 +267,7 @@ export default function ControlProjectEdit() {
                 <input
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
             </div>

@@ -29,7 +29,7 @@ export default function ToolsPage() {
       <TopBar />
       <Navigation />
 
-      <section className="relative bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white py-20">
+      <section className="relative bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">الأدوات الذكية</h1>
           <p className="text-xl max-w-3xl mx-auto">
@@ -73,7 +73,7 @@ export default function ToolsPage() {
               </p>
               <a
                 href="/admin/"
-                className="inline-block mt-6 bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+                className="inline-block mt-6 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
               >
                 تسجيل الدخول للإدارة
               </a>

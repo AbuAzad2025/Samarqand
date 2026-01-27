@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Image, Sparkles, Download, Share2, Loader } from 'lucide-react';
+import { apiFetch } from '@/react-app/api/site';
 
 export default function ArchitecturalVisualizer() {
   const [projectType, setProjectType] = useState('');
@@ -42,7 +43,7 @@ export default function ArchitecturalVisualizer() {
     setGeneratedImage(null);
 
     try {
-      const response = await fetch('/api/images/generate-visualization', {
+      const response = await apiFetch('/api/images/generate-visualization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,8 +236,8 @@ export default function ArchitecturalVisualizer() {
                 </button>
               </form>
 
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
+              <div className="mt-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <p className="text-sm text-emerald-900">
                   💡 <strong>نصيحة:</strong> كلما كان الوصف أكثر تفصيلاً، كان التصميم أدق وأقرب لرؤيتك
                 </p>
               </div>
@@ -308,7 +309,7 @@ export default function ArchitecturalVisualizer() {
                     </button>
                     <button
                       onClick={shareImage}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                      className="flex-1 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
                       <Share2 size={20} />
                       مشاركة
@@ -330,7 +331,7 @@ export default function ArchitecturalVisualizer() {
                       href="https://wa.me/970569953362?text=شاهدت التصميم وأريد تنفيذه على أرض الواقع"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"
+                      className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"
                     >
                       احجز استشارة مجانية
                     </a>

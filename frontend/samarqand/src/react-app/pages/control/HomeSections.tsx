@@ -198,7 +198,7 @@ export default function ControlHomeSections() {
                   }
                 }}
                 disabled={savingKey === "tb-create"}
-                className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
               >
                 {savingKey === "tb-create" ? "جارٍ الإضافة..." : "إضافة"}
               </button>
@@ -330,7 +330,7 @@ export default function ControlHomeSections() {
                   }
                 }}
                 disabled={savingKey === "st-create"}
-                className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
               >
                 {savingKey === "st-create" ? "جارٍ الإضافة..." : "إضافة"}
               </button>
@@ -466,7 +466,7 @@ export default function ControlHomeSections() {
                   }
                 }}
                 disabled={savingKey === "tl-create"}
-                className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
               >
                 {savingKey === "tl-create" ? "جارٍ الإضافة..." : "إضافة"}
               </button>
@@ -601,7 +601,7 @@ export default function ControlHomeSections() {
                   }
                 }}
                 disabled={savingKey === "af-create"}
-                className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
               >
                 {savingKey === "af-create" ? "جارٍ الإضافة..." : "إضافة"}
               </button>
@@ -731,7 +731,7 @@ export default function ControlHomeSections() {
                   }
                 }}
                 disabled={savingKey === "am-create"}
-                className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
               >
                 {savingKey === "am-create" ? "جارٍ الإضافة..." : "إضافة"}
               </button>

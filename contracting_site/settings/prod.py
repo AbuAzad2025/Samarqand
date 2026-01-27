@@ -20,13 +20,16 @@ def _env_bool(name: str, default: str = "false") -> bool:
     return _env(name, default).lower() in {"1", "true", "yes", "on"}
 
 
-SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", "false")
-SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", "false")
-CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", "false")
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", "true")
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", "true")
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", "true")
 
-SECURE_HSTS_SECONDS = int(_env("SECURE_HSTS_SECONDS", "0") or "0")
-SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", "false")
-SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", "false")
+SECURE_HSTS_SECONDS = int(_env("SECURE_HSTS_SECONDS", "31536000") or "31536000")
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", "true")
+SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", "true")
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = _env("SECURE_REFERRER_POLICY", "same-origin")
 
 # To send email from the server, we recommend django_sendmail_backend
 # Or specify your own email backend such as an SMTP server.

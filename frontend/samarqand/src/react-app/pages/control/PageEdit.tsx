@@ -217,7 +217,7 @@ export default function ControlPageEdit() {
             </span>
           </div>
           <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-            <Link to="/control/pages" className="text-[#4A90E2] font-semibold hover:underline">
+            <Link to="/control/pages" className="text-[#007A3D] font-semibold hover:underline">
               الصفحات
             </Link>
             <span className="text-gray-300">/</span>
@@ -255,7 +255,7 @@ export default function ControlPageEdit() {
             type="button"
             onClick={onSave}
             disabled={saving || !hasChanges}
-            className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
           </button>
@@ -281,7 +281,7 @@ export default function ControlPageEdit() {
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                 />
               </div>
               <div>
@@ -289,7 +289,7 @@ export default function ControlPageEdit() {
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   dir="ltr"
                 />
               </div>
@@ -298,7 +298,7 @@ export default function ControlPageEdit() {
                 <textarea
                   value={searchDescription}
                   onChange={(e) => setSearchDescription(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2] min-h-[110px]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-[110px]"
                 />
               </div>
             </div>
@@ -318,7 +318,7 @@ export default function ControlPageEdit() {
                   <input
                     value={certIssuer}
                     onChange={(e) => setCertIssuer(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   />
                 </div>
                 <div>
@@ -326,7 +326,7 @@ export default function ControlPageEdit() {
                   <input
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>
@@ -335,7 +335,7 @@ export default function ControlPageEdit() {
                   <input
                     value={certYear ?? ""}
                     onChange={(e) => setCertYear(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>
@@ -352,7 +352,7 @@ export default function ControlPageEdit() {
                   <input
                     value={toAddress}
                     onChange={(e) => setToAddress(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>
@@ -361,7 +361,7 @@ export default function ControlPageEdit() {
                   <input
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                   />
                 </div>
                 <div>
@@ -369,7 +369,7 @@ export default function ControlPageEdit() {
                   <input
                     value={replyAddress}
                     onChange={(e) => setReplyAddress(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     dir="ltr"
                   />
                 </div>

@@ -77,7 +77,7 @@ export default function ControlUsers() {
         <p className="text-gray-600 mb-6">سجل الدخول للوصول إلى لوحة التحكم.</p>
         <Link
           to="/control/login"
-          className="inline-block bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+          className="inline-block bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
         >
           تسجيل الدخول
         </Link>
@@ -135,7 +135,7 @@ export default function ControlUsers() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             autoComplete="off"
             required
           />
@@ -148,7 +148,7 @@ export default function ControlUsers() {
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
             type="text"
             autoComplete="new-password"
             placeholder="اتركها فارغة للتوليد التلقائي"
@@ -162,7 +162,7 @@ export default function ControlUsers() {
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
           >
             <option value="manager">مدير</option>
             <option value="superadmin">سوبر أدمن</option>
@@ -172,7 +172,7 @@ export default function ControlUsers() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white font-bold py-3 rounded-lg hover:shadow-lg transition disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white font-bold py-3 rounded-lg hover:shadow-lg transition disabled:opacity-50"
         >
           {loading ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -180,4 +180,3 @@ export default function ControlUsers() {
     </div>
   );
 }
-

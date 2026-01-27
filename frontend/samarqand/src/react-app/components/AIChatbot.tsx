@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, X, Minimize2, Maximize2, Sparkles, User } from 'lucide-react';
+import { apiFetch } from '@/react-app/api/site';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -46,7 +47,7 @@ export default function AIChatbot() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai/chat', {
+      const response = await apiFetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,7 +124,7 @@ export default function AIChatbot() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
         >
           <Bot className="text-white" size={28} />
           {hasNewMessage && (
@@ -144,7 +145,7 @@ export default function AIChatbot() {
           dir="rtl"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] p-4 rounded-t-2xl flex items-center justify-between">
+          <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] p-4 rounded-t-2xl flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <Bot className="text-white" size={20} />
@@ -183,7 +184,7 @@ export default function AIChatbot() {
                       className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         msg.role === 'user'
                           ? 'bg-gray-200'
-                          : 'bg-gradient-to-r from-[#4A90E2] to-[#5DADE2]'
+                          : 'bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126]'
                       }`}
                     >
                       {msg.role === 'user' ? (
@@ -195,7 +196,7 @@ export default function AIChatbot() {
                     <div
                       className={`rounded-2xl p-3 max-w-[75%] ${
                         msg.role === 'user'
-                          ? 'bg-[#4A90E2] text-white'
+                          ? 'bg-[#007A3D] text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
@@ -205,7 +206,7 @@ export default function AIChatbot() {
                 ))}
                 {isLoading && (
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] flex items-center justify-center">
                       <Bot className="text-white" size={16} />
                     </div>
                     <div className="bg-gray-100 rounded-2xl p-3">
@@ -246,13 +247,13 @@ export default function AIChatbot() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="اكتب رسالتك هنا..."
-                    className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
+                    className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
                     disabled={isLoading}
                   />
                   <button
                     type="submit"
                     disabled={isLoading || !input.trim()}
-                    className="bg-gradient-to-r from-[#4A90E2] to-[#5DADE2] text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
+                    className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
                   >
                     <Send size={20} />
                   </button>
