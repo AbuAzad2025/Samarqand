@@ -61,3 +61,5 @@ CACHES = {
         "TIMEOUT": 14400,  # in seconds
     }
 }
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"

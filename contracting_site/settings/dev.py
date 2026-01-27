@@ -1,7 +1,7 @@
+import secrets
+
 from .base import *  # noqa: F403
 from .base import _env
-
-import secrets
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
