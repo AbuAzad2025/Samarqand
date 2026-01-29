@@ -306,10 +306,58 @@ class ProjectPage(CoderedWebPage):
     class Meta:
         verbose_name = "مشروع"
 
+    STATUS_ONGOING = "ongoing"
+    STATUS_COMPLETED = "completed"
+    STATUS_ARCHIVED = "archived"
+    STATUS_CHOICES = [
+        (STATUS_ONGOING, "قيد العمل"),
+        (STATUS_COMPLETED, "منجز"),
+        (STATUS_ARCHIVED, "مؤرشف"),
+    ]
+
+    PHASE_INITIATING = "initiating"
+    PHASE_PLANNING = "planning"
+    PHASE_EXECUTING = "executing"
+    PHASE_MONITORING = "monitoring"
+    PHASE_CLOSING = "closing"
+    PHASE_CHOICES = [
+        (PHASE_INITIATING, "البدء (Initiating)"),
+        (PHASE_PLANNING, "التخطيط (Planning)"),
+        (PHASE_EXECUTING, "التنفيذ (Executing)"),
+        (PHASE_MONITORING, "المتابعة والتحكم (Monitoring & Controlling)"),
+        (PHASE_CLOSING, "الإغلاق (Closing)"),
+    ]
+
     parent_page_types = ["website.ProjectIndexPage"]
     template = "coderedcms/pages/spa_shell.html"
 
     short_description: models.CharField = models.CharField(max_length=255, blank=True)
+    status: models.CharField = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_COMPLETED,
+    )
+    pmp_phase: models.CharField = models.CharField(
+        max_length=30,
+        choices=PHASE_CHOICES,
+        default=PHASE_PLANNING,
+    )
+    progress_percent: models.PositiveSmallIntegerField = models.PositiveSmallIntegerField(
+        default=0
+    )
+    start_date: models.DateField = models.DateField(blank=True, null=True)
+    target_end_date: models.DateField = models.DateField(blank=True, null=True)
+    budget_amount: models.DecimalField = models.DecimalField(
+        blank=True,
+        null=True,
+        max_digits=12,
+        decimal_places=2,
+    )
+    scope_statement: models.TextField = models.TextField(blank=True)
+    key_deliverables: models.TextField = models.TextField(blank=True)
+    key_stakeholders: models.TextField = models.TextField(blank=True)
+    key_risks: models.TextField = models.TextField(blank=True)
+    management_notes: models.TextField = models.TextField(blank=True)
     client_name: models.CharField = models.CharField(max_length=255, blank=True)
     project_location: models.CharField = models.CharField(max_length=255, blank=True)
     completion_year: models.PositiveIntegerField = models.PositiveIntegerField(
@@ -326,6 +374,17 @@ class ProjectPage(CoderedWebPage):
         MultiFieldPanel(
             [
                 FieldPanel("short_description"),
+                FieldPanel("status"),
+                FieldPanel("pmp_phase"),
+                FieldPanel("progress_percent"),
+                FieldPanel("start_date"),
+                FieldPanel("target_end_date"),
+                FieldPanel("budget_amount"),
+                FieldPanel("scope_statement"),
+                FieldPanel("key_deliverables"),
+                FieldPanel("key_stakeholders"),
+                FieldPanel("key_risks"),
+                FieldPanel("management_notes"),
                 FieldPanel("client_name"),
                 FieldPanel("project_location"),
                 FieldPanel("completion_year"),
@@ -360,6 +419,35 @@ class ProjectGalleryImage(Orderable):
     panels = [
         FieldPanel("image"),
         FieldPanel("caption"),
+    ]
+
+
+class ProjectDocument(Orderable):
+    page = ParentalKey(
+        ProjectPage,
+        on_delete=models.CASCADE,
+        related_name="project_documents",
+    )
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    title: models.CharField = models.CharField(max_length=255, blank=True)
+    document: Any = models.ForeignKey(
+        "wagtaildocs.Document",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    uploaded_by: Any = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
+    panels = [
+        FieldPanel("title"),
+        FieldPanel("document"),
     ]
 
 
