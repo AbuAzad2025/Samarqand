@@ -1,4 +1,4 @@
-{% load static wagtailcore_tags %}
+{% load static wagtailcore_tags wagtailimages_tags %}
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
@@ -85,7 +85,12 @@
                 {% if company.brand_subtitle %}<div class="sq-logo-sub">{{ company.brand_subtitle }}</div>{% endif %}
               </div>
               <div class="sq-logo-mark">
-                <img src="{% static 'website/constra/images/logo.png' %}" alt="شعار شركة سمر قند للمقاولات">
+                {% if company.logo_image %}
+                  {% image company.logo_image max-144x144 format-webp preserve-svg as logo_image %}
+                  <img src="{{ logo_image.url }}" alt="{{ company.brand_title|default:company.name }}">
+                {% else %}
+                  <img src="{% static 'website/constra/images/logo.png' %}" alt="{{ company.brand_title|default:company.name }}">
+                {% endif %}
               </div>
             </a>
           </nav>
