@@ -3116,6 +3116,23 @@ def _image_url(request: HttpRequest, image: Any | None) -> str:
     return _abs_url(request, image.file.url)
 
 
+def _project_cover_url(request: HttpRequest, project: Any) -> str:
+    cover = getattr(project, "cover_image", None)
+    cover_url = _image_url(request, cover)
+    if cover_url:
+        return cover_url
+    try:
+        qs = project.gallery_images.all().select_related("image").order_by("sort_order", "id")
+        for gi in qs:
+            img = getattr(gi, "image", None)
+            url = _image_url(request, img)
+            if url:
+                return url
+    except Exception:
+        return ""
+    return ""
+
+
 def _image_rendition_url(request: HttpRequest, image: Any | None, spec: str) -> str:
     if not image:
         return ""
@@ -3144,13 +3161,10 @@ def admin_projects(request: HttpRequest) -> JsonResponse:
     pages = ProjectPage.objects.child_of(idx).specific().order_by("-first_published_at", "-id")
     if status:
         pages = pages.filter(status=status)
+    pages = pages.prefetch_related("gallery_images__image")
     items: list[dict[str, Any]] = []
     for p in pages:
-        cover = getattr(p, "cover_image", None)
-        cover_url = _image_url(request, cover)
-        if not cover_url:
-            first = p.gallery_images.first()
-            cover_url = _image_url(request, first.image if first else None)
+        cover_url = _project_cover_url(request, p)
         items.append(
             {
                 "id": p.id,
@@ -3520,8 +3534,21 @@ def admin_project_gallery_add(request: HttpRequest, project_id: int) -> JsonResp
         img = None
     if not img:
         return _api_error("invalid_image", status=400)
-    item = ProjectGalleryImage.objects.create(page=page, image=img, caption=caption)
-    page.save_revision().publish() if page.live else page.save_revision().save()
+    last = (
+        ProjectGalleryImage.objects.filter(page=page, sort_order__isnull=False)
+        .order_by("-sort_order", "-id")
+        .first()
+    )
+    sort_order = int(getattr(last, "sort_order", -1) or -1) + 1
+    item = ProjectGalleryImage.objects.create(
+        page=page,
+        image=img,
+        caption=caption,
+        sort_order=sort_order,
+    )
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if page:
+        page.save_revision().publish() if page.live else page.save_revision().save()
     return _api_ok({"id": item.id, "url": _image_url(request, img), "imageId": img.id})
 
 
@@ -3534,7 +3561,9 @@ def admin_project_gallery_remove(request: HttpRequest, project_id: int, item_id:
     if not page:
         return _api_error("not_found", status=404)
     ProjectGalleryImage.objects.filter(pk=item_id, page=page).delete()
-    page.save_revision().publish() if page.live else page.save_revision().save()
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if page:
+        page.save_revision().publish() if page.live else page.save_revision().save()
     return _api_ok()
 
 
@@ -5136,17 +5165,10 @@ def site_projects(request: HttpRequest) -> JsonResponse:
     )
     if status:
         pages = pages.filter(status=status)
+    pages = pages.prefetch_related("gallery_images__image")
     items: list[dict[str, Any]] = []
     for p in pages:
-        cover_url = ""
-        cover = getattr(p, "cover_image", None)
-        if cover and getattr(cover, "file", None):
-            cover_url = _abs_url(request, cover.file.url)
-        if not cover_url:
-            first = p.gallery_images.first()
-            image = first.image if first else None
-            if image and getattr(image, "file", None):
-                cover_url = _abs_url(request, image.file.url)
+        cover_url = _project_cover_url(request, p)
         items.append(
             {
                 "id": p.id,
