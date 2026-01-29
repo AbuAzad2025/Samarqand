@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchAuthMe, logout } from "@/react-app/api/site";
 
@@ -10,33 +10,38 @@ export default function ControlLayout() {
     isSuperuser: boolean;
     isStaff: boolean;
   } | null>(null);
+  const [meLoading, setMeLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
+  const meRequestId = useRef(0);
 
   const refreshMe = useCallback(() => {
+    const reqId = ++meRequestId.current;
+    setMeLoading(true);
     fetchAuthMe()
-      .then((data) =>
+      .then((data) => {
+        if (reqId !== meRequestId.current) return;
         setMe({
           authenticated: Boolean(data.authenticated),
           username: data.username || "",
           isSuperuser: Boolean(data.isSuperuser),
           isStaff: Boolean(data.isStaff),
-        }),
-      )
-      .catch(() =>
-        setMe({ authenticated: false, username: "", isSuperuser: false, isStaff: false }),
-      );
+        });
+        setMeLoading(false);
+      })
+      .catch(() => {
+        if (reqId !== meRequestId.current) return;
+        setMe({ authenticated: false, username: "", isSuperuser: false, isStaff: false });
+        setMeLoading(false);
+      });
   }, []);
-
-  useEffect(() => {
-    refreshMe();
-  }, [refreshMe]);
 
   useEffect(() => {
     refreshMe();
   }, [location.pathname, refreshMe]);
 
   useEffect(() => {
+    if (meLoading) return;
     if (!me) return;
     if (location.pathname.startsWith("/control/login")) {
       if (me.authenticated && me.isStaff) {
@@ -51,7 +56,7 @@ export default function ControlLayout() {
     if (!me.isStaff) {
       navigate("/control/login", { replace: true });
     }
-  }, [location.pathname, me, navigate]);
+  }, [location.pathname, me, meLoading, navigate]);
 
   async function onLogout() {
     await logout().catch(() => {});

@@ -102,15 +102,26 @@ export function apiUrl(input: string): string {
 }
 
 export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(input), init);
+  return fetch(apiUrl(input), {
+    ...init,
+    credentials: init?.credentials || "same-origin",
+  });
 }
 
+type ApiError = { code: string; message?: string; details?: unknown };
+type ApiResponse<T> = { ok: true; result: T } | { ok: false; error: ApiError };
+
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await apiFetch(url, { credentials: "same-origin" });
+  const res = await apiFetch(url);
   if (!res.ok) {
     throw new Error(`${apiUrl(url)} ${res.status}`);
   }
-  return (await res.json()) as T;
+  const payload = (await res.json()) as ApiResponse<T>;
+  if (!payload || payload.ok !== true) {
+    const code = (payload as { error?: ApiError } | null)?.error?.code || "error";
+    throw new Error(code);
+  }
+  return payload.result;
 }
 
 function getCookie(name: string): string | null {
@@ -214,11 +225,19 @@ export async function createOrUpdateUser(input: {
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return { ok: false, error: data?.error || "forbidden" };
+  const data = (await res.json().catch(() => null)) as ApiResponse<{
+    created: boolean;
+    generatedPassword: string | null;
+  }> | null;
+  if (!res.ok || !data || data.ok !== true) {
+    const code = data && data.ok === false ? data.error.code : "forbidden";
+    return { ok: false, error: code };
   }
-  return { ok: true, created: Boolean(data.created), generatedPassword: data.generatedPassword };
+  return {
+    ok: true,
+    created: Boolean(data.result.created),
+    generatedPassword: data.result.generatedPassword || undefined,
+  };
 }
 
 export async function logout(): Promise<{ ok: boolean }> {
@@ -248,8 +267,9 @@ export async function changePassword(input: {
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }
@@ -288,8 +308,9 @@ export async function updateAdminCompanySettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }
@@ -325,8 +346,9 @@ export async function updateAdminHomeSettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }
@@ -366,8 +388,9 @@ export async function updateAdminAISettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }
@@ -425,8 +448,9 @@ export async function updateAdminCalculatorSettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }
@@ -470,8 +494,9 @@ export async function updateAdminVisibilitySettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: data?.error || "error" };
+    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+    const code = data && data.ok === false ? data.error.code : "error";
+    return { ok: false, error: code };
   }
   return { ok: true };
 }

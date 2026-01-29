@@ -35,6 +35,8 @@ def _rewrite_root_paths(html: str) -> str:
         path = match.group(2)
         if path.startswith("//") or "://" in path:
             return match.group(0)
+        if not (path.startswith("/assets/") or path.startswith("/@vite/")):
+            return match.group(0)
         if path.startswith("/"):
             path = path[1:]
         return f"{quote}{base.rstrip('/')}/{path}{quote}"
