@@ -163,4 +163,16 @@ if settings.DEBUG:
     # Serve static and media files from development server
     urlpatterns += staticfiles_urlpatterns()  # type: ignore
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # type: ignore
+
+if not settings.DEBUG and getattr(settings, "SERVE_MEDIA", False):
+    from django.views.static import serve
+    from wagtailcache.cache import nocache_page
+
+    urlpatterns += [
+        re_path(
+            r"^media/(?P<path>.*)$",
+            nocache_page(serve),
+            {"document_root": settings.MEDIA_ROOT},
+        )
+    ]
 # fmt: on

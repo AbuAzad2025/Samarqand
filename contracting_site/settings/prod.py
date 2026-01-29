@@ -33,6 +33,9 @@ SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", "true")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = _env("SECURE_REFERRER_POLICY", "same-origin")
 
+RENDER_EXTERNAL_HOSTNAME = _env("RENDER_EXTERNAL_HOSTNAME", "")
+SERVE_MEDIA = _env_bool("SERVE_MEDIA", "true" if RENDER_EXTERNAL_HOSTNAME else "false")
+
 # To send email from the server, we recommend django_sendmail_backend
 # Or specify your own email backend such as an SMTP server.
 # https://docs.djangoproject.com/en/5.2/ref/settings/#email-backend
