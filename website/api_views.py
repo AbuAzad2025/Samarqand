@@ -1,5 +1,7 @@
 import base64
 import json
+import logging
+import mimetypes
 import os
 import random
 import secrets
@@ -19,15 +21,18 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db import transaction
+from django.http import FileResponse
 from django.http import HttpRequest
 from django.http import HttpResponse
 from django.http import JsonResponse
 from django.http import StreamingHttpResponse
+from django.middleware.csrf import get_token
 from django.utils.text import slugify
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_POST
 from PIL import Image
 from PIL import ImageDraw
@@ -55,6 +60,7 @@ from website.models import HomeTimelineStep
 from website.models import HomeTrustBadge
 from website.models import LocationIndexPage
 from website.models import LocationPage
+from website.models import ProjectDocument
 from website.models import ProjectGalleryImage
 from website.models import ProjectIndexPage
 from website.models import ProjectPage
@@ -69,6 +75,9 @@ from website.models import ToolsIndexPage
 from website.models import WebPage
 
 
+logger = logging.getLogger(__name__)
+
+
 def _read_json(request: HttpRequest) -> dict[str, Any]:
     try:
         raw = request.body.decode("utf-8") if request.body else "{}"
@@ -78,7 +87,74 @@ def _read_json(request: HttpRequest) -> dict[str, Any]:
         return {}
 
 
+def _api_ok(payload: dict[str, Any] | None = None, *, status: int = 200) -> JsonResponse:
+    result: dict[str, Any] = payload or {}
+    return JsonResponse({"ok": True, "result": result}, status=status)
+
+
+def _api_error(
+    code: str,
+    *,
+    status: int = 400,
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> JsonResponse:
+    error_obj: dict[str, Any] = {"code": code}
+    if message:
+        error_obj["message"] = message
+    if details:
+        error_obj["details"] = details
+    return JsonResponse({"ok": False, "error": error_obj}, status=status)
+
+
+def _rate_limit_key(request: HttpRequest, *, scope: str, window_seconds: int) -> str:
+    user = getattr(request, "user", None)
+    user_id = getattr(user, "id", None) if user and getattr(user, "is_authenticated", False) else None
+    ip = str(request.META.get("REMOTE_ADDR") or "").strip() or "unknown"
+    ident = f"u:{user_id}" if user_id else f"ip:{ip}"
+    bucket = int(time.time() // max(1, int(window_seconds)))
+    return f"rl:{scope}:{ident}:{bucket}"
+
+
+def _check_rate_limit(
+    request: HttpRequest,
+    *,
+    scope: str,
+    limit: int,
+    window_seconds: int,
+) -> JsonResponse | None:
+    lim = max(1, int(limit))
+    win = max(1, int(window_seconds))
+    key = _rate_limit_key(request, scope=scope, window_seconds=win)
+    try:
+        added = cache.add(key, 1, timeout=win)
+        if added:
+            return None
+        current = cache.incr(key)
+        if int(current) <= lim:
+            return None
+    except Exception:
+        return None
+
+    now = int(time.time())
+    retry_after = win - (now % win)
+    return _api_error(
+        "rate_limited",
+        status=429,
+        message="تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً.",
+        details={"retryAfterSeconds": retry_after},
+    )
+
+
+def _safe_uploaded_filename(original_name: str, *, allowed_exts: set[str]) -> str:
+    suffix = Path(original_name or "").suffix.lower()
+    ext = suffix if suffix in allowed_exts else ""
+    token = secrets.token_urlsafe(12).replace("-", "").replace("_", "")
+    return f"{token}{ext}" if ext else token
+
+
 def _can_use_restricted_tools(request: HttpRequest) -> bool:
+
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
         return False
@@ -96,31 +172,63 @@ def _can_use_restricted_tools(request: HttpRequest) -> bool:
     return any(name in allowed for name in group_names)
 
 
+def _require_restricted_tools(request: HttpRequest) -> Any | None:
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        return _api_error("unauthorized", status=401)
+    if not getattr(user, "is_staff", False):
+        return _api_error("forbidden", status=403)
+    if getattr(user, "is_superuser", False):
+        return None
+
+    try:
+        group_names = set(user.groups.values_list("name", flat=True))
+    except Exception:
+        return _api_error("forbidden", status=403)
+
+    allowed = {"Managers", "Manager", "مدراء", "المدراء", "مدراء الموقع"}
+    if any(name in allowed for name in group_names):
+        return None
+    return _api_error("forbidden", status=403)
+
+
+def csrf_failure(request: HttpRequest, reason: str = "") -> JsonResponse | HttpResponse:
+    if str(getattr(request, "path", "") or "").startswith("/api/"):
+        msg = "فشل التحقق الأمني. حدّث الصفحة ثم أعد المحاولة."
+        if reason:
+            return _api_error("csrf_failed", status=403, message=msg, details={"reason": reason})
+        return _api_error("csrf_failed", status=403, message=msg)
+    return HttpResponse("CSRF Failed", status=403, content_type="text/plain; charset=utf-8")
+
+
 def auth_access(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({"canUseRestrictedTools": _can_use_restricted_tools(request)})
+    return _api_ok({"canUseRestrictedTools": _can_use_restricted_tools(request)})
 
 
 @require_POST
 def auth_login(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="auth_login", limit=12, window_seconds=300)
+    if limited:
+        return limited
     data = _read_json(request)
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
     user = authenticate(request, username=username, password=password)
     if not user:
-        return JsonResponse({"error": "invalid_credentials"}, status=401)
+        return _api_error("invalid_credentials", status=401)
     if not getattr(user, "is_active", False):
-        return JsonResponse({"error": "inactive"}, status=403)
+        return _api_error("inactive", status=403)
     if not getattr(user, "is_staff", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("forbidden", status=403)
     django_login(request, user)
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @ensure_csrf_cookie
 def auth_me(request: HttpRequest) -> JsonResponse:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
-        return JsonResponse(
+        return _api_ok(
             {
                 "authenticated": False,
                 "username": "",
@@ -133,7 +241,7 @@ def auth_me(request: HttpRequest) -> JsonResponse:
         groups = list(user.groups.values_list("name", flat=True))
     except Exception:
         groups = []
-    return JsonResponse(
+    return _api_ok(
         {
             "authenticated": True,
             "username": getattr(user, "username", "") or "",
@@ -147,51 +255,116 @@ def auth_me(request: HttpRequest) -> JsonResponse:
 @require_POST
 def auth_logout(request: HttpRequest) -> JsonResponse:
     django_logout(request)
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
 def auth_change_password(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="auth_change_password", limit=12, window_seconds=600)
+    if limited:
+        return limited
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("unauthorized", status=401)
     if not getattr(user, "is_staff", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("forbidden", status=403)
 
     data = _read_json(request)
     old_password = str(data.get("oldPassword") or "")
     new_password = str(data.get("newPassword") or "")
 
     if not old_password or not new_password:
-        return JsonResponse({"error": "missing_fields"}, status=400)
+        return _api_error("missing_fields", status=400)
 
     if not user.check_password(old_password):
-        return JsonResponse({"error": "invalid_old_password"}, status=400)
+        return _api_error("invalid_old_password", status=400)
 
     user.set_password(new_password)
     user.save()
     django_login(request, user)
-    return JsonResponse({"ok": True})
+    return _api_ok()
+
+
+@require_POST
+def admin_client_errors(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(
+        request, scope="admin_client_errors", limit=60, window_seconds=300
+    )
+    if limited:
+        return limited
+    forbidden = _require_staff(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    message = str(data.get("message") or "").strip()
+    if not message:
+        return _api_error("missing_fields", status=400)
+    route = str(data.get("route") or "").strip()
+    stack = str(data.get("stack") or "").strip()
+    component_stack = str(data.get("componentStack") or "").strip()
+    ua = str(request.META.get("HTTP_USER_AGENT") or "").strip()
+
+    user = getattr(request, "user", None)
+    logger.error(
+        "Client runtime error",
+        extra={
+            "path": str(getattr(request, "path", "") or ""),
+            "route": route,
+            "message": message,
+            "stack": stack,
+            "componentStack": component_stack,
+            "userAgent": ua,
+            "userId": getattr(user, "id", None)
+            if user and getattr(user, "is_authenticated", False)
+            else None,
+            "username": getattr(user, "username", None)
+            if user and getattr(user, "is_authenticated", False)
+            else None,
+        },
+    )
+    return _api_ok()
 
 
 def _require_staff(request: HttpRequest) -> Any | None:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("unauthorized", status=401)
     if not getattr(user, "is_staff", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("forbidden", status=403)
     return None
 
 
 def _require_superuser(request: HttpRequest) -> Any | None:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("unauthorized", status=401)
     if not getattr(user, "is_superuser", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return _api_error("forbidden", status=403)
     return None
 
 
+def _require_projects_management(request: HttpRequest) -> Any | None:
+    forbidden = _require_staff(request)
+    if forbidden:
+        return forbidden
+    site = _get_site(request)
+    if site:
+        v = SiteVisibilitySettings.for_site(site)
+        if not getattr(v, "show_control_projects_management", True):
+            return _api_error("forbidden", status=403)
+    user = getattr(request, "user", None)
+    if user and getattr(user, "is_superuser", False):
+        return None
+    try:
+        group_names = {"Managers", "Project Managers", "PMO", "المدراء", "مدراء المشاريع"}
+        if user and user.groups.filter(name__in=group_names).exists():
+            return None
+    except Exception:
+        pass
+    return _api_error("forbidden", status=403)
+
+
+@require_GET
 def admin_summary(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -199,7 +372,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
 
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
 
     company = CompanySettings.for_site(site)
     home = HomePageSettings.for_site(site)
@@ -230,7 +403,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
         "aiMetrics": HomeAIMetric.objects.count(),
     }
 
-    return JsonResponse(
+    return _api_ok(
         {
             "warnings": warnings,
             "counts": counts,
@@ -243,16 +416,17 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_GET
 def admin_company_settings(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     logo_id = getattr(company.logo_image, "id", None)
-    return JsonResponse(
+    return _api_ok(
         {
             "name": company.name,
             "brandTitle": company.brand_title,
@@ -274,6 +448,7 @@ def admin_company_settings(request: HttpRequest) -> JsonResponse:
             "linkedinUrl": company.linkedin_url,
             "logoImageId": logo_id,
             "logoUrl": _image_url(request, company.logo_image),
+            "logoThumbUrl": _image_rendition_url(request, company.logo_image, "max-320x320|jpegquality-70"),
         }
     )
 
@@ -285,7 +460,7 @@ def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     data = _read_json(request)
     company.name = str(data.get("name") or company.name)
@@ -324,24 +499,25 @@ def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return JsonResponse({"error": "invalid_image"}, status=400)
+                return _api_error("invalid_image", status=400)
             company.logo_image = img
 
     company.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_settings(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     hero_bg_id = getattr(home.hero_background_image, "id", None)
     hero_bg_url = _image_url(request, home.hero_background_image)
-    return JsonResponse(
+    return _api_ok(
         {
             "heroTitleLine1": home.hero_title_line_1,
             "heroTitleLine2": home.hero_title_line_2,
@@ -352,6 +528,7 @@ def admin_home_settings(request: HttpRequest) -> JsonResponse:
             "heroSecondaryCtaUrl": home.hero_secondary_cta_url,
             "heroBackgroundImageId": hero_bg_id,
             "heroBackgroundUrl": hero_bg_url,
+            "heroBackgroundThumbUrl": _image_rendition_url(request, home.hero_background_image, "fill-640x360|jpegquality-70"),
             "newsletterTitle": home.newsletter_title,
             "newsletterSubtitle": home.newsletter_subtitle,
         }
@@ -365,7 +542,7 @@ def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     data = _read_json(request)
     home.hero_title_line_1 = str(data.get("heroTitleLine1") or home.hero_title_line_1)
@@ -403,22 +580,23 @@ def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return JsonResponse({"error": "invalid_image"}, status=400)
+                return _api_error("invalid_image", status=400)
             home.hero_background_image = img
 
     home.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_ai_settings(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     s = AISettings.for_site(site)
-    return JsonResponse(
+    return _api_ok(
         {
             "geminiApiKeyEnvVar": s.gemini_api_key_env_var,
             "geminiModel": s.gemini_model,
@@ -446,7 +624,7 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     s = AISettings.for_site(site)
     data = _read_json(request)
     s.gemini_api_key_env_var = str(
@@ -461,13 +639,13 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         try:
             s.temperature = float(temp_val)
         except Exception:
-            return JsonResponse({"error": "invalid_temperature"}, status=400)
+            return _api_error("invalid_temperature", status=400)
     max_val = data.get("maxOutputTokens")
     if max_val is not None:
         try:
             s.max_output_tokens = int(max_val)
         except Exception:
-            return JsonResponse({"error": "invalid_max_output_tokens"}, status=400)
+            return _api_error("invalid_max_output_tokens", status=400)
     s.company_context = str(data.get("companyContext") or s.company_context)
     s.design_analyzer_prompt = str(
         data.get("designAnalyzerPrompt") or s.design_analyzer_prompt
@@ -493,7 +671,7 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         data.get("visualizerPlaceholderFooterText") or s.visualizer_placeholder_footer_text
     )
     s.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 def _default_calculator_items(settings_obj: CalculatorSettings | None) -> list[dict[str, Any]]:
@@ -715,16 +893,17 @@ def _default_calculator_items(settings_obj: CalculatorSettings | None) -> list[d
     ]
 
 
+@require_GET
 def admin_calculator_settings(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     s = CalculatorSettings.for_site(site)
     items = s.items if isinstance(s.items, list) and len(s.items) else _default_calculator_items(s)
-    return JsonResponse(
+    return _api_ok(
         {
             "concreteM3PerM2": s.concrete_m3_per_m2,
             "concreteUnitPriceIls": s.concrete_unit_price_ils,
@@ -758,38 +937,38 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     s = CalculatorSettings.for_site(site)
     data = _read_json(request)
     if data.get("currencyDefault") is not None:
         val = str(data.get("currencyDefault") or "").strip().upper()
         if val not in {"ILS", "USD"}:
-            return JsonResponse({"error": "invalid_currencyDefault"}, status=400)
+            return _api_error("invalid_currencyDefault", status=400)
         s.currency_default = val
     raw_usd_to_ils = data.get("usdToIlsRate")
     if raw_usd_to_ils is not None:
         try:
             s.usd_to_ils_rate = float(raw_usd_to_ils)
         except Exception:
-            return JsonResponse({"error": "invalid_usdToIlsRate"}, status=400)
+            return _api_error("invalid_usdToIlsRate", status=400)
     raw_overhead = data.get("overheadPercent")
     if raw_overhead is not None:
         try:
             s.overhead_percent = float(raw_overhead)
         except Exception:
-            return JsonResponse({"error": "invalid_overheadPercent"}, status=400)
+            return _api_error("invalid_overheadPercent", status=400)
     raw_profit = data.get("profitPercent")
     if raw_profit is not None:
         try:
             s.profit_percent = float(raw_profit)
         except Exception:
-            return JsonResponse({"error": "invalid_profitPercent"}, status=400)
+            return _api_error("invalid_profitPercent", status=400)
     raw_contingency = data.get("contingencyPercent")
     if raw_contingency is not None:
         try:
             s.contingency_percent = float(raw_contingency)
         except Exception:
-            return JsonResponse({"error": "invalid_contingencyPercent"}, status=400)
+            return _api_error("invalid_contingencyPercent", status=400)
     if data.get("includeVat") is not None:
         s.include_vat = bool(data.get("includeVat"))
     raw_vat = data.get("vatPercent")
@@ -797,11 +976,11 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
         try:
             s.vat_percent = float(raw_vat)
         except Exception:
-            return JsonResponse({"error": "invalid_vatPercent"}, status=400)
+            return _api_error("invalid_vatPercent", status=400)
     if data.get("items") is not None:
         items = data.get("items")
         if not isinstance(items, list):
-            return JsonResponse({"error": "invalid_items"}, status=400)
+            return _api_error("invalid_items", status=400)
         cleaned: list[dict[str, Any]] = []
         for raw in items[:400]:
             if not isinstance(raw, dict):
@@ -817,7 +996,7 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
                 factor = float(raw.get("factor") or 0.0)
                 unit_price_ils = float(raw.get("unitPriceIls") or 0.0)
             except Exception:
-                return JsonResponse({"error": "invalid_items"}, status=400)
+                return _api_error("invalid_items", status=400)
             enabled = bool(raw.get("enabled", True))
             if basis not in {"area_total", "area_per_floor"}:
                 basis = "area_total"
@@ -855,20 +1034,21 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
         try:
             setattr(s, attr, float(raw_val))
         except Exception:
-            return JsonResponse({"error": f"invalid_{key}"}, status=400)
+            return _api_error(f"invalid_{key}", status=400)
     s.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
-    return JsonResponse(
+    return _api_ok(
         {
             "showServices": v.show_services,
             "showProjects": v.show_projects,
@@ -889,6 +1069,7 @@ def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
             "showWhatsAppButton": v.show_whatsapp_button,
             "showFloatingCTA": v.show_floating_cta,
             "showFooter": v.show_footer,
+            "showControlProjectsManagement": v.show_control_projects_management,
         }
     )
 
@@ -900,7 +1081,7 @@ def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
     data = _read_json(request)
     for key, attr in [
@@ -923,14 +1104,16 @@ def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
         ("showWhatsAppButton", "show_whatsapp_button"),
         ("showFloatingCTA", "show_floating_cta"),
         ("showFooter", "show_footer"),
+        ("showControlProjectsManagement", "show_control_projects_management"),
     ]:
         if data.get(key) is None:
             continue
         setattr(v, attr, bool(data.get(key)))
     v.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_team(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -948,9 +1131,10 @@ def admin_team(request: HttpRequest) -> JsonResponse:
                 "bio": m.bio,
                 "imageId": getattr(m.image, "id", None),
                 "imageUrl": _image_url(request, m.image),
+                "imageThumbUrl": _image_rendition_url(request, m.image, "fill-256x256|jpegquality-70"),
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -961,7 +1145,7 @@ def admin_team_create(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     name = str(data.get("name") or "").strip()
     if not name:
-        return JsonResponse({"error": "missing_name"}, status=400)
+        return _api_error("missing_name", status=400)
 
     image_id_raw = data.get("imageId")
     image_id: int | None = None
@@ -995,7 +1179,7 @@ def admin_team_create(request: HttpRequest) -> JsonResponse:
         bio=str(data.get("bio") or ""),
         image=img,
     )
-    return JsonResponse({"ok": True, "id": m.id})
+    return _api_ok({"id": m.id})
 
 
 @require_POST
@@ -1005,7 +1189,7 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
     if not m:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
 
     sort_order_raw = data.get("sortOrder")
@@ -1013,12 +1197,12 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
         try:
             m.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
 
     if data.get("name") is not None:
         name = str(data.get("name") or "").strip()
         if not name:
-            return JsonResponse({"error": "missing_name"}, status=400)
+            return _api_error("missing_name", status=400)
         m.name = name
 
     for key, attr in [
@@ -1052,11 +1236,16 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return JsonResponse({"error": "invalid_image"}, status=400)
+                return _api_error("invalid_image", status=400)
             m.image = img
 
     m.save()
-    return JsonResponse({"ok": True, "imageUrl": _image_url(request, m.image), "imageId": getattr(m.image, "id", None)})
+    return _api_ok(
+        {
+            "imageUrl": _image_url(request, m.image),
+            "imageId": getattr(m.image, "id", None),
+        }
+    )
 
 
 @require_POST
@@ -1066,9 +1255,9 @@ def admin_team_delete(request: HttpRequest, member_id: int) -> JsonResponse:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
     if not m:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     m.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1079,7 +1268,7 @@ def admin_team_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1088,7 +1277,7 @@ def admin_team_reorder(request: HttpRequest) -> JsonResponse:
             continue
 
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
 
     members = TeamMember.objects.filter(pk__in=cleaned)
     by_id = {m.id: m for m in members}
@@ -1099,9 +1288,10 @@ def admin_team_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             m.sort_order = idx
             m.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_testimonials(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1118,7 +1308,7 @@ def admin_testimonials(request: HttpRequest) -> JsonResponse:
                 "rating": int(t.rating or 0),
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1130,9 +1320,9 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
     name = str(data.get("name") or "").strip()
     text = str(data.get("text") or "").strip()
     if not name:
-        return JsonResponse({"error": "missing_name"}, status=400)
+        return _api_error("missing_name", status=400)
     if not text:
-        return JsonResponse({"error": "missing_text"}, status=400)
+        return _api_error("missing_text", status=400)
 
     rating_raw = data.get("rating")
     rating = 5
@@ -1140,7 +1330,7 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
         try:
             rating = int(rating_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_rating"}, status=400)
+            return _api_error("invalid_rating", status=400)
         rating = max(1, min(5, rating))
 
     last = Testimonial.objects.order_by("-sort_order", "-id").first()
@@ -1153,7 +1343,7 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
         text=text,
         rating=rating,
     )
-    return JsonResponse({"ok": True, "id": t.id})
+    return _api_ok({"id": t.id})
 
 
 @require_POST
@@ -1163,7 +1353,7 @@ def admin_testimonials_update(request: HttpRequest, item_id: int) -> JsonRespons
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
     if not t:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
 
     sort_order_raw = data.get("sortOrder")
@@ -1171,18 +1361,18 @@ def admin_testimonials_update(request: HttpRequest, item_id: int) -> JsonRespons
         try:
             t.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
 
     if data.get("name") is not None:
         name = str(data.get("name") or "").strip()
         if not name:
-            return JsonResponse({"error": "missing_name"}, status=400)
+            return _api_error("missing_name", status=400)
         t.name = name
 
     if data.get("text") is not None:
         text = str(data.get("text") or "").strip()
         if not text:
-            return JsonResponse({"error": "missing_text"}, status=400)
+            return _api_error("missing_text", status=400)
         t.text = text
 
     if data.get("project") is not None:
@@ -1193,11 +1383,11 @@ def admin_testimonials_update(request: HttpRequest, item_id: int) -> JsonRespons
         try:
             rating = int(rating_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_rating"}, status=400)
+            return _api_error("invalid_rating", status=400)
         t.rating = max(1, min(5, rating))
 
     t.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1207,9 +1397,9 @@ def admin_testimonials_delete(request: HttpRequest, item_id: int) -> JsonRespons
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
     if not t:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     t.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1220,7 +1410,7 @@ def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1228,7 +1418,7 @@ def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = Testimonial.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1238,9 +1428,10 @@ def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_trust_badges(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1256,7 +1447,7 @@ def admin_home_trust_badges(request: HttpRequest) -> JsonResponse:
                 "iconClass": b.icon_class,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1267,7 +1458,7 @@ def admin_home_trust_badges_create(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     title = str(data.get("title") or "").strip()
     if not title:
-        return JsonResponse({"error": "missing_title"}, status=400)
+        return _api_error("missing_title", status=400)
     last = HomeTrustBadge.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     b = HomeTrustBadge.objects.create(
@@ -1276,7 +1467,7 @@ def admin_home_trust_badges_create(request: HttpRequest) -> JsonResponse:
         description=str(data.get("description") or ""),
         icon_class=str(data.get("iconClass") or "fas fa-shield-alt") or "fas fa-shield-alt",
     )
-    return JsonResponse({"ok": True, "id": b.id})
+    return _api_ok({"id": b.id}, status=201)
 
 
 @require_POST
@@ -1286,25 +1477,25 @@ def admin_home_trust_badges_update(request: HttpRequest, item_id: int) -> JsonRe
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
     if not b:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
         try:
             b.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
     if data.get("title") is not None:
         title = str(data.get("title") or "").strip()
         if not title:
-            return JsonResponse({"error": "missing_title"}, status=400)
+            return _api_error("missing_title", status=400)
         b.title = title
     if data.get("description") is not None:
         b.description = str(data.get("description") or "")
     if data.get("iconClass") is not None:
         b.icon_class = str(data.get("iconClass") or "")
     b.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1314,9 +1505,9 @@ def admin_home_trust_badges_delete(request: HttpRequest, item_id: int) -> JsonRe
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
     if not b:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     b.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1327,7 +1518,7 @@ def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1335,7 +1526,7 @@ def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = HomeTrustBadge.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1345,9 +1536,10 @@ def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_stats(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1363,7 +1555,7 @@ def admin_home_stats(request: HttpRequest) -> JsonResponse:
                 "iconClass": s.icon_class,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1375,9 +1567,9 @@ def admin_home_stats_create(request: HttpRequest) -> JsonResponse:
     label = str(data.get("label") or "").strip()
     value = str(data.get("value") or "").strip()
     if not label:
-        return JsonResponse({"error": "missing_label"}, status=400)
+        return _api_error("missing_label", status=400)
     if not value:
-        return JsonResponse({"error": "missing_value"}, status=400)
+        return _api_error("missing_value", status=400)
     last = HomeStat.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     s = HomeStat.objects.create(
@@ -1386,7 +1578,7 @@ def admin_home_stats_create(request: HttpRequest) -> JsonResponse:
         value=value,
         icon_class=str(data.get("iconClass") or "fas fa-building") or "fas fa-building",
     )
-    return JsonResponse({"ok": True, "id": s.id})
+    return _api_ok({"id": s.id})
 
 
 @require_POST
@@ -1396,28 +1588,28 @@ def admin_home_stats_update(request: HttpRequest, item_id: int) -> JsonResponse:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
     if not s:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
         try:
             s.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
     if data.get("label") is not None:
         label = str(data.get("label") or "").strip()
         if not label:
-            return JsonResponse({"error": "missing_label"}, status=400)
+            return _api_error("missing_label", status=400)
         s.label = label
     if data.get("value") is not None:
         value = str(data.get("value") or "").strip()
         if not value:
-            return JsonResponse({"error": "missing_value"}, status=400)
+            return _api_error("missing_value", status=400)
         s.value = value
     if data.get("iconClass") is not None:
         s.icon_class = str(data.get("iconClass") or "")
     s.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1427,9 +1619,9 @@ def admin_home_stats_delete(request: HttpRequest, item_id: int) -> JsonResponse:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
     if not s:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     s.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1440,7 +1632,7 @@ def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1448,7 +1640,7 @@ def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = HomeStat.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1458,9 +1650,10 @@ def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_timeline(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1476,7 +1669,7 @@ def admin_home_timeline(request: HttpRequest) -> JsonResponse:
                 "iconClass": st.icon_class,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1487,7 +1680,7 @@ def admin_home_timeline_create(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     title = str(data.get("title") or "").strip()
     if not title:
-        return JsonResponse({"error": "missing_title"}, status=400)
+        return _api_error("missing_title", status=400)
     last = HomeTimelineStep.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     st = HomeTimelineStep.objects.create(
@@ -1496,7 +1689,7 @@ def admin_home_timeline_create(request: HttpRequest) -> JsonResponse:
         description=str(data.get("description") or ""),
         icon_class=str(data.get("iconClass") or "fas fa-file-search") or "fas fa-file-search",
     )
-    return JsonResponse({"ok": True, "id": st.id})
+    return _api_ok({"id": st.id})
 
 
 @require_POST
@@ -1506,25 +1699,25 @@ def admin_home_timeline_update(request: HttpRequest, item_id: int) -> JsonRespon
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
     if not st:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
         try:
             st.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
     if data.get("title") is not None:
         title = str(data.get("title") or "").strip()
         if not title:
-            return JsonResponse({"error": "missing_title"}, status=400)
+            return _api_error("missing_title", status=400)
         st.title = title
     if data.get("description") is not None:
         st.description = str(data.get("description") or "")
     if data.get("iconClass") is not None:
         st.icon_class = str(data.get("iconClass") or "")
     st.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1534,9 +1727,9 @@ def admin_home_timeline_delete(request: HttpRequest, item_id: int) -> JsonRespon
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
     if not st:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     st.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1547,7 +1740,7 @@ def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1555,7 +1748,7 @@ def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = HomeTimelineStep.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1565,9 +1758,10 @@ def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_ai_features(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1583,7 +1777,7 @@ def admin_home_ai_features(request: HttpRequest) -> JsonResponse:
                 "badgeText": f.badge_text,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1594,7 +1788,7 @@ def admin_home_ai_features_create(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     title = str(data.get("title") or "").strip()
     if not title:
-        return JsonResponse({"error": "missing_title"}, status=400)
+        return _api_error("missing_title", status=400)
     last = HomeAIFeature.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     f = HomeAIFeature.objects.create(
@@ -1603,7 +1797,7 @@ def admin_home_ai_features_create(request: HttpRequest) -> JsonResponse:
         description=str(data.get("description") or ""),
         badge_text=str(data.get("badgeText") or "AI") or "AI",
     )
-    return JsonResponse({"ok": True, "id": f.id})
+    return _api_ok({"id": f.id})
 
 
 @require_POST
@@ -1613,25 +1807,25 @@ def admin_home_ai_features_update(request: HttpRequest, item_id: int) -> JsonRes
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
     if not f:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
         try:
             f.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
     if data.get("title") is not None:
         title = str(data.get("title") or "").strip()
         if not title:
-            return JsonResponse({"error": "missing_title"}, status=400)
+            return _api_error("missing_title", status=400)
         f.title = title
     if data.get("description") is not None:
         f.description = str(data.get("description") or "")
     if data.get("badgeText") is not None:
         f.badge_text = str(data.get("badgeText") or "")
     f.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1641,9 +1835,9 @@ def admin_home_ai_features_delete(request: HttpRequest, item_id: int) -> JsonRes
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
     if not f:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     f.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1654,7 +1848,7 @@ def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1662,7 +1856,7 @@ def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = HomeAIFeature.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1672,9 +1866,10 @@ def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_home_ai_metrics(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -1689,7 +1884,7 @@ def admin_home_ai_metrics(request: HttpRequest) -> JsonResponse:
                 "label": m.label,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 @require_POST
@@ -1701,13 +1896,13 @@ def admin_home_ai_metrics_create(request: HttpRequest) -> JsonResponse:
     value = str(data.get("value") or "").strip()
     label = str(data.get("label") or "").strip()
     if not value:
-        return JsonResponse({"error": "missing_value"}, status=400)
+        return _api_error("missing_value", status=400)
     if not label:
-        return JsonResponse({"error": "missing_label"}, status=400)
+        return _api_error("missing_label", status=400)
     last = HomeAIMetric.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     m = HomeAIMetric.objects.create(sort_order=sort_order, value=value, label=label)
-    return JsonResponse({"ok": True, "id": m.id})
+    return _api_ok({"id": m.id})
 
 
 @require_POST
@@ -1717,26 +1912,26 @@ def admin_home_ai_metrics_update(request: HttpRequest, item_id: int) -> JsonResp
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
     if not m:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
         try:
             m.sort_order = int(sort_order_raw)
         except Exception:
-            return JsonResponse({"error": "invalid_sortOrder"}, status=400)
+            return _api_error("invalid_sortOrder", status=400)
     if data.get("value") is not None:
         value = str(data.get("value") or "").strip()
         if not value:
-            return JsonResponse({"error": "missing_value"}, status=400)
+            return _api_error("missing_value", status=400)
         m.value = value
     if data.get("label") is not None:
         label = str(data.get("label") or "").strip()
         if not label:
-            return JsonResponse({"error": "missing_label"}, status=400)
+            return _api_error("missing_label", status=400)
         m.label = label
     m.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1746,9 +1941,9 @@ def admin_home_ai_metrics_delete(request: HttpRequest, item_id: int) -> JsonResp
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
     if not m:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     m.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1759,7 +1954,7 @@ def admin_home_ai_metrics_reorder(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     ids = data.get("ids")
     if not isinstance(ids, list):
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     cleaned: list[int] = []
     for x in ids:
         try:
@@ -1767,7 +1962,7 @@ def admin_home_ai_metrics_reorder(request: HttpRequest) -> JsonResponse:
         except Exception:
             continue
     if not cleaned:
-        return JsonResponse({"error": "invalid_ids"}, status=400)
+        return _api_error("invalid_ids", status=400)
     items = HomeAIMetric.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -1777,7 +1972,7 @@ def admin_home_ai_metrics_reorder(request: HttpRequest) -> JsonResponse:
                 continue
             i.sort_order = idx
             i.save(update_fields=["sort_order"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 def _unique_child_slug(parent: Page, base_slug: str) -> str:
@@ -1839,13 +2034,14 @@ def _streamfield_first_html(body: Any) -> str:
     return ""
 
 
+@require_GET
 def admin_services(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     idx = _services_index(request)
     if not idx:
-        return JsonResponse({"items": []})
+        return _api_ok({"items": []})
     pages = Page.objects.child_of(idx).type(ServicePage).specific()
     items: list[dict[str, Any]] = []
     for p in pages:
@@ -1858,21 +2054,23 @@ def admin_services(request: HttpRequest) -> JsonResponse:
                 "live": bool(getattr(p, "live", False)),
                 "firstPublishedAt": str(getattr(p, "first_published_at", "") or ""),
                 "coverUrl": _image_url(request, cover),
+                "coverThumbUrl": _image_rendition_url(request, cover, "fill-640x360|jpegquality-70"),
                 "shortDescription": getattr(p, "short_description", "") or "",
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
+@require_GET
 def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     cover = getattr(page, "cover_image", None)
-    return JsonResponse(
+    return _api_ok(
         {
             "id": page.id,
             "title": page.title,
@@ -1882,6 +2080,7 @@ def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
             "shortDescription": getattr(page, "short_description", "") or "",
             "coverImageId": getattr(cover, "id", None),
             "coverUrl": _image_url(request, cover),
+            "coverThumbUrl": _image_rendition_url(request, cover, "fill-640x360|jpegquality-70"),
             "bodyHtml": _streamfield_first_html(getattr(page, "body", None)),
         }
     )
@@ -1894,7 +2093,7 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
         return forbidden
     idx = _services_index(request)
     if not idx:
-        return JsonResponse({"error": "services_index_missing"}, status=400)
+        return _api_error("services_index_missing", status=400)
     data = _read_json(request)
     title = str(data.get("title") or "").strip() or "خدمة"
     base_slug = slugify(str(data.get("slug") or title)) or "service"
@@ -1925,7 +2124,7 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
         page.save_revision().publish()
     else:
         page.save_revision().save()
-    return JsonResponse({"ok": True, "id": page.id})
+    return _api_ok({"id": page.id})
 
 
 @require_POST
@@ -1935,7 +2134,7 @@ def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
 
     if data.get("title") is not None:
@@ -1965,11 +2164,11 @@ def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return JsonResponse({"error": "invalid_image"}, status=400)
+                return _api_error("invalid_image", status=400)
             setattr(page, "cover_image", img)
 
     page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1979,9 +2178,9 @@ def admin_service_publish(request: HttpRequest, service_id: int) -> JsonResponse
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.save_revision().publish()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -1991,13 +2190,13 @@ def admin_service_unpublish(request: HttpRequest, service_id: int) -> JsonRespon
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
         page.live = False
         page.save(update_fields=["live"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2007,9 +2206,9 @@ def admin_service_delete(request: HttpRequest, service_id: int) -> JsonResponse:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 def _allowed_page_models() -> dict[str, type[Page]]:
@@ -2052,6 +2251,7 @@ def _page_type_name(page: Page) -> str:
         return ""
 
 
+@require_GET
 def admin_pages_tree(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -2070,7 +2270,7 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
     if not parent:
         parent = _site_root(request)
     if not parent:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
 
     children = Page.objects.child_of(parent).order_by("path")
     items: list[dict[str, Any]] = []
@@ -2089,7 +2289,7 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
                 "depth": int(getattr(p, "depth", 0) or 0),
             }
         )
-    return JsonResponse(
+    return _api_ok(
         {
             "parent": {
                 "id": parent.id,
@@ -2104,21 +2304,22 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_GET
 def admin_pages_allowed_types(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     parent_id_raw = request.GET.get("parentId")
     if not parent_id_raw:
-        return JsonResponse({"error": "missing_parentId"}, status=400)
+        return _api_error("missing_parentId", status=400)
     try:
         parent_id = int(str(parent_id_raw))
     except Exception:
-        return JsonResponse({"error": "invalid_parentId"}, status=400)
+        return _api_error("invalid_parentId", status=400)
 
     parent = Page.objects.filter(pk=parent_id).specific().first()
     if not parent:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
 
     allowed = _allowed_page_models()
     items: list[dict[str, Any]] = []
@@ -2136,16 +2337,17 @@ def admin_pages_allowed_types(request: HttpRequest) -> JsonResponse:
                 "typeName": str(getattr(m._meta, "verbose_name", "") or m.__name__),
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
+@require_GET
 def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
 
     body_html = ""
     if hasattr(page, "body"):
@@ -2169,11 +2371,13 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
         cover = getattr(page, "cover_image", None)
         data["coverImageId"] = getattr(cover, "id", None)
         data["coverUrl"] = _image_url(request, cover)
+        data["coverThumbUrl"] = _image_rendition_url(request, cover, "fill-640x360|jpegquality-70")
 
     if isinstance(page, ProjectPage):
         cover = getattr(page, "cover_image", None)
         data["coverImageId"] = getattr(cover, "id", None)
         data["coverUrl"] = _image_url(request, cover)
+        data["coverThumbUrl"] = _image_rendition_url(request, cover, "fill-640x360|jpegquality-70")
         data["shortDescription"] = page.short_description
         data["clientName"] = page.client_name
         data["projectLocation"] = page.project_location
@@ -2194,13 +2398,14 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
         cover = getattr(page, "cover_image", None)
         data["coverImageId"] = getattr(cover, "id", None)
         data["coverUrl"] = _image_url(request, cover)
+        data["coverThumbUrl"] = _image_rendition_url(request, cover, "fill-640x360|jpegquality-70")
 
     if isinstance(page, (ContactPage, QuoteRequestPage)):
         data["toAddress"] = str(getattr(page, "to_address", "") or "")
         data["subject"] = str(getattr(page, "subject", "") or "")
         data["replyAddress"] = str(getattr(page, "reply_address", "") or "")
 
-    return JsonResponse(data)
+    return _api_ok(data)
 
 
 @require_POST
@@ -2216,27 +2421,27 @@ def admin_page_create(request: HttpRequest) -> JsonResponse:
     live = bool(data.get("live", True))
 
     if parent_id_raw in {None, ""}:
-        return JsonResponse({"error": "invalid_parentId"}, status=400)
+        return _api_error("invalid_parentId", status=400)
     try:
         parent_id = int(str(parent_id_raw))
     except Exception:
-        return JsonResponse({"error": "invalid_parentId"}, status=400)
+        return _api_error("invalid_parentId", status=400)
 
     parent = Page.objects.filter(pk=parent_id).specific().first()
     if not parent:
-        return JsonResponse({"error": "parent_not_found"}, status=404)
+        return _api_error("parent_not_found", status=404)
 
     allowed = _allowed_page_models()
     Model = allowed.get(type_raw)
     if not Model:
-        return JsonResponse({"error": "invalid_type"}, status=400)
+        return _api_error("invalid_type", status=400)
 
     try:
         allowed_models = parent.get_allowed_subpage_models()
     except Exception:
         allowed_models = []
     if Model not in allowed_models:
-        return JsonResponse({"error": "type_not_allowed_here"}, status=400)
+        return _api_error("type_not_allowed_here", status=400)
 
     base_slug = slugify(slug_raw) or "page"
     page = Model(title=title, slug=_unique_child_slug(parent, base_slug))
@@ -2246,7 +2451,7 @@ def admin_page_create(request: HttpRequest) -> JsonResponse:
         page.save_revision().publish()
     else:
         page.save_revision().save()
-    return JsonResponse({"ok": True, "id": page.id})
+    return _api_ok({"id": page.id})
 
 
 @require_POST
@@ -2256,7 +2461,7 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
 
     if data.get("title") is not None:
@@ -2290,7 +2495,7 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
                 except Exception:
                     img = None
                 if not img:
-                    return JsonResponse({"error": "invalid_image"}, status=400)
+                    return _api_error("invalid_image", status=400)
                 setattr(page, "cover_image", img)
 
     if isinstance(page, CertificationPage):
@@ -2306,7 +2511,7 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
                 try:
                     page.issued_year = int(str(val))
                 except Exception:
-                    return JsonResponse({"error": "invalid_issuedYear"}, status=400)
+                    return _api_error("invalid_issuedYear", status=400)
 
     if isinstance(page, (ContactPage, QuoteRequestPage)):
         if data.get("toAddress") is not None:
@@ -2317,7 +2522,7 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
             setattr(page, "reply_address", str(data.get("replyAddress") or ""))
 
     page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2327,9 +2532,9 @@ def admin_page_publish(request: HttpRequest, page_id: int) -> JsonResponse:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.save_revision().publish()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2339,13 +2544,13 @@ def admin_page_unpublish(request: HttpRequest, page_id: int) -> JsonResponse:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
         page.live = False
         page.save(update_fields=["live"])
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2355,18 +2560,19 @@ def admin_page_delete(request: HttpRequest, page_id: int) -> JsonResponse:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
+@require_GET
 def admin_articles(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     idx = _articles_index(request)
     if not idx:
-        return JsonResponse({"items": []})
+        return _api_ok({"items": []})
     pages = Page.objects.child_of(idx).type(ArticlePage).specific()
     items: list[dict[str, Any]] = []
     for p in pages:
@@ -2382,18 +2588,19 @@ def admin_articles(request: HttpRequest) -> JsonResponse:
                 "searchDescription": str(getattr(p, "search_description", "") or ""),
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
+@require_GET
 def admin_article_detail(request: HttpRequest, article_id: int) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     cover = getattr(page, "cover_image", None)
-    return JsonResponse(
+    return _api_ok(
         {
             "id": page.id,
             "title": page.title,
@@ -2415,7 +2622,7 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
         return forbidden
     idx = _articles_index(request)
     if not idx:
-        return JsonResponse({"error": "articles_index_missing"}, status=400)
+        return _api_error("articles_index_missing", status=400)
     data = _read_json(request)
     title = str(data.get("title") or "").strip() or "مقال"
     base_slug = slugify(str(data.get("slug") or title)) or "article"
@@ -2446,7 +2653,7 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
         page.save_revision().publish()
     else:
         page.save_revision().save()
-    return JsonResponse({"ok": True, "id": page.id})
+    return _api_ok({"id": page.id})
 
 
 @require_POST
@@ -2456,7 +2663,7 @@ def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
 
     for key, attr in [("title", "title"), ("searchDescription", "search_description")]:
@@ -2486,11 +2693,11 @@ def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return JsonResponse({"error": "invalid_image"}, status=400)
+                return _api_error("invalid_image", status=400)
             setattr(page, "cover_image", img)
 
     page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2500,9 +2707,9 @@ def admin_article_publish(request: HttpRequest, article_id: int) -> JsonResponse
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.save_revision().publish()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2512,13 +2719,13 @@ def admin_article_unpublish(request: HttpRequest, article_id: int) -> JsonRespon
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
         page.live = False
         page.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2528,9 +2735,9 @@ def admin_article_delete(request: HttpRequest, article_id: int) -> JsonResponse:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 def _rfq_number() -> str:
@@ -2539,6 +2746,7 @@ def _rfq_number() -> str:
     return f"RFQ-{ts}-{suffix}"
 
 
+@require_GET
 def admin_rfq_documents(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -2556,17 +2764,18 @@ def admin_rfq_documents(request: HttpRequest) -> JsonResponse:
                 "updatedAt": d.updated_at.isoformat() if d.updated_at else "",
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
+@require_GET
 def admin_rfq_document_detail(request: HttpRequest, doc_id: int) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return JsonResponse({"error": "not_found"}, status=404)
-    return JsonResponse(
+        return _api_error("not_found", status=404)
+    return _api_ok(
         {
             "id": d.id,
             "title": d.title,
@@ -2600,7 +2809,7 @@ def admin_rfq_document_create(request: HttpRequest) -> JsonResponse:
         data=payload_dict,
         created_by=getattr(request, "user", None) if getattr(request, "user", None) else None,
     )
-    return JsonResponse({"ok": True, "id": d.id})
+    return _api_ok({"id": d.id})
 
 
 @require_POST
@@ -2610,7 +2819,7 @@ def admin_rfq_document_update(request: HttpRequest, doc_id: int) -> JsonResponse
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
 
     data = _read_json(request)
     if data.get("title") is not None:
@@ -2623,7 +2832,7 @@ def admin_rfq_document_update(request: HttpRequest, doc_id: int) -> JsonResponse
         payload = data.get("data")
         d.data = payload if isinstance(payload, dict) else {}
     d.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
@@ -2633,9 +2842,9 @@ def admin_rfq_document_delete(request: HttpRequest, doc_id: int) -> JsonResponse
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     d.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 def _pdf_sanitize_text(val: Any) -> str:
@@ -2837,7 +3046,7 @@ def admin_rfq_document_pdf(request: HttpRequest, doc_id: int) -> HttpResponse:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     site = _get_site(request)
     company = CompanySettings.for_site(site) if site else None
     payload = d.data if isinstance(d.data, dict) else {}
@@ -2907,14 +3116,34 @@ def _image_url(request: HttpRequest, image: Any | None) -> str:
     return _abs_url(request, image.file.url)
 
 
+def _image_rendition_url(request: HttpRequest, image: Any | None, spec: str) -> str:
+    if not image:
+        return ""
+    try:
+        rendition = image.get_rendition(spec)
+        return _abs_url(request, str(getattr(rendition, "url", "") or ""))
+    except Exception:
+        return ""
+
+
+@require_GET
 def admin_projects(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     idx = _projects_index(request)
     if not idx:
-        return JsonResponse({"items": []})
-    pages = Page.objects.child_of(idx).type(ProjectPage).specific()
+        return _api_ok({"items": []})
+    status = str(request.GET.get("status") or "").strip()
+    if status and status not in {
+        ProjectPage.STATUS_ONGOING,
+        ProjectPage.STATUS_COMPLETED,
+        ProjectPage.STATUS_ARCHIVED,
+    }:
+        return _api_error("invalid_project_status", status=400)
+    pages = ProjectPage.objects.child_of(idx).specific().order_by("-first_published_at", "-id")
+    if status:
+        pages = pages.filter(status=status)
     items: list[dict[str, Any]] = []
     for p in pages:
         cover = getattr(p, "cover_image", None)
@@ -2931,21 +3160,25 @@ def admin_projects(request: HttpRequest) -> JsonResponse:
                 "firstPublishedAt": str(getattr(p, "first_published_at", "") or ""),
                 "coverUrl": cover_url,
                 "shortDescription": getattr(p, "short_description", "") or "",
+                "status": getattr(p, "status", ProjectPage.STATUS_COMPLETED) or ProjectPage.STATUS_COMPLETED,
+                "pmpPhase": getattr(p, "pmp_phase", ProjectPage.PHASE_PLANNING) or ProjectPage.PHASE_PLANNING,
+                "progressPercent": int(getattr(p, "progress_percent", 0) or 0),
                 "clientName": getattr(p, "client_name", "") or "",
                 "projectLocation": getattr(p, "project_location", "") or "",
                 "completionYear": getattr(p, "completion_year", None),
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
+@require_GET
 def admin_project_detail(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     gallery = []
     for gi in page.gallery_images.all():
         gallery.append(
@@ -2957,13 +3190,24 @@ def admin_project_detail(request: HttpRequest, project_id: int) -> JsonResponse:
                 "sortOrder": gi.sort_order,
             }
         )
-    return JsonResponse(
+    return _api_ok(
         {
             "id": page.id,
             "title": page.title,
             "slug": page.slug,
             "live": bool(getattr(page, "live", False)),
             "shortDescription": page.short_description,
+            "status": getattr(page, "status", ProjectPage.STATUS_COMPLETED) or ProjectPage.STATUS_COMPLETED,
+            "pmpPhase": getattr(page, "pmp_phase", ProjectPage.PHASE_PLANNING) or ProjectPage.PHASE_PLANNING,
+            "progressPercent": int(getattr(page, "progress_percent", 0) or 0),
+            "startDate": str(getattr(page, "start_date", "") or ""),
+            "targetEndDate": str(getattr(page, "target_end_date", "") or ""),
+            "budgetAmount": str(getattr(page, "budget_amount", "") or ""),
+            "scopeStatement": getattr(page, "scope_statement", "") or "",
+            "keyDeliverables": getattr(page, "key_deliverables", "") or "",
+            "keyStakeholders": getattr(page, "key_stakeholders", "") or "",
+            "keyRisks": getattr(page, "key_risks", "") or "",
+            "managementNotes": getattr(page, "management_notes", "") or "",
             "clientName": page.client_name,
             "projectLocation": page.project_location,
             "completionYear": page.completion_year,
@@ -2980,12 +3224,12 @@ def admin_project_detail(request: HttpRequest, project_id: int) -> JsonResponse:
 
 @require_POST
 def admin_project_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     idx = _projects_index(request)
     if not idx:
-        return JsonResponse({"error": "projects_index_missing"}, status=400)
+        return _api_error("projects_index_missing", status=400)
     data = _read_json(request)
     title = str(data.get("title") or "").strip() or "مشروع"
     base_slug = slugify(str(data.get("slug") or title)) or "project"
@@ -2995,12 +3239,78 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
         try:
             completion_year = int(str(cy))
         except Exception:
-            return JsonResponse({"error": "invalid_completion_year"}, status=400)
+            return _api_error("invalid_completion_year", status=400)
+    status = str(data.get("status") or "").strip() or ProjectPage.STATUS_COMPLETED
+    if status not in {
+        ProjectPage.STATUS_ONGOING,
+        ProjectPage.STATUS_COMPLETED,
+        ProjectPage.STATUS_ARCHIVED,
+    }:
+        return _api_error("invalid_project_status", status=400)
+
+    pmp_phase = str(data.get("pmpPhase") or "").strip() or ProjectPage.PHASE_PLANNING
+    if pmp_phase not in {
+        ProjectPage.PHASE_INITIATING,
+        ProjectPage.PHASE_PLANNING,
+        ProjectPage.PHASE_EXECUTING,
+        ProjectPage.PHASE_MONITORING,
+        ProjectPage.PHASE_CLOSING,
+    }:
+        return _api_error("invalid_pmp_phase", status=400)
+    progress_percent_raw = data.get("progressPercent")
+    progress_percent = 0
+    if progress_percent_raw not in {None, ""}:
+        try:
+            progress_percent = int(str(progress_percent_raw))
+        except Exception:
+            return _api_error("invalid_progress_percent", status=400)
+    if progress_percent < 0 or progress_percent > 100:
+        return _api_error("invalid_progress_percent", status=400)
+
+    start_date_raw = str(data.get("startDate") or "").strip()
+    target_end_date_raw = str(data.get("targetEndDate") or "").strip()
+    start_date = None
+    target_end_date = None
+    if start_date_raw:
+        try:
+            from datetime import date
+
+            start_date = date.fromisoformat(start_date_raw)
+        except Exception:
+            return _api_error("invalid_start_date", status=400)
+    if target_end_date_raw:
+        try:
+            from datetime import date
+
+            target_end_date = date.fromisoformat(target_end_date_raw)
+        except Exception:
+            return _api_error("invalid_target_end_date", status=400)
+
+    budget_amount_raw = data.get("budgetAmount")
+    budget_amount = None
+    if budget_amount_raw not in {None, ""}:
+        try:
+            from decimal import Decimal
+
+            budget_amount = Decimal(str(budget_amount_raw))
+        except Exception:
+            return _api_error("invalid_budget_amount", status=400)
     page = ProjectPage(
         title=title,
         slug=_unique_child_slug(idx, base_slug),
         short_description=str(data.get("shortDescription") or ""),
+        status=status,
         client_name=str(data.get("clientName") or ""),
+        pmp_phase=pmp_phase,
+        progress_percent=progress_percent,
+        start_date=start_date,
+        target_end_date=target_end_date,
+        budget_amount=budget_amount,
+        scope_statement=str(data.get("scopeStatement") or ""),
+        key_deliverables=str(data.get("keyDeliverables") or ""),
+        key_stakeholders=str(data.get("keyStakeholders") or ""),
+        key_risks=str(data.get("keyRisks") or ""),
+        management_notes=str(data.get("managementNotes") or ""),
         project_location=str(data.get("projectLocation") or ""),
         completion_year=completion_year,
         executing_agency=str(data.get("executingAgency") or ""),
@@ -3011,18 +3321,27 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
         scope_of_work=str(data.get("scopeOfWork") or ""),
     )
     idx.add_child(instance=page)
-    page.save_revision().publish()
-    return JsonResponse({"ok": True, "id": page.id})
+    if status == ProjectPage.STATUS_ARCHIVED:
+        rev = page.save_revision()
+        rev.save()
+        try:
+            page.unpublish()
+        except Exception:
+            page.live = False
+            page.save(update_fields=["live"])
+    else:
+        page.save_revision().publish()
+    return _api_ok({"id": page.id})
 
 
 @require_POST
 def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     for key, attr in [
         ("title", "title"),
@@ -3039,6 +3358,80 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
         if data.get(key) is None:
             continue
         setattr(page, attr, str(data.get(key) or ""))
+    new_status = None
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        if status not in {
+            ProjectPage.STATUS_ONGOING,
+            ProjectPage.STATUS_COMPLETED,
+            ProjectPage.STATUS_ARCHIVED,
+        }:
+            return _api_error("invalid_project_status", status=400)
+        page.status = status
+        new_status = status
+    if data.get("pmpPhase") is not None:
+        pmp_phase = str(data.get("pmpPhase") or "").strip()
+        if pmp_phase not in {
+            ProjectPage.PHASE_INITIATING,
+            ProjectPage.PHASE_PLANNING,
+            ProjectPage.PHASE_EXECUTING,
+            ProjectPage.PHASE_MONITORING,
+            ProjectPage.PHASE_CLOSING,
+        }:
+            return _api_error("invalid_pmp_phase", status=400)
+        page.pmp_phase = pmp_phase
+    if data.get("progressPercent") is not None:
+        progress_val = data.get("progressPercent")
+        try:
+            progress_percent = int(str(progress_val))
+        except Exception:
+            return _api_error("invalid_progress_percent", status=400)
+        if progress_percent < 0 or progress_percent > 100:
+            return _api_error("invalid_progress_percent", status=400)
+        page.progress_percent = progress_percent
+    if data.get("startDate") is not None:
+        start_date_raw = str(data.get("startDate") or "").strip()
+        if not start_date_raw:
+            page.start_date = None
+        else:
+            try:
+                from datetime import date
+
+                page.start_date = date.fromisoformat(start_date_raw)
+            except Exception:
+                return _api_error("invalid_start_date", status=400)
+    if data.get("targetEndDate") is not None:
+        target_end_date_raw = str(data.get("targetEndDate") or "").strip()
+        if not target_end_date_raw:
+            page.target_end_date = None
+        else:
+            try:
+                from datetime import date
+
+                page.target_end_date = date.fromisoformat(target_end_date_raw)
+            except Exception:
+                return _api_error("invalid_target_end_date", status=400)
+    if data.get("budgetAmount") is not None:
+        budget_amount_raw = data.get("budgetAmount")
+        if budget_amount_raw in {"", None}:
+            page.budget_amount = None
+        else:
+            try:
+                from decimal import Decimal
+
+                page.budget_amount = Decimal(str(budget_amount_raw))
+            except Exception:
+                return _api_error("invalid_budget_amount", status=400)
+    for key, attr in [
+        ("scopeStatement", "scope_statement"),
+        ("keyDeliverables", "key_deliverables"),
+        ("keyStakeholders", "key_stakeholders"),
+        ("keyRisks", "key_risks"),
+        ("managementNotes", "management_notes"),
+    ]:
+        if data.get(key) is None:
+            continue
+        setattr(page, attr, str(data.get(key) or ""))
     if data.get("completionYear") is not None:
         val = data.get("completionYear")
         if val in {"", None}:
@@ -3047,69 +3440,77 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
             try:
                 page.completion_year = int(str(val))
             except Exception:
-                return JsonResponse({"error": "invalid_completion_year"}, status=400)
+                return _api_error("invalid_completion_year", status=400)
     if data.get("slug") is not None:
         new_slug = slugify(str(data.get("slug") or ""))[:60]
         if new_slug:
             parent = page.get_parent()
             page.slug = _unique_child_slug(parent, new_slug)
-    page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse({"ok": True})
+    rev = page.save_revision()
+    should_publish = bool(page.live) and new_status != ProjectPage.STATUS_ARCHIVED
+    rev.publish() if should_publish else rev.save()
+    if new_status == ProjectPage.STATUS_ARCHIVED:
+        try:
+            page.unpublish()
+        except Exception:
+            page.live = False
+            page.save(update_fields=["live"])
+    return _api_ok()
 
 
 @require_POST
 def admin_project_publish(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.save_revision().publish()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
 def admin_project_unpublish(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
         page.live = False
         page.save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
 def admin_project_delete(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     page.delete()
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
 @require_POST
 def admin_project_gallery_add(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     data = _read_json(request)
     image_id = data.get("imageId")
     caption = str(data.get("caption") or "")
     if not image_id:
-        return JsonResponse({"error": "missing_image"}, status=400)
+        return _api_error("missing_image", status=400)
     try:
         from wagtail.images import get_image_model
 
@@ -3118,36 +3519,286 @@ def admin_project_gallery_add(request: HttpRequest, project_id: int) -> JsonResp
     except Exception:
         img = None
     if not img:
-        return JsonResponse({"error": "invalid_image"}, status=400)
+        return _api_error("invalid_image", status=400)
     item = ProjectGalleryImage.objects.create(page=page, image=img, caption=caption)
     page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse(
-        {"ok": True, "id": item.id, "url": _image_url(request, img), "imageId": img.id}
-    )
+    return _api_ok({"id": item.id, "url": _image_url(request, img), "imageId": img.id})
 
 
 @require_POST
 def admin_project_gallery_remove(request: HttpRequest, project_id: int, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
     if not page:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     ProjectGalleryImage.objects.filter(pk=item_id, page=page).delete()
     page.save_revision().publish() if page.live else page.save_revision().save()
-    return JsonResponse({"ok": True})
+    return _api_ok()
+
+
+@require_GET
+def admin_project_documents(request: HttpRequest, project_id: int) -> JsonResponse:
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    items: list[dict[str, Any]] = []
+    for row in page.project_documents.all().order_by("sort_order", "id"):
+        doc = getattr(row, "document", None)
+        url = ""
+        download_url = _abs_url(
+            request,
+            f"/api/admin/projects/{page.id}/documents/{row.id}/download",
+        )
+        file_size = 0
+        created_at = ""
+        document_id = getattr(doc, "id", None)
+        try:
+            f = getattr(doc, "file", None) if doc else None
+            url = _abs_url(request, f.url) if f and getattr(f, "url", None) else ""
+            file_size = int(getattr(f, "size", 0) or 0)
+        except Exception:
+            url = ""
+            file_size = 0
+        try:
+            created_at = str(getattr(doc, "created_at", "") or "") if doc else ""
+        except Exception:
+            created_at = ""
+        items.append(
+            {
+                "id": row.id,
+                "title": str(getattr(row, "title", "") or getattr(doc, "title", "") or ""),
+                "documentId": document_id,
+                "url": url,
+                "downloadUrl": download_url,
+                "fileSize": file_size,
+                "createdAt": created_at,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_GET
+def admin_project_documents_download(
+    request: HttpRequest, project_id: int, item_id: int
+) -> FileResponse | JsonResponse:
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    row = (
+        ProjectDocument.objects.filter(pk=item_id, page=page)
+        .select_related("document")
+        .first()
+    )
+    doc = getattr(row, "document", None) if row else None
+    f = getattr(doc, "file", None) if doc else None
+    if not f:
+        return _api_error("not_found", status=404)
+
+    try:
+        fh = f.open("rb")
+    except Exception:
+        return _api_error("not_found", status=404)
+
+    original_name = ""
+    try:
+        original_name = Path(str(getattr(f, "name", "") or "")).name
+    except Exception:
+        original_name = ""
+
+    ext = Path(original_name).suffix
+    base = str(getattr(row, "title", "") or getattr(doc, "title", "") or "").strip()
+    if not base:
+        base = Path(original_name).stem or "document"
+    for ch in ['\\', '/', ':', '*', '?', '"', "<", ">", "|"]:
+        base = base.replace(ch, "-")
+    download_name = f"{base}{ext}" if ext else base
+
+    content_type = mimetypes.guess_type(download_name)[0] or ""
+    resp = FileResponse(fh, as_attachment=True, filename=download_name)
+    if content_type:
+        resp["Content-Type"] = content_type
+    return resp
+
+
+@require_POST
+def admin_project_documents_upload(request: HttpRequest, project_id: int) -> JsonResponse:
+    limited = _check_rate_limit(
+        request, scope="admin_project_document_upload", limit=24, window_seconds=300
+    )
+    if limited:
+        return limited
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    f = request.FILES.get("file")
+    if not f:
+        return _api_error("missing_file", status=400)
+    max_bytes = int(
+        getattr(settings, "ADMIN_PROJECT_DOCUMENT_UPLOAD_MAX_BYTES", 25 * 1024 * 1024)
+    )
+    if int(getattr(f, "size", 0) or 0) <= 0:
+        return _api_error("empty_file", status=400)
+    if int(getattr(f, "size", 0) or 0) > max_bytes:
+        return _api_error("file_too_large", status=413, details={"maxBytes": max_bytes})
+
+    original_name = str(getattr(f, "name", "") or "")
+    filename = original_name.lower()
+    blocked_exts = {
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".ps1",
+        ".psm1",
+        ".sh",
+        ".php",
+        ".py",
+        ".js",
+        ".html",
+        ".htm",
+        ".vbs",
+        ".wsf",
+        ".jar",
+        ".dll",
+        ".com",
+        ".scr",
+    }
+    ext = Path(filename).suffix.lower()
+    if ext in blocked_exts:
+        return _api_error("invalid_file_type", status=400)
+    allowed_exts = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+    if ext not in allowed_exts:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedExtensions": sorted(allowed_exts)},
+        )
+    allowed_mimes = {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/heic",
+        "image/heif",
+    }
+    content_type = str(getattr(f, "content_type", "") or "").lower()
+    if content_type and content_type not in allowed_mimes:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedMimeTypes": sorted(allowed_mimes)},
+        )
+
+    try:
+        f.name = _safe_uploaded_filename(original_name, allowed_exts=allowed_exts)
+    except Exception:
+        pass
+
+    title = str(request.POST.get("title") or getattr(f, "name", "") or "document")
+    try:
+        from wagtail.documents import get_document_model
+        from wagtail.models import Collection
+
+        DocumentModel = get_document_model()
+        root_collection = Collection.get_first_root_node()
+        doc = DocumentModel(title=title, file=f, collection=root_collection)
+        doc.save()
+        row = ProjectDocument.objects.create(
+            page=page,
+            title=str(request.POST.get("rowTitle") or title or ""),
+            document=doc,
+            uploaded_by=getattr(request, "user", None),
+        )
+        page.save_revision().publish() if page.live else page.save_revision().save()
+        url = ""
+        try:
+            url = _abs_url(request, doc.file.url) if getattr(doc, "file", None) else ""
+        except Exception:
+            url = ""
+        return _api_ok({"id": row.id, "documentId": doc.id, "url": url, "title": row.title})
+    except Exception:
+        return _api_error("upload_failed", status=400)
+
+
+@require_POST
+def admin_project_documents_remove(
+    request: HttpRequest, project_id: int, item_id: int
+) -> JsonResponse:
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    ProjectDocument.objects.filter(pk=item_id, page=page).delete()
+    page.save_revision().publish() if page.live else page.save_revision().save()
+    return _api_ok()
 
 
 @require_POST
 def admin_image_upload(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="admin_image_upload", limit=24, window_seconds=300)
+    if limited:
+        return limited
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     f = request.FILES.get("file")
     if not f:
-        return JsonResponse({"error": "missing_file"}, status=400)
+        return _api_error("missing_file", status=400)
+    max_bytes = int(getattr(settings, "ADMIN_IMAGE_UPLOAD_MAX_BYTES", 5 * 1024 * 1024))
+    if int(getattr(f, "size", 0) or 0) <= 0:
+        return _api_error("empty_file", status=400)
+    if int(getattr(f, "size", 0) or 0) > max_bytes:
+        return _api_error("file_too_large", status=413, details={"maxBytes": max_bytes})
+
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+    allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
+    original_name = str(getattr(f, "name", "") or "")
+    ext = Path(original_name).suffix.lower()
+    content_type = str(getattr(f, "content_type", "") or "").lower()
+    if ext not in allowed_exts:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedExtensions": sorted(allowed_exts)},
+        )
+    if content_type and content_type not in allowed_mimes:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedMimeTypes": sorted(allowed_mimes)},
+        )
+
+    try:
+        f.name = _safe_uploaded_filename(original_name, allowed_exts=allowed_exts)
+    except Exception:
+        pass
+
     title = str(request.POST.get("title") or getattr(f, "name", "") or "image")
+    try:
+        try:
+            f.seek(0)
+        except Exception:
+            pass
+        img_probe = Image.open(f)
+        img_probe.verify()
+        try:
+            f.seek(0)
+        except Exception:
+            pass
+    except Exception:
+        return _api_error("invalid_image", status=400)
     try:
         from wagtail.images import get_image_model
         from wagtail.models import Collection
@@ -3156,13 +3807,21 @@ def admin_image_upload(request: HttpRequest) -> JsonResponse:
         root_collection = Collection.get_first_root_node()
         img = ImageModel(title=title, file=f, collection=root_collection)
         img.save()
-        return JsonResponse(
-            {"ok": True, "id": img.id, "url": _image_url(request, img), "title": img.title}
+        return _api_ok(
+            {
+                "id": img.id,
+                "url": _image_url(request, img),
+                "thumbUrl": _image_rendition_url(request, img, "fill-320x240|jpegquality-70"),
+                "mediumUrl": _image_rendition_url(request, img, "fill-960x720|jpegquality-80"),
+                "largeUrl": _image_rendition_url(request, img, "max-1920x1920|jpegquality-85"),
+                "title": img.title,
+            }
         )
     except Exception:
-        return JsonResponse({"error": "upload_failed"}, status=400)
+        return _api_error("upload_failed", status=400)
 
 
+@require_GET
 def admin_media_images(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -3184,7 +3843,7 @@ def admin_media_images(request: HttpRequest) -> JsonResponse:
 
         ImageModel = get_image_model()
     except Exception:
-        return JsonResponse({"error": "images_unavailable"}, status=400)
+        return _api_error("images_unavailable", status=400)
 
     qs = ImageModel.objects.all().order_by("-id")
     if q:
@@ -3198,12 +3857,15 @@ def admin_media_images(request: HttpRequest) -> JsonResponse:
                 "id": img.id,
                 "title": str(getattr(img, "title", "") or ""),
                 "url": _image_url(request, img),
+                "thumbUrl": _image_rendition_url(request, img, "fill-320x240|jpegquality-70"),
+                "mediumUrl": _image_rendition_url(request, img, "fill-960x720|jpegquality-80"),
+                "largeUrl": _image_rendition_url(request, img, "max-1920x1920|jpegquality-85"),
                 "width": int(getattr(img, "width", 0) or 0),
                 "height": int(getattr(img, "height", 0) or 0),
                 "createdAt": str(getattr(img, "created_at", "") or ""),
             }
         )
-    return JsonResponse({"items": items, "total": total, "limit": limit, "offset": offset})
+    return _api_ok({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @require_POST
@@ -3219,14 +3881,15 @@ def admin_media_images_delete(request: HttpRequest, image_id: int) -> JsonRespon
     except Exception:
         img = None
     if not img:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         img.delete()
     except Exception:
-        return JsonResponse({"error": "delete_failed"}, status=400)
-    return JsonResponse({"ok": True})
+        return _api_error("delete_failed", status=400)
+    return _api_ok()
 
 
+@require_GET
 def admin_media_documents(request: HttpRequest) -> JsonResponse:
     forbidden = _require_staff(request)
     if forbidden:
@@ -3248,7 +3911,7 @@ def admin_media_documents(request: HttpRequest) -> JsonResponse:
 
         DocumentModel = get_document_model()
     except Exception:
-        return JsonResponse({"error": "documents_unavailable"}, status=400)
+        return _api_error("documents_unavailable", status=400)
 
     qs = DocumentModel.objects.all().order_by("-id")
     if q:
@@ -3272,17 +3935,101 @@ def admin_media_documents(request: HttpRequest) -> JsonResponse:
                 "createdAt": str(getattr(d, "created_at", "") or ""),
             }
         )
-    return JsonResponse({"items": items, "total": total, "limit": limit, "offset": offset})
+    return _api_ok({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @require_POST
 def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="admin_document_upload", limit=24, window_seconds=300)
+    if limited:
+        return limited
     forbidden = _require_staff(request)
     if forbidden:
         return forbidden
     f = request.FILES.get("file")
     if not f:
-        return JsonResponse({"error": "missing_file"}, status=400)
+        return _api_error("missing_file", status=400)
+    max_bytes = int(getattr(settings, "ADMIN_DOCUMENT_UPLOAD_MAX_BYTES", 20 * 1024 * 1024))
+    if int(getattr(f, "size", 0) or 0) <= 0:
+        return _api_error("empty_file", status=400)
+    if int(getattr(f, "size", 0) or 0) > max_bytes:
+        return _api_error("file_too_large", status=413, details={"maxBytes": max_bytes})
+    original_name = str(getattr(f, "name", "") or "")
+    filename = original_name.lower()
+    blocked_exts = {
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".ps1",
+        ".psm1",
+        ".sh",
+        ".php",
+        ".py",
+        ".js",
+        ".html",
+        ".htm",
+        ".vbs",
+        ".wsf",
+        ".jar",
+        ".dll",
+        ".com",
+        ".scr",
+    }
+    ext = Path(filename).suffix.lower()
+    if ext in blocked_exts:
+        return _api_error("invalid_file_type", status=400)
+
+    allowed_exts = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".txt",
+        ".csv",
+        ".rtf",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".zip",
+    }
+    allowed_mimes = {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+        "text/csv",
+        "application/rtf",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+        "application/zip",
+    }
+    if ext not in allowed_exts:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedExtensions": sorted(allowed_exts)},
+        )
+    content_type = str(getattr(f, "content_type", "") or "").lower()
+    if content_type and content_type not in allowed_mimes:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedMimeTypes": sorted(allowed_mimes)},
+        )
+
+    try:
+        f.name = _safe_uploaded_filename(original_name, allowed_exts=allowed_exts)
+    except Exception:
+        pass
+
     title = str(request.POST.get("title") or getattr(f, "name", "") or "document")
     try:
         from wagtail.documents import get_document_model
@@ -3297,9 +4044,9 @@ def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
             url = _abs_url(request, doc.file.url) if getattr(doc, "file", None) else ""
         except Exception:
             url = ""
-        return JsonResponse({"ok": True, "id": doc.id, "url": url, "title": doc.title})
+        return _api_ok({"id": doc.id, "url": url, "title": doc.title})
     except Exception:
-        return JsonResponse({"error": "upload_failed"}, status=400)
+        return _api_error("upload_failed", status=400)
 
 
 @require_POST
@@ -3315,12 +4062,12 @@ def admin_media_documents_delete(request: HttpRequest, doc_id: int) -> JsonRespo
     except Exception:
         doc = None
     if not doc:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return _api_error("not_found", status=404)
     try:
         doc.delete()
     except Exception:
-        return JsonResponse({"error": "delete_failed"}, status=400)
-    return JsonResponse({"ok": True})
+        return _api_error("delete_failed", status=400)
+    return _api_ok()
 
 
 @require_POST
@@ -3328,6 +4075,9 @@ def admin_backup_export(request: HttpRequest) -> HttpResponse | JsonResponse:
     forbidden = _require_superuser(request)
     if forbidden:
         return forbidden
+    limited = _check_rate_limit(request, scope="admin_backup_export", limit=3, window_seconds=600)
+    if limited:
+        return limited
 
     out = StringIO()
     try:
@@ -3345,7 +4095,7 @@ def admin_backup_export(request: HttpRequest) -> HttpResponse | JsonResponse:
             exclude=["contenttypes", "admin.logentry", "sessions"],
         )
     except Exception:
-        return JsonResponse({"error": "export_failed"}, status=400)
+        return _api_error("export_failed", status=400)
 
     payload = out.getvalue()
     ts = time.strftime("%Y%m%d-%H%M%S")
@@ -3359,9 +4109,12 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
     forbidden = _require_superuser(request)
     if forbidden:
         return forbidden
+    limited = _check_rate_limit(request, scope="admin_backup_import", limit=3, window_seconds=600)
+    if limited:
+        return limited
     f = request.FILES.get("file")
     if not f:
-        return JsonResponse({"error": "missing_file"}, status=400)
+        return _api_error("missing_file", status=400)
 
     tmp_path = ""
     try:
@@ -3369,13 +4122,13 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
             tmp.write(f.read())
             tmp_path = tmp.name
     except Exception:
-        return JsonResponse({"error": "invalid_file"}, status=400)
+        return _api_error("invalid_file", status=400)
 
     try:
         with transaction.atomic():
             call_command("loaddata", tmp_path, verbosity=0)
     except Exception:
-        return JsonResponse({"error": "import_failed"}, status=400)
+        return _api_error("import_failed", status=400)
     finally:
         if tmp_path:
             try:
@@ -3383,11 +4136,10 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
             except Exception:
                 pass
 
-    return JsonResponse({"ok": True})
+    return _api_ok()
 
 
-@csrf_exempt
-def admin_backup_portal(request: HttpRequest) -> HttpResponse:
+def admin_backup_portal(request: HttpRequest) -> HttpResponse | StreamingHttpResponse:
     user = getattr(request, "user", None)
     if not user or not getattr(user, "is_authenticated", False) or not getattr(user, "is_superuser", False):
         return HttpResponse("forbidden", status=403, content_type="text/plain; charset=utf-8")
@@ -3412,6 +4164,55 @@ def admin_backup_portal(request: HttpRequest) -> HttpResponse:
         resp = HttpResponse(payload, content_type="application/json; charset=utf-8")
         resp["Content-Disposition"] = f'attachment; filename="backup-{ts}.json"'
         return resp
+
+    if request.method == "GET" and str(request.GET.get("export_media") or "") == "1":
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        ts = time.strftime("%Y%m%d-%H%M%S")
+
+        tmp_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                tmp_path = tmp.name
+
+            with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                if media_root.exists():
+                    for root, _dirs, files in os.walk(str(media_root)):
+                        for filename in files:
+                            full_path = Path(root) / filename
+                            try:
+                                rel = full_path.resolve().relative_to(media_root)
+                            except Exception:
+                                continue
+                            zf.write(str(full_path), arcname=str(rel).replace("\\", "/"))
+
+            def _stream() -> Iterator[bytes]:
+                try:
+                    with open(tmp_path, "rb") as f:
+                        while True:
+                            chunk = f.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            yield chunk
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+
+            stream_resp = StreamingHttpResponse(_stream(), content_type="application/zip")
+            stream_resp["Content-Disposition"] = f'attachment; filename="media-{ts}.zip"'
+            return stream_resp
+        except Exception:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+            return HttpResponse(
+                "export_failed",
+                status=400,
+                content_type="text/plain; charset=utf-8",
+            )
 
     status_msg = ""
     if request.method == "POST":
@@ -3460,6 +4261,7 @@ def admin_backup_portal(request: HttpRequest) -> HttpResponse:
             except Exception:
                 status_msg = (status_msg + " " if status_msg else "") + "فشل رفع ملفات media."
 
+    csrf_token = get_token(request)
     html = f"""<!doctype html>
 <html lang="ar" dir="rtl">
   <head>
@@ -3485,11 +4287,13 @@ def admin_backup_portal(request: HttpRequest) -> HttpResponse:
       <p>هذه الصفحة تعمل بدون واجهة React. استخدمها إذا كانت صفحات <code>/</code> أو <code>/control</code> تظهر فارغة.</p>
       <div class="row">
         <a class="btn" href="/admin-backup/?export=1">تنزيل نسخة احتياطية (JSON)</a>
+        <a class="btn" href="/admin-backup/?export_media=1">تنزيل ملفات media (ZIP)</a>
         <a class="btn" href="/django-admin/">فتح Django Admin</a>
       </div>
 
       <h2>استعادة قاعدة البيانات</h2>
       <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
         <div class="row">
           <input type="file" name="backup_file" accept=".json,application/json" required>
           <button type="submit">استعادة</button>
@@ -3498,6 +4302,7 @@ def admin_backup_portal(request: HttpRequest) -> HttpResponse:
 
       <h2>رفع ملفات الصور/المرفقات (media.zip)</h2>
       <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
         <div class="row">
           <input type="file" name="media_zip" accept=".zip,application/zip" required>
           <button type="submit">رفع</button>
@@ -3519,11 +4324,12 @@ def _generate_password(length: int = 16) -> str:
 
 @require_POST
 def admin_users(request: HttpRequest) -> JsonResponse:
-    user = getattr(request, "user", None)
-    if not user or not getattr(user, "is_authenticated", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
-    if not getattr(user, "is_superuser", False):
-        return JsonResponse({"error": "forbidden"}, status=403)
+    forbidden = _require_superuser(request)
+    if forbidden:
+        return forbidden
+    limited = _check_rate_limit(request, scope="admin_users", limit=12, window_seconds=600)
+    if limited:
+        return limited
 
     data = _read_json(request)
     username = str(data.get("username") or "").strip()
@@ -3531,7 +4337,7 @@ def admin_users(request: HttpRequest) -> JsonResponse:
     role = str(data.get("role") or "manager").strip()
 
     if not username:
-        return JsonResponse({"error": "missing_username"}, status=400)
+        return _api_error("missing_username", status=400)
 
     User = get_user_model()
     obj, created = User.objects.get_or_create(username=username)
@@ -3558,9 +4364,8 @@ def admin_users(request: HttpRequest) -> JsonResponse:
     obj.set_password(password)
     obj.save()
 
-    return JsonResponse(
+    return _api_ok(
         {
-            "ok": True,
             "created": created,
             "generatedPassword": generated_password,
         }
@@ -3696,9 +4501,14 @@ def _design_analysis_fallback(project_type: str, area_m2: float, description: st
     }
 
 
-@csrf_exempt
 @require_POST
 def analyze_design(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="ai_analyze_design", limit=30, window_seconds=900)
+    if limited:
+        return limited
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
     area_raw = str(data.get("area") or "").strip()
@@ -3730,11 +4540,11 @@ def analyze_design(request: HttpRequest) -> JsonResponse:
         try:
             parsed = json.loads(text)
             if isinstance(parsed, dict):
-                return JsonResponse(parsed)
+                return _api_ok(parsed)
         except Exception:
             pass
 
-    return JsonResponse(_design_analysis_fallback(project_type, area_m2, description))
+    return _api_ok(_design_analysis_fallback(project_type, area_m2, description))
 
 
 def _generate_content_fallback(kind: str, topic: str, company_name: str) -> str:
@@ -3769,11 +4579,14 @@ def _generate_content_fallback(kind: str, topic: str, company_name: str) -> str:
     )
 
 
-@csrf_exempt
 @require_POST
 def generate_content(request: HttpRequest) -> JsonResponse:
-    if not _can_use_restricted_tools(request):
-        return JsonResponse({"error": "forbidden"}, status=403)
+    limited = _check_rate_limit(request, scope="ai_generate_content", limit=30, window_seconds=900)
+    if limited:
+        return limited
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
     data = _read_json(request)
     kind = str(data.get("type") or "blog").strip()
     topic = str(data.get("topic") or "").strip()
@@ -3800,7 +4613,7 @@ def generate_content(request: HttpRequest) -> JsonResponse:
     if not text:
         text = _generate_content_fallback(kind, topic, company_name)
 
-    return JsonResponse({"content": text})
+    return _api_ok({"content": text})
 
 
 def _calculator_response(
@@ -3990,18 +4803,27 @@ def _calculator_response(
     }
 
 
-@csrf_exempt
 @require_POST
 def calculate(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(request, scope="calculate", limit=90, window_seconds=300)
+    if limited:
+        return limited
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
-    area = float(data.get("area") or 0.0)
-    floors = int(data.get("floors") or 1)
+    try:
+        area = float(data.get("area") or 0.0)
+    except Exception:
+        area = 0.0
+    try:
+        floors = int(data.get("floors") or 1)
+    except Exception:
+        floors = 1
     currency = str(data.get("currency") or "").strip().upper()
     settings_obj = _get_calc_settings(request)
-    return JsonResponse(
-        _calculator_response(project_type, area, floors, settings_obj, currency=currency)
-    )
+    try:
+        return _api_ok(_calculator_response(project_type, area, floors, settings_obj, currency=currency))
+    except Exception:
+        return _api_error("calculation_failed", status=400)
 
 
 def _parse_aspect_ratio(value: str) -> tuple[int, int]:
@@ -4080,11 +4902,14 @@ def _create_placeholder_visual(
     return buf.getvalue()
 
 
-@csrf_exempt
 @require_POST
 def generate_visualization(request: HttpRequest) -> JsonResponse:
-    if not _can_use_restricted_tools(request):
-        return JsonResponse({"error": "forbidden"}, status=403)
+    limited = _check_rate_limit(request, scope="ai_generate_visualization", limit=30, window_seconds=900)
+    if limited:
+        return limited
+    forbidden = _require_restricted_tools(request)
+    if forbidden:
+        return forbidden
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
     description = str(data.get("description") or "").strip()
@@ -4114,7 +4939,7 @@ def generate_visualization(request: HttpRequest) -> JsonResponse:
         ai_settings=ai_settings,
     )
     encoded = base64.b64encode(png).decode("ascii")
-    return JsonResponse({"success": True, "image": encoded, "mimeType": "image/png"})
+    return _api_ok({"image": encoded, "mimeType": "image/png"})
 
 
 def _chat_reply(message: str) -> str:
@@ -4132,9 +4957,11 @@ def _chat_reply(message: str) -> str:
     return "وصلتني رسالتك. اكتب نوع المشروع والمساحة وعدد الطوابق ومستوى التشطيب وسأقترح خطة وتقديراً أولياً."
 
 
-@csrf_exempt
 @require_POST
-def chat(request: HttpRequest) -> StreamingHttpResponse:
+def chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
+    limited = _check_rate_limit(request, scope="ai_chat", limit=90, window_seconds=900)
+    if limited:
+        return limited
     data = _read_json(request)
     message = str(data.get("message") or "")
 
@@ -4168,12 +4995,12 @@ def chat(request: HttpRequest) -> StreamingHttpResponse:
 def site_company(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     logo_url = ""
     if company.logo_image and getattr(company.logo_image, "file", None):
         logo_url = _abs_url(request, company.logo_image.file.url)
-    return JsonResponse(
+    return _api_ok(
         {
             "name": company.name,
             "brandTitle": company.brand_title,
@@ -4201,9 +5028,9 @@ def site_company(request: HttpRequest) -> JsonResponse:
 def site_config(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
-    return JsonResponse(
+    return _api_ok(
         {
             "visibility": {
                 "showServices": v.show_services,
@@ -4225,6 +5052,7 @@ def site_config(request: HttpRequest) -> JsonResponse:
                 "showWhatsAppButton": v.show_whatsapp_button,
                 "showFloatingCTA": v.show_floating_cta,
                 "showFooter": v.show_footer,
+                "showControlProjectsManagement": v.show_control_projects_management,
             }
         }
     )
@@ -4233,12 +5061,12 @@ def site_config(request: HttpRequest) -> JsonResponse:
 def site_home(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     bg_url = ""
     if home.hero_background_image and getattr(home.hero_background_image, "file", None):
         bg_url = _abs_url(request, home.hero_background_image.file.url)
-    return JsonResponse(
+    return _api_ok(
         {
             "heroTitleLine1": home.hero_title_line_1,
             "heroTitleLine2": home.hero_title_line_2,
@@ -4264,10 +5092,10 @@ def _site_root(request: HttpRequest) -> Page | None:
 def site_services(request: HttpRequest) -> JsonResponse:
     root = _site_root(request)
     if not root:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     services_index = root.get_children().live().filter(slug="services").first()
     if not services_index:
-        return JsonResponse({"items": []})
+        return _api_ok({"items": []})
     pages = (
         Page.objects.child_of(services_index).live().type(ServicePage).specific()
     )
@@ -4287,19 +5115,27 @@ def site_services(request: HttpRequest) -> JsonResponse:
                 "imageUrl": cover_url,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 def site_projects(request: HttpRequest) -> JsonResponse:
     root = _site_root(request)
     if not root:
-        return JsonResponse({"error": "site_not_found"}, status=400)
+        return _api_error("site_not_found", status=400)
     projects_index = root.get_children().live().filter(slug="projects").first()
     if not projects_index:
-        return JsonResponse({"items": []})
+        return _api_ok({"items": []})
+    status = str(request.GET.get("status") or "").strip()
+    if status and status not in {ProjectPage.STATUS_ONGOING, ProjectPage.STATUS_COMPLETED}:
+        return _api_error("invalid_project_status", status=400)
     pages = (
-        Page.objects.child_of(projects_index).live().type(ProjectPage).specific()
+        ProjectPage.objects.child_of(projects_index)
+        .live()
+        .exclude(status=ProjectPage.STATUS_ARCHIVED)
+        .specific()
     )
+    if status:
+        pages = pages.filter(status=status)
     items: list[dict[str, Any]] = []
     for p in pages:
         cover_url = ""
@@ -4319,12 +5155,13 @@ def site_projects(request: HttpRequest) -> JsonResponse:
                 "url": p.url,
                 "category": getattr(p, "client_name", "") or "",
                 "description": getattr(p, "short_description", "") or "",
+                "status": getattr(p, "status", ProjectPage.STATUS_COMPLETED) or ProjectPage.STATUS_COMPLETED,
                 "location": getattr(p, "project_location", "") or "",
                 "year": str(getattr(p, "completion_year", "") or ""),
                 "imageUrl": cover_url,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 def site_team(request: HttpRequest) -> JsonResponse:
@@ -4344,7 +5181,7 @@ def site_team(request: HttpRequest) -> JsonResponse:
                 "imageUrl": image_url,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 def site_testimonials(request: HttpRequest) -> JsonResponse:
@@ -4359,7 +5196,7 @@ def site_testimonials(request: HttpRequest) -> JsonResponse:
                 "rating": t.rating,
             }
         )
-    return JsonResponse({"items": items})
+    return _api_ok({"items": items})
 
 
 def site_home_sections(request: HttpRequest) -> JsonResponse:
@@ -4407,7 +5244,7 @@ def site_home_sections(request: HttpRequest) -> JsonResponse:
         }
         for m in HomeAIMetric.objects.all()
     ]
-    return JsonResponse(
+    return _api_ok(
         {
             "trustBadges": badges,
             "stats": stats,
