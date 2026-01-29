@@ -423,6 +423,9 @@ class ProjectGalleryImage(Orderable):
 
 
 class ProjectDocument(Orderable):
+    class Meta:
+        ordering = ["sort_order"]
+
     page = ParentalKey(
         ProjectPage,
         on_delete=models.CASCADE,
@@ -710,6 +713,9 @@ class HomePageSettings(BaseSiteSetting):
 class SiteVisibilitySettings(BaseSiteSetting):
     show_services: models.BooleanField = models.BooleanField(default=True)
     show_projects: models.BooleanField = models.BooleanField(default=True)
+    show_control_projects_management: models.BooleanField = models.BooleanField(
+        default=True
+    )
     show_tools: models.BooleanField = models.BooleanField(default=True)
     show_showcase: models.BooleanField = models.BooleanField(default=True)
     show_about: models.BooleanField = models.BooleanField(default=True)
@@ -765,6 +771,7 @@ class SiteVisibilitySettings(BaseSiteSetting):
                 FieldPanel("show_whatsapp_button"),
                 FieldPanel("show_floating_cta"),
                 FieldPanel("show_footer"),
+                FieldPanel("show_control_projects_management"),
             ],
             heading="ميزات",
         ),
