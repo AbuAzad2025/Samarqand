@@ -62,6 +62,7 @@ MIDDLEWARE = [
     # Save pages to cache. Must be FIRST.
     "wagtailcache.cache.UpdateCacheMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "contracting_site.middleware.BlockStaticDirectoryMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Common functionality
     "django.contrib.sessions.middleware.SessionMiddleware",

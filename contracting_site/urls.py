@@ -1,4 +1,3 @@
-from coderedcms import search_urls as crx_search_urls
 from coderedcms import urls as crx_urls
 from django.conf import settings
 from django.contrib import admin
@@ -21,15 +20,57 @@ def cms_redirect(request, *args, **kwargs):
     return redirect("/control/dashboard", permanent=False)
 
 
+def robots_txt(request, *args, **kwargs):
+    sitemap_url = request.build_absolute_uri("/sitemap.xml")
+    body = "\n".join(
+        [
+            "User-agent: *",
+            "Allow: /",
+            "Disallow: /control/",
+            "Disallow: /api/",
+            "Disallow: /django-admin/",
+            "Disallow: /cms/",
+            f"Sitemap: {sitemap_url}",
+            "",
+        ]
+    )
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
+def sitemap_xml(request, *args, **kwargs):
+    paths = [
+        "/",
+        "/about",
+        "/projects",
+        "/services",
+        "/tools",
+        "/showcase",
+        "/contact",
+    ]
+    urls = "".join(
+        f"<url><loc>{request.build_absolute_uri(p)}</loc></url>" for p in paths
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + urls
+        + "</urlset>"
+    )
+    return HttpResponse(xml, content_type="application/xml; charset=utf-8")
+
+
 urlpatterns = [
     # Admin
     path("django-admin/", admin.site.urls),
     path("admin-backup/", api_views.admin_backup_portal),
     re_path(r"^cms/.*$", cms_redirect),
+    path("robots.txt", robots_txt),
+    path("sitemap.xml", sitemap_xml),
     # Documents
+    re_path(r"^docs/$", lambda request: HttpResponse("", status=404)),
     path("docs/", include(wagtaildocs_urls)),
     # Search
-    path("search/", include(crx_search_urls)),
+    path("search/", spa_shell),
     path("api/ai/analyze-design", api_views.analyze_design),
     path("api/ai/generate-content", api_views.generate_content),
     path("api/ai/chat", api_views.chat),
