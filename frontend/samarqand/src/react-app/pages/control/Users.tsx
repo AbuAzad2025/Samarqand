@@ -3,7 +3,7 @@ import { Link } from "react-router";
 
 import { createOrUpdateUser, fetchAuthMe } from "@/react-app/api/site";
 
-type Role = "manager" | "superadmin";
+type Role = "employee" | "registrar" | "accountant" | "manager" | "superadmin";
 
 export default function ControlUsers() {
   const [me, setMe] = useState<{
@@ -14,7 +14,7 @@ export default function ControlUsers() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("manager");
+  const [role, setRole] = useState<Role>("employee");
   const [result, setResult] = useState<{ password?: string; message: string } | null>(
     null,
   );
@@ -58,7 +58,7 @@ export default function ControlUsers() {
       });
       setUsername("");
       setPassword("");
-      setRole("manager");
+      setRole("employee");
     } catch {
       setError("تعذر حفظ المستخدم.");
     } finally {
@@ -164,6 +164,9 @@ export default function ControlUsers() {
             onChange={(e) => setRole(e.target.value as Role)}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
           >
+            <option value="employee">موظف</option>
+            <option value="registrar">مسجل</option>
+            <option value="accountant">محاسب</option>
             <option value="manager">مدير</option>
             <option value="superadmin">سوبر أدمن</option>
           </select>

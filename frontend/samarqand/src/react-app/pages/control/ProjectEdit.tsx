@@ -5,11 +5,17 @@ import {
   addAdminProjectGalleryItem,
   deleteAdminProject,
   fetchAdminProjectDetail,
+  fetchAdminProjectDocuments,
   publishAdminProject,
+  reorderAdminProjectDocuments,
+  removeAdminProjectDocument,
   removeAdminProjectGalleryItem,
   unpublishAdminProject,
+  updateAdminProjectDocument,
   updateAdminProject,
   uploadAdminImage,
+  uploadAdminProjectDocument,
+  type AdminProjectDocument,
   type AdminProjectDetail,
 } from "@/react-app/api/site";
 
@@ -18,25 +24,51 @@ export default function ControlProjectEdit() {
   const params = useParams();
   const projectId = Number(params.id);
   const [data, setData] = useState<AdminProjectDetail | null>(null);
+  const [documents, setDocuments] = useState<AdminProjectDocument[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docTitle, setDocTitle] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetchAdminProjectDetail(projectId);
     setData(res);
   }, [projectId]);
 
+  const loadDocs = useCallback(async () => {
+    setDocsLoading(true);
+    try {
+      const items = await fetchAdminProjectDocuments(projectId);
+      setDocuments(items);
+    } finally {
+      setDocsLoading(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!projectId) return;
     load().catch(() => {});
-  }, [load, projectId]);
+    loadDocs().catch(() => {});
+  }, [load, loadDocs, projectId]);
 
   const sortedGallery = useMemo(() => {
     return [...(data?.gallery || [])].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [data]);
+
+  function formatBytes(n: number): string {
+    const val = Number(n || 0);
+    if (!val) return "—";
+    const kb = 1024;
+    const mb = kb * 1024;
+    if (val >= mb) return `${(val / mb).toFixed(1)} MB`;
+    if (val >= kb) return `${Math.round(val / kb)} KB`;
+    return `${val} B`;
+  }
 
   async function onSave() {
     if (!data) return;
@@ -47,6 +79,17 @@ export default function ControlProjectEdit() {
         title: data.title,
         slug: data.slug,
         shortDescription: data.shortDescription,
+        status: data.status,
+        pmpPhase: data.pmpPhase,
+        progressPercent: data.progressPercent,
+        startDate: data.startDate,
+        targetEndDate: data.targetEndDate,
+        budgetAmount: data.budgetAmount,
+        scopeStatement: data.scopeStatement,
+        keyDeliverables: data.keyDeliverables,
+        keyStakeholders: data.keyStakeholders,
+        keyRisks: data.keyRisks,
+        managementNotes: data.managementNotes,
         clientName: data.clientName,
         projectLocation: data.projectLocation,
         completionYear: data.completionYear,
@@ -80,6 +123,33 @@ export default function ControlProjectEdit() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function onDocUpload() {
+    if (!docFile) return;
+    setDocUploading(true);
+    try {
+      await uploadAdminProjectDocument(projectId, docFile, docTitle.trim() || undefined);
+      setDocTitle("");
+      setDocFile(null);
+      await loadDocs();
+    } finally {
+      setDocUploading(false);
+    }
+  }
+
+  async function moveDoc(id: number, dir: -1 | 1) {
+    const idx = documents.findIndex((d) => d.id === id);
+    if (idx < 0) return;
+    const nextIdx = idx + dir;
+    if (nextIdx < 0 || nextIdx >= documents.length) return;
+    const reordered = [...documents];
+    const tmp = reordered[idx];
+    reordered[idx] = reordered[nextIdx];
+    reordered[nextIdx] = tmp;
+    setDocuments(reordered);
+    await reorderAdminProjectDocuments(projectId, { ids: reordered.map((x) => x.id) });
+    await loadDocs();
   }
 
   async function onTogglePublish() {
@@ -196,6 +266,121 @@ export default function ControlProjectEdit() {
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">الحالة</label>
+              <select
+                value={data.status}
+                onChange={(e) => setData({ ...data, status: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] bg-white"
+              >
+                <option value="ongoing">قيد العمل</option>
+                <option value="completed">منجز</option>
+                <option value="archived">مؤرشف</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">المرحلة (PMP)</label>
+              <select
+                value={data.pmpPhase}
+                onChange={(e) => setData({ ...data, pmpPhase: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] bg-white"
+              >
+                <option value="initiating">البدء</option>
+                <option value="planning">التخطيط</option>
+                <option value="executing">التنفيذ</option>
+                <option value="monitoring">المتابعة والتحكم</option>
+                <option value="closing">الإغلاق</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">نسبة الإنجاز %</label>
+              <input
+                value={data.progressPercent ?? 0}
+                onChange={(e) => setData({ ...data, progressPercent: Number(e.target.value || 0) })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                type="number"
+                min={0}
+                max={100}
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">تاريخ البدء</label>
+              <input
+                value={data.startDate || ""}
+                onChange={(e) => setData({ ...data, startDate: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                type="date"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">تاريخ الانتهاء المستهدف</label>
+              <input
+                value={data.targetEndDate || ""}
+                onChange={(e) => setData({ ...data, targetEndDate: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                type="date"
+                dir="ltr"
+              />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">ميزانية (اختياري)</label>
+              <input
+                value={data.budgetAmount || ""}
+                onChange={(e) => setData({ ...data, budgetAmount: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">بيان نطاق المشروع</label>
+              <input
+                value={data.scopeStatement || ""}
+                onChange={(e) => setData({ ...data, scopeStatement: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">المخرجات الرئيسية</label>
+            <textarea
+              value={data.keyDeliverables || ""}
+              onChange={(e) => setData({ ...data, keyDeliverables: e.target.value })}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-24"
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">أصحاب المصلحة</label>
+              <textarea
+                value={data.keyStakeholders || ""}
+                onChange={(e) => setData({ ...data, keyStakeholders: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-24"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">المخاطر</label>
+              <textarea
+                value={data.keyRisks || ""}
+                onChange={(e) => setData({ ...data, keyRisks: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-24"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">ملاحظات الإدارة</label>
+            <textarea
+              value={data.managementNotes || ""}
+              onChange={(e) => setData({ ...data, managementNotes: e.target.value })}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-24"
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">العميل</label>
               <input
                 value={data.clientName}
@@ -308,6 +493,123 @@ export default function ControlProjectEdit() {
             <div className="text-gray-600 mt-6">لا يوجد صور بعد.</div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mt-6">
+        <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
+          <div>
+            <div className="text-lg font-bold text-gray-900">مستندات المشروع</div>
+            <div className="text-sm text-gray-600 mt-1">{documents.length} مستند</div>
+          </div>
+        </div>
+
+        <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50">
+          <div className="grid md:grid-cols-2 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">إضافة مستند</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">عنوان (اختياري)</label>
+              <input
+                value={docTitle}
+                onChange={(e) => setDocTitle(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onDocUpload}
+            disabled={!docFile || docUploading}
+            className="mt-4 bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
+          >
+            {docUploading ? "جارٍ الرفع..." : "رفع"}
+          </button>
+        </div>
+
+        {docsLoading ? (
+          <div className="text-gray-600 mt-6">جارٍ التحميل...</div>
+        ) : (
+          <div className="mt-6 space-y-3">
+            {documents.map((d) => (
+              <div
+                key={d.id}
+                className="border border-gray-200 rounded-2xl bg-white px-4 py-3 flex items-center justify-between gap-4 flex-wrap"
+              >
+                <div className="min-w-0">
+                  <input
+                    value={d.title || ""}
+                    onChange={(e) =>
+                      setDocuments((prev) => prev.map((x) => (x.id === d.id ? { ...x, title: e.target.value } : x)))
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  />
+                  <div className="text-sm text-gray-600 mt-1">
+                    <span dir="ltr">{formatBytes(d.fileSize)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await moveDoc(d.id, -1);
+                    }}
+                    className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+                  >
+                    أعلى
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await moveDoc(d.id, 1);
+                    }}
+                    className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+                  >
+                    أسفل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await updateAdminProjectDocument(projectId, d.id, { title: d.title || "" });
+                      await loadDocs();
+                    }}
+                    className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+                  >
+                    حفظ
+                  </button>
+                  {d.downloadUrl ? (
+                    <a
+                      href={d.downloadUrl}
+                      className="text-[#007A3D] font-bold text-sm hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      تنزيل
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("حذف المستند؟")) return;
+                      await removeAdminProjectDocument(projectId, d.id);
+                      await loadDocs();
+                    }}
+                    className="text-red-700 font-bold text-sm hover:underline"
+                  >
+                    حذف
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!documents.length ? <div className="text-gray-600">لا يوجد مستندات بعد.</div> : null}
+          </div>
+        )}
       </div>
     </div>
   );

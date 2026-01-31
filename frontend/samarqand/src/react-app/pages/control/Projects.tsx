@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { createAdminProject, fetchAdminProjects, type AdminProjectListItem } from "@/react-app/api/site";
+import { createAdminProject, fetchAdminProjects, reorderAdminProjects, type AdminProjectListItem } from "@/react-app/api/site";
 
 export default function ControlProjects() {
   const navigate = useNavigate();
   const [items, setItems] = useState<AdminProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
 
@@ -43,6 +44,28 @@ export default function ControlProjects() {
       }
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function moveItem(id: number, dir: -1 | 1) {
+    if (reordering) return;
+    const idx = items.findIndex((x) => x.id === id);
+    if (idx < 0) return;
+    const nextIdx = idx + dir;
+    if (nextIdx < 0 || nextIdx >= items.length) return;
+    const reordered = [...items];
+    const tmp = reordered[idx];
+    reordered[idx] = reordered[nextIdx];
+    reordered[nextIdx] = tmp;
+    setItems(reordered);
+    setReordering(true);
+    try {
+      const res = await reorderAdminProjects({ ids: reordered.map((x) => x.id) });
+      if (!res.ok) {
+        await load();
+      }
+    } finally {
+      setReordering(false);
     }
   }
 
@@ -98,6 +121,7 @@ export default function ControlProjects() {
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div className="font-bold text-gray-900">قائمة المشاريع</div>
+          {reordering ? <div className="text-sm text-gray-600">جارٍ حفظ الترتيب...</div> : null}
         </div>
 
         {loading ? (
@@ -128,6 +152,24 @@ export default function ControlProjects() {
                   <div className="text-sm text-gray-600 mt-1">
                     {p.projectLocation || "—"} {p.completionYear ? `• ${p.completionYear}` : ""}
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => moveItem(p.id, -1)}
+                    disabled={reordering}
+                    className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
+                  >
+                    أعلى
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveItem(p.id, 1)}
+                    disabled={reordering}
+                    className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
+                  >
+                    أسفل
+                  </button>
                 </div>
                 <Link
                   to={`/control/projects/${p.id}`}

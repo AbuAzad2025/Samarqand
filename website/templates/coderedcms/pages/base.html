@@ -1,4 +1,5 @@
 {% load static wagtailcore_tags wagtailimages_tags %}
+{% with company=settings.website.CompanySettings %}
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
@@ -6,6 +7,38 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>{% block title %}{% if page %}{{ page.seo_title|default:page.title }}{% else %}الموقع{% endif %}{% endblock %}</title>
+    {% with meta_title=page.seo_title|default:page.title|default:company.brand_title|default:company.name meta_desc=page.search_description|default:company.slogan|default:company.footer_about|default:company.name %}
+      <meta name="description" content="{{ meta_desc|striptags|truncatechars:160 }}">
+      {% if request %}
+        <link rel="canonical" href="{{ request.build_absolute_uri }}">
+      {% endif %}
+      <meta property="og:locale" content="ar_AR">
+      <meta property="og:site_name" content="{{ company.name }}">
+      <meta property="og:title" content="{{ meta_title }}">
+      <meta property="og:description" content="{{ meta_desc|striptags|truncatechars:200 }}">
+      {% if request %}
+        <meta property="og:url" content="{{ request.build_absolute_uri }}">
+      {% endif %}
+      <meta property="og:type" content="website">
+      {% if page and page.cover_image %}
+        {% image page.cover_image fill-1200x630 format-jpeg as og_image %}
+      {% elif company.logo_image %}
+        {% image company.logo_image max-1200x630 format-jpeg preserve-svg as og_image %}
+      {% endif %}
+      {% if og_image %}
+        <meta property="og:image" content="{{ og_image.url }}">
+      {% else %}
+        <meta property="og:image" content="{% static 'website/constra/images/logo.png' %}">
+      {% endif %}
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="{{ meta_title }}">
+      <meta name="twitter:description" content="{{ meta_desc|striptags|truncatechars:200 }}">
+      {% if og_image %}
+        <meta name="twitter:image" content="{{ og_image.url }}">
+      {% else %}
+        <meta name="twitter:image" content="{% static 'website/constra/images/logo.png' %}">
+      {% endif %}
+    {% endwith %}
     <link rel="icon" type="image/png" href="{% static 'website/constra/images/favicon.png' %}">
     <link id="bootstrap-css" rel="stylesheet" href="{% static 'website/constra/plugins/bootstrap/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'website/constra/plugins/fontawesome/css/all.min.css' %}">
@@ -29,7 +62,6 @@
   </head>
   <body>
     <div class="body-inner">
-      {% with company=settings.website.CompanySettings %}
       <div class="sq-topbar">
         <div class="container">
           <div class="d-flex align-items-center justify-content-between flex-wrap">
@@ -71,6 +103,9 @@
                 {% if projects_index %}<li class="nav-item"><a href="{% pageurl projects_index %}" class="nav-link">مشاريعنا</a></li>{% endif %}
                 {% if services_index %}<li class="nav-item"><a href="/#services" class="nav-link">خدماتنا</a></li>{% endif %}
                 {% if contact_page %}<li class="nav-item"><a href="{% pageurl contact_page %}" class="nav-link">اتصل بنا</a></li>{% endif %}
+                {% if request.user.is_authenticated and request.user.is_staff %}
+                  <li class="nav-item"><a href="/control" class="nav-link">لوحة التحكم</a></li>
+                {% endif %}
                 <li class="nav-item">
                   <div class="sq-lang">
                     <img src="https://flagcdn.com/w20/ps.png" alt="فلسطين">
@@ -141,7 +176,6 @@
           <div class="sq-footer-copy">© {% now "Y" %} {{ company.name }}. جميع الحقوق محفوظة.</div>
         </div>
       </footer>
-      {% endwith %}
     </div>
 
     <script src="{% static 'website/constra/plugins/jQuery/jquery.min.js' %}"></script>
@@ -474,3 +508,4 @@
     {% endblock %}
   </body>
 </html>
+{% endwith %}

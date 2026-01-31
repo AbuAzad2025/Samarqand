@@ -9,6 +9,7 @@ import string
 import tempfile
 import time
 import zipfile
+from decimal import Decimal
 from io import BytesIO
 from io import StringIO
 from pathlib import Path
@@ -23,13 +24,16 @@ from django.contrib.auth import logout as django_logout
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.management import call_command
+from django.db import IntegrityError
 from django.db import transaction
+from django.db.models import Sum
 from django.http import FileResponse
 from django.http import HttpRequest
 from django.http import HttpResponse
 from django.http import JsonResponse
 from django.http import StreamingHttpResponse
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET
@@ -49,30 +53,49 @@ from website.models import ArticlePage
 from website.models import CalculatorSettings
 from website.models import CertificationIndexPage
 from website.models import CertificationPage
+from website.models import Client
+from website.models import ClientContactLog
+from website.models import CompanyDocument
 from website.models import CompanySettings
 from website.models import ConstructionCalculatorPage
 from website.models import ContactPage
+from website.models import ContractAddendum
+from website.models import ContractPayment
+from website.models import Equipment
 from website.models import HomeAIFeature
 from website.models import HomeAIMetric
 from website.models import HomePageSettings
 from website.models import HomeStat
 from website.models import HomeTimelineStep
 from website.models import HomeTrustBadge
+from website.models import InventoryItem
+from website.models import InventoryTransaction
 from website.models import LocationIndexPage
 from website.models import LocationPage
+from website.models import OpsAuditLog
+from website.models import OpsPermissionRule
+from website.models import OpsTimeclockImportRun
+from website.models import ProjectContract
 from website.models import ProjectDocument
 from website.models import ProjectGalleryImage
 from website.models import ProjectIndexPage
 from website.models import ProjectPage
+from website.models import PurchaseOrder
 from website.models import QuoteRequestPage
+from website.models import ResourceAssignment
 from website.models import RFQDocument
 from website.models import ServiceIndexPage
 from website.models import ServicePage
 from website.models import SiteVisibilitySettings
+from website.models import Subcontractor
+from website.models import Supplier
 from website.models import TeamMember
 from website.models import Testimonial
 from website.models import ToolsIndexPage
 from website.models import WebPage
+from website.models import Worker
+from website.models import WorkerAttendance
+from website.models import WorkerPayrollEntry
 
 
 logger = logging.getLogger(__name__)
@@ -89,7 +112,7 @@ def _read_json(request: HttpRequest) -> dict[str, Any]:
 
 def _api_ok(payload: dict[str, Any] | None = None, *, status: int = 200) -> JsonResponse:
     result: dict[str, Any] = payload or {}
-    return JsonResponse({"ok": True, "result": result}, status=status)
+    return JsonResponse({"ok": True, "result": result, "data": result}, status=status)
 
 
 def _api_error(
@@ -104,7 +127,7 @@ def _api_error(
         error_obj["message"] = message
     if details:
         error_obj["details"] = details
-    return JsonResponse({"ok": False, "error": error_obj}, status=status)
+    return JsonResponse({"ok": False, "error": error_obj, "errorCode": code}, status=status)
 
 
 def _rate_limit_key(request: HttpRequest, *, scope: str, window_seconds: int) -> str:
@@ -153,6 +176,267 @@ def _safe_uploaded_filename(original_name: str, *, allowed_exts: set[str]) -> st
     return f"{token}{ext}" if ext else token
 
 
+ROLE_GROUPS: dict[str, set[str]] = {
+    "guest": {"Guests", "Guest", "ضيف"},
+    "registered_guest": {"Registered Guests", "Registered Guest", "ضيف مسجل", "ضيف مُسجل"},
+    "employee": {"Employees", "Employee", "موظف", "موظفين"},
+    "registrar": {"Registrars", "Registrar", "مسجل", "المسجل"},
+    "accountant": {"Accountants", "Accountant", "محاسب", "محاسبون", "الحسابات"},
+    "manager": {
+        "Managers",
+        "Manager",
+        "مدير",
+        "مدراء",
+        "المدراء",
+        "مدراء الموقع",
+        "مدير الموقع",
+    },
+}
+
+
+def _user_group_names(user: Any) -> set[str]:
+    try:
+        raw = user.groups.values_list("name", flat=True) if user else []
+        return {str(x) for x in raw if str(x).strip()}
+    except Exception:
+        return set()
+
+
+def _user_in_any_group(user: Any, group_names: set[str]) -> bool:
+    if not user:
+        return False
+    if not group_names:
+        return False
+    try:
+        return bool(user.groups.filter(name__in=group_names).exists())
+    except Exception:
+        existing = _user_group_names(user)
+        return any(name in existing for name in group_names)
+
+
+def _user_role(user: Any) -> str:
+    if not user or not getattr(user, "is_authenticated", False):
+        return "anonymous"
+    if getattr(user, "is_superuser", False):
+        return "superadmin"
+    if _user_in_any_group(user, ROLE_GROUPS["manager"]):
+        return "manager"
+    if _user_in_any_group(user, ROLE_GROUPS["accountant"]):
+        return "accountant"
+    if _user_in_any_group(user, ROLE_GROUPS["registrar"]):
+        return "registrar"
+    if _user_in_any_group(user, ROLE_GROUPS["employee"]):
+        return "employee"
+    if _user_in_any_group(user, ROLE_GROUPS["registered_guest"]):
+        return "registered_guest"
+    if _user_in_any_group(user, ROLE_GROUPS["guest"]):
+        return "guest"
+    return "staff"
+
+
+def _ops_rule_allowed_roles(code: str) -> set[str] | None:
+    key = f"ops_perm_rule:{code}"
+    cached = cache.get(key)
+    if isinstance(cached, list):
+        return {str(x) for x in cached if str(x).strip()}
+    if cached is False:
+        return None
+    rule = OpsPermissionRule.objects.filter(code=code).first()
+    roles = None
+    if rule and isinstance(rule.allowed_roles, list):
+        roles = {str(x) for x in rule.allowed_roles if str(x).strip()}
+    cache.set(key, list(roles) if roles is not None else False, 60)
+    return roles
+
+
+def _require_ops_rule(request: HttpRequest, code: str, *, default_allowed_roles: set[str]) -> Any | None:
+    forbidden = _require_staff(request)
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    if user and getattr(user, "is_superuser", False):
+        return None
+    override = _ops_rule_allowed_roles(code)
+    allowed_roles = override if override is not None else default_allowed_roles
+    role = _user_role(user)
+    if role in allowed_roles:
+        return None
+    return _api_error("forbidden", status=403)
+
+
+def _audit_ops(
+    request: HttpRequest,
+    *,
+    action: str,
+    entity_type: str = "",
+    entity_id: str = "",
+    before: dict[str, Any] | None = None,
+    after: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
+) -> None:
+    try:
+        user = getattr(request, "user", None)
+        actor = user if user and getattr(user, "is_authenticated", False) else None
+        OpsAuditLog.objects.create(
+            actor=actor,
+            role=_user_role(user),
+            action=str(action),
+            entity_type=str(entity_type or ""),
+            entity_id=str(entity_id or ""),
+            before=before,
+            after=after,
+            meta=meta,
+            ip=str(request.META.get("REMOTE_ADDR") or "").strip(),
+            user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:255],
+        )
+    except Exception:
+        return None
+
+
+def _require_manager(request: HttpRequest) -> Any | None:
+    forbidden = _require_staff(request)
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    if user and getattr(user, "is_superuser", False):
+        return None
+    if _user_in_any_group(user, ROLE_GROUPS["manager"]):
+        return None
+    return _api_error("forbidden", status=403)
+
+
+def _require_ops_management(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_management",
+        default_allowed_roles={"manager", "accountant", "registrar", "employee"},
+    )
+
+
+def _require_ops_crm_read(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_crm_read",
+        default_allowed_roles={"manager", "accountant", "registrar"},
+    )
+
+
+def _require_ops_crm_write(request: HttpRequest) -> Any | None:
+    return _require_ops_crm_read(request)
+
+
+def _require_ops_contracts_read(request: HttpRequest) -> Any | None:
+    return _require_accounting(request)
+
+
+def _require_ops_contracts_write(request: HttpRequest) -> Any | None:
+    return _require_ops_contracts_read(request)
+
+
+def _require_ops_procurement_read(request: HttpRequest) -> Any | None:
+    return _require_accounting(request)
+
+
+def _require_ops_procurement_write(request: HttpRequest) -> Any | None:
+    return _require_ops_procurement_read(request)
+
+
+def _require_ops_workers_read(request: HttpRequest) -> Any | None:
+    return _require_ops_management(request)
+
+
+def _require_ops_workers_write(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_workers_write",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
+def _require_ops_attendance_read(request: HttpRequest) -> Any | None:
+    return _require_ops_management(request)
+
+
+def _require_ops_attendance_write(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_attendance_write",
+        default_allowed_roles={"manager", "registrar", "employee"},
+    )
+
+
+def _require_ops_timeclock_import(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_timeclock_import",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
+def _require_ops_payroll_read(request: HttpRequest) -> Any | None:
+    return _require_accounting(request)
+
+
+def _require_ops_payroll_write(request: HttpRequest) -> Any | None:
+    return _require_ops_payroll_read(request)
+
+
+def _require_ops_equipment_read(request: HttpRequest) -> Any | None:
+    return _require_ops_management(request)
+
+
+def _require_ops_equipment_write(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_equipment_write",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
+def _require_ops_assignments_read(request: HttpRequest) -> Any | None:
+    return _require_ops_management(request)
+
+
+def _require_ops_assignments_write(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "ops_assignments_write",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
+def _require_accounting(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "accounting",
+        default_allowed_roles={"manager", "accountant"},
+    )
+
+
+def _require_registration(request: HttpRequest) -> Any | None:
+    return _require_ops_rule(
+        request,
+        "registration",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
+def _require_rfq_management(request: HttpRequest) -> Any | None:
+    forbidden = _require_staff(request)
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    if user and getattr(user, "is_superuser", False):
+        return None
+    if _user_in_any_group(user, ROLE_GROUPS["manager"]):
+        return None
+    if _user_in_any_group(user, ROLE_GROUPS["accountant"]):
+        return None
+    if _user_in_any_group(user, ROLE_GROUPS["registrar"]):
+        return None
+    return _require_projects_management(request)
+
+
 def _can_use_restricted_tools(request: HttpRequest) -> bool:
 
     user = getattr(request, "user", None)
@@ -168,7 +452,7 @@ def _can_use_restricted_tools(request: HttpRequest) -> bool:
     except Exception:
         return False
 
-    allowed = {"Managers", "Manager", "مدراء", "المدراء", "مدراء الموقع"}
+    allowed = ROLE_GROUPS["manager"]
     return any(name in allowed for name in group_names)
 
 
@@ -186,7 +470,7 @@ def _require_restricted_tools(request: HttpRequest) -> Any | None:
     except Exception:
         return _api_error("forbidden", status=403)
 
-    allowed = {"Managers", "Manager", "مدراء", "المدراء", "مدراء الموقع"}
+    allowed = ROLE_GROUPS["manager"]
     if any(name in allowed for name in group_names):
         return None
     return _api_error("forbidden", status=403)
@@ -234,20 +518,30 @@ def auth_me(request: HttpRequest) -> JsonResponse:
                 "username": "",
                 "isStaff": False,
                 "isSuperuser": False,
+                "role": "anonymous",
                 "groups": [],
+                "workerId": 0,
             }
         )
     try:
         groups = list(user.groups.values_list("name", flat=True))
     except Exception:
         groups = []
+    worker_id = 0
+    try:
+        linked = Worker.objects.filter(user=user).values_list("id", flat=True).first()
+        worker_id = int(linked or 0)
+    except Exception:
+        worker_id = 0
     return _api_ok(
         {
             "authenticated": True,
             "username": getattr(user, "username", "") or "",
             "isStaff": bool(getattr(user, "is_staff", False)),
             "isSuperuser": bool(getattr(user, "is_superuser", False)),
+            "role": _user_role(user),
             "groups": groups,
+            "workerId": worker_id,
         }
     )
 
@@ -356,7 +650,13 @@ def _require_projects_management(request: HttpRequest) -> Any | None:
     if user and getattr(user, "is_superuser", False):
         return None
     try:
-        group_names = {"Managers", "Project Managers", "PMO", "المدراء", "مدراء المشاريع"}
+        group_names = {
+            "Project Managers",
+            "PMO",
+            "مدراء المشاريع",
+            "مدير مشروع",
+            "مدير المشاريع",
+        } | ROLE_GROUPS["manager"]
         if user and user.groups.filter(name__in=group_names).exists():
             return None
     except Exception:
@@ -418,7 +718,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_company_settings(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -455,7 +755,7 @@ def admin_company_settings(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -508,7 +808,7 @@ def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_settings(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -537,7 +837,7 @@ def admin_home_settings(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -589,7 +889,7 @@ def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_ai_settings(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -619,7 +919,7 @@ def admin_ai_settings(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -895,7 +1195,7 @@ def _default_calculator_items(settings_obj: CalculatorSettings | None) -> list[d
 
 @require_GET
 def admin_calculator_settings(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -932,7 +1232,7 @@ def admin_calculator_settings(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -1041,7 +1341,7 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -1076,7 +1376,7 @@ def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
@@ -1115,7 +1415,7 @@ def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_team(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1139,7 +1439,7 @@ def admin_team(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_team_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1184,7 +1484,7 @@ def admin_team_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
@@ -1250,7 +1550,7 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
 
 @require_POST
 def admin_team_delete(request: HttpRequest, member_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
@@ -1262,7 +1562,7 @@ def admin_team_delete(request: HttpRequest, member_id: int) -> JsonResponse:
 
 @require_POST
 def admin_team_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1293,7 +1593,7 @@ def admin_team_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_testimonials(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1313,7 +1613,7 @@ def admin_testimonials(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1348,7 +1648,7 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_testimonials_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
@@ -1392,7 +1692,7 @@ def admin_testimonials_update(request: HttpRequest, item_id: int) -> JsonRespons
 
 @require_POST
 def admin_testimonials_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
@@ -1404,7 +1704,7 @@ def admin_testimonials_delete(request: HttpRequest, item_id: int) -> JsonRespons
 
 @require_POST
 def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1433,7 +1733,7 @@ def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_trust_badges(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1452,7 +1752,7 @@ def admin_home_trust_badges(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_trust_badges_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1472,7 +1772,7 @@ def admin_home_trust_badges_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_trust_badges_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
@@ -1500,7 +1800,7 @@ def admin_home_trust_badges_update(request: HttpRequest, item_id: int) -> JsonRe
 
 @require_POST
 def admin_home_trust_badges_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
@@ -1512,7 +1812,7 @@ def admin_home_trust_badges_delete(request: HttpRequest, item_id: int) -> JsonRe
 
 @require_POST
 def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1541,7 +1841,7 @@ def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_stats(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1560,7 +1860,7 @@ def admin_home_stats(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_stats_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1583,7 +1883,7 @@ def admin_home_stats_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_stats_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
@@ -1614,7 +1914,7 @@ def admin_home_stats_update(request: HttpRequest, item_id: int) -> JsonResponse:
 
 @require_POST
 def admin_home_stats_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
@@ -1626,7 +1926,7 @@ def admin_home_stats_delete(request: HttpRequest, item_id: int) -> JsonResponse:
 
 @require_POST
 def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1655,7 +1955,7 @@ def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_timeline(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1674,7 +1974,7 @@ def admin_home_timeline(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_timeline_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1694,7 +1994,7 @@ def admin_home_timeline_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_timeline_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
@@ -1722,7 +2022,7 @@ def admin_home_timeline_update(request: HttpRequest, item_id: int) -> JsonRespon
 
 @require_POST
 def admin_home_timeline_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
@@ -1734,7 +2034,7 @@ def admin_home_timeline_delete(request: HttpRequest, item_id: int) -> JsonRespon
 
 @require_POST
 def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1763,7 +2063,7 @@ def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_ai_features(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1782,7 +2082,7 @@ def admin_home_ai_features(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_ai_features_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1802,7 +2102,7 @@ def admin_home_ai_features_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_ai_features_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
@@ -1830,7 +2130,7 @@ def admin_home_ai_features_update(request: HttpRequest, item_id: int) -> JsonRes
 
 @require_POST
 def admin_home_ai_features_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
@@ -1842,7 +2142,7 @@ def admin_home_ai_features_delete(request: HttpRequest, item_id: int) -> JsonRes
 
 @require_POST
 def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1871,7 +2171,7 @@ def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_home_ai_metrics(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -1889,7 +2189,7 @@ def admin_home_ai_metrics(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_ai_metrics_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1907,7 +2207,7 @@ def admin_home_ai_metrics_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_home_ai_metrics_update(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
@@ -1936,7 +2236,7 @@ def admin_home_ai_metrics_update(request: HttpRequest, item_id: int) -> JsonResp
 
 @require_POST
 def admin_home_ai_metrics_delete(request: HttpRequest, item_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
@@ -1948,7 +2248,7 @@ def admin_home_ai_metrics_delete(request: HttpRequest, item_id: int) -> JsonResp
 
 @require_POST
 def admin_home_ai_metrics_reorder(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -2036,7 +2336,7 @@ def _streamfield_first_html(body: Any) -> str:
 
 @require_GET
 def admin_services(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _services_index(request)
@@ -2063,7 +2363,7 @@ def admin_services(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
@@ -2088,7 +2388,7 @@ def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
 
 @require_POST
 def admin_service_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _services_index(request)
@@ -2129,7 +2429,7 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
@@ -2173,7 +2473,7 @@ def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
 
 @require_POST
 def admin_service_publish(request: HttpRequest, service_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
@@ -2185,7 +2485,7 @@ def admin_service_publish(request: HttpRequest, service_id: int) -> JsonResponse
 
 @require_POST
 def admin_service_unpublish(request: HttpRequest, service_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
@@ -2201,7 +2501,7 @@ def admin_service_unpublish(request: HttpRequest, service_id: int) -> JsonRespon
 
 @require_POST
 def admin_service_delete(request: HttpRequest, service_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
@@ -2253,7 +2553,7 @@ def _page_type_name(page: Page) -> str:
 
 @require_GET
 def admin_pages_tree(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     parent_id_raw = request.GET.get("parentId")
@@ -2306,7 +2606,7 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_pages_allowed_types(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     parent_id_raw = request.GET.get("parentId")
@@ -2342,7 +2642,7 @@ def admin_pages_allowed_types(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
@@ -2410,7 +2710,7 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
 
 @require_POST
 def admin_page_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -2456,7 +2756,7 @@ def admin_page_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
@@ -2527,7 +2827,7 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
 
 @require_POST
 def admin_page_publish(request: HttpRequest, page_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
@@ -2539,7 +2839,7 @@ def admin_page_publish(request: HttpRequest, page_id: int) -> JsonResponse:
 
 @require_POST
 def admin_page_unpublish(request: HttpRequest, page_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
@@ -2555,7 +2855,7 @@ def admin_page_unpublish(request: HttpRequest, page_id: int) -> JsonResponse:
 
 @require_POST
 def admin_page_delete(request: HttpRequest, page_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
@@ -2567,7 +2867,7 @@ def admin_page_delete(request: HttpRequest, page_id: int) -> JsonResponse:
 
 @require_GET
 def admin_articles(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _articles_index(request)
@@ -2593,7 +2893,7 @@ def admin_articles(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_article_detail(request: HttpRequest, article_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
@@ -2617,7 +2917,7 @@ def admin_article_detail(request: HttpRequest, article_id: int) -> JsonResponse:
 
 @require_POST
 def admin_article_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _articles_index(request)
@@ -2658,7 +2958,7 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
@@ -2702,7 +3002,7 @@ def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
 
 @require_POST
 def admin_article_publish(request: HttpRequest, article_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
@@ -2714,7 +3014,7 @@ def admin_article_publish(request: HttpRequest, article_id: int) -> JsonResponse
 
 @require_POST
 def admin_article_unpublish(request: HttpRequest, article_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
@@ -2730,7 +3030,7 @@ def admin_article_unpublish(request: HttpRequest, article_id: int) -> JsonRespon
 
 @require_POST
 def admin_article_delete(request: HttpRequest, article_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).first()
@@ -2748,7 +3048,7 @@ def _rfq_number() -> str:
 
 @require_GET
 def admin_rfq_documents(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
@@ -2769,7 +3069,7 @@ def admin_rfq_documents(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_rfq_document_detail(request: HttpRequest, doc_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
@@ -2791,7 +3091,7 @@ def admin_rfq_document_detail(request: HttpRequest, doc_id: int) -> JsonResponse
 
 @require_POST
 def admin_rfq_document_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -2814,7 +3114,7 @@ def admin_rfq_document_create(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_rfq_document_update(request: HttpRequest, doc_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
@@ -2837,7 +3137,7 @@ def admin_rfq_document_update(request: HttpRequest, doc_id: int) -> JsonResponse
 
 @require_POST
 def admin_rfq_document_delete(request: HttpRequest, doc_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
@@ -3041,7 +3341,7 @@ def _rfq_totals(data: dict[str, Any]) -> tuple[float, float, float, float]:
 
 @require_POST
 def admin_rfq_document_pdf(request: HttpRequest, doc_id: int) -> HttpResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
@@ -3158,7 +3458,7 @@ def admin_projects(request: HttpRequest) -> JsonResponse:
         ProjectPage.STATUS_ARCHIVED,
     }:
         return _api_error("invalid_project_status", status=400)
-    pages = ProjectPage.objects.child_of(idx).specific().order_by("-first_published_at", "-id")
+    pages = ProjectPage.objects.child_of(idx).specific().order_by("path")
     if status:
         pages = pages.filter(status=status)
     pages = pages.prefetch_related("gallery_images__image")
@@ -3183,6 +3483,44 @@ def admin_projects(request: HttpRequest) -> JsonResponse:
             }
         )
     return _api_ok({"items": items})
+
+
+@require_POST
+def admin_projects_reorder(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_projects_management(request)
+    if forbidden:
+        return forbidden
+    idx = _projects_index(request)
+    if not idx:
+        return _api_error("projects_index_missing", status=400)
+    data = _read_json(request)
+    ids = data.get("ids")
+    if not isinstance(ids, list):
+        return _api_error("invalid_ids", status=400)
+    cleaned: list[int] = []
+    for x in ids:
+        try:
+            cleaned.append(int(x))
+        except Exception:
+            continue
+    if not cleaned:
+        return _api_error("invalid_ids", status=400)
+    pages = ProjectPage.objects.child_of(idx).filter(pk__in=cleaned).specific()
+    by_id = {p.id: p for p in pages}
+    if not by_id:
+        return _api_error("invalid_ids", status=400)
+    with transaction.atomic():
+        prev = None
+        for pid in cleaned:
+            p = by_id.get(pid)
+            if not p:
+                continue
+            if prev is None:
+                p.move(idx, pos="first-child")
+            else:
+                p.move(prev, pos="right")
+            prev = p
+    return _api_ok()
 
 
 @require_GET
@@ -3569,7 +3907,7 @@ def admin_project_gallery_remove(request: HttpRequest, project_id: int, item_id:
 
 @require_GET
 def admin_project_documents(request: HttpRequest, project_id: int) -> JsonResponse:
-    forbidden = _require_restricted_tools(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
@@ -3615,7 +3953,7 @@ def admin_project_documents(request: HttpRequest, project_id: int) -> JsonRespon
 def admin_project_documents_download(
     request: HttpRequest, project_id: int, item_id: int
 ) -> FileResponse | JsonResponse:
-    forbidden = _require_restricted_tools(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
@@ -3664,7 +4002,7 @@ def admin_project_documents_upload(request: HttpRequest, project_id: int) -> Jso
     )
     if limited:
         return limited
-    forbidden = _require_restricted_tools(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
@@ -3742,11 +4080,18 @@ def admin_project_documents_upload(request: HttpRequest, project_id: int) -> Jso
         root_collection = Collection.get_first_root_node()
         doc = DocumentModel(title=title, file=f, collection=root_collection)
         doc.save()
+        last = (
+            ProjectDocument.objects.filter(page=page, sort_order__isnull=False)
+            .order_by("-sort_order", "-id")
+            .first()
+        )
+        sort_order = int(getattr(last, "sort_order", -1) or -1) + 1
         row = ProjectDocument.objects.create(
             page=page,
             title=str(request.POST.get("rowTitle") or title or ""),
             document=doc,
             uploaded_by=getattr(request, "user", None),
+            sort_order=sort_order,
         )
         page.save_revision().publish() if page.live else page.save_revision().save()
         url = ""
@@ -3763,7 +4108,7 @@ def admin_project_documents_upload(request: HttpRequest, project_id: int) -> Jso
 def admin_project_documents_remove(
     request: HttpRequest, project_id: int, item_id: int
 ) -> JsonResponse:
-    forbidden = _require_restricted_tools(request)
+    forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
     page = ProjectPage.objects.filter(pk=project_id).specific().first()
@@ -3775,11 +4120,447 @@ def admin_project_documents_remove(
 
 
 @require_POST
+def admin_project_documents_update(
+    request: HttpRequest, project_id: int, item_id: int
+) -> JsonResponse:
+    forbidden = _require_projects_management(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    row = ProjectDocument.objects.filter(pk=item_id, page=page).first()
+    if not row:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    updated_fields: list[str] = []
+    if data.get("title") is not None:
+        row.title = str(data.get("title") or "")
+        updated_fields.append("title")
+    if data.get("sortOrder") is not None:
+        sort_order_raw = data.get("sortOrder")
+        try:
+            row.sort_order = int(str(sort_order_raw))
+        except Exception:
+            return _api_error("invalid_sortOrder", status=400)
+        updated_fields.append("sort_order")
+    if updated_fields:
+        row.save(update_fields=updated_fields)
+        page.save_revision().publish() if page.live else page.save_revision().save()
+    return _api_ok()
+
+
+@require_POST
+def admin_project_documents_reorder(request: HttpRequest, project_id: int) -> JsonResponse:
+    forbidden = _require_projects_management(request)
+    if forbidden:
+        return forbidden
+    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    if not page:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    ids = data.get("ids")
+    if not isinstance(ids, list):
+        return _api_error("invalid_ids", status=400)
+    cleaned: list[int] = []
+    for x in ids:
+        try:
+            cleaned.append(int(x))
+        except Exception:
+            continue
+    if not cleaned:
+        return _api_error("invalid_ids", status=400)
+    rows = ProjectDocument.objects.filter(page=page, pk__in=cleaned)
+    by_id = {r.id: r for r in rows}
+    with transaction.atomic():
+        for idx, rid in enumerate(cleaned):
+            r = by_id.get(rid)
+            if not r:
+                continue
+            r.sort_order = idx
+            r.save(update_fields=["sort_order"])
+    page.save_revision().publish() if page.live else page.save_revision().save()
+    return _api_ok()
+
+
+@require_GET
+def admin_company_documents(request: HttpRequest) -> JsonResponse:
+    category = str(request.GET.get("category") or "").strip()
+    allowed = {
+        CompanyDocument.CATEGORY_TEMPLATE,
+        CompanyDocument.CATEGORY_LETTERHEAD,
+        CompanyDocument.CATEGORY_INVOICE,
+        CompanyDocument.CATEGORY_RECEIPT,
+        CompanyDocument.CATEGORY_COMPANY_DOCUMENT,
+        CompanyDocument.CATEGORY_COMPANY_CERTIFICATE,
+    }
+    if category not in allowed:
+        return _api_error("invalid_category", status=400)
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+
+    items: list[dict[str, Any]] = []
+    for row in (
+        CompanyDocument.objects.filter(category=category)
+        .select_related("document")
+        .order_by("sort_order", "id")
+    ):
+        doc = getattr(row, "document", None)
+        url = ""
+        file_size = 0
+        created_at = ""
+        document_id = getattr(doc, "id", None)
+        try:
+            f = getattr(doc, "file", None) if doc else None
+            url = _abs_url(request, f.url) if f and getattr(f, "url", None) else ""
+            file_size = int(getattr(f, "size", 0) or 0)
+        except Exception:
+            url = ""
+            file_size = 0
+        try:
+            created_at = str(getattr(doc, "created_at", "") or "") if doc else ""
+        except Exception:
+            created_at = ""
+        items.append(
+            {
+                "id": row.id,
+                "category": row.category,
+                "sortOrder": int(getattr(row, "sort_order", 0) or 0),
+                "title": str(getattr(row, "title", "") or getattr(doc, "title", "") or ""),
+                "documentId": document_id,
+                "url": url,
+                "downloadUrl": _abs_url(request, f"/api/admin/company-documents/{row.id}/download"),
+                "fileSize": file_size,
+                "createdAt": created_at,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_GET
+def admin_company_documents_download(request: HttpRequest, item_id: int) -> FileResponse | JsonResponse:
+    row = CompanyDocument.objects.filter(pk=item_id).select_related("document").first()
+    if not row:
+        return _api_error("not_found", status=404)
+    category = str(getattr(row, "category", "") or "").strip()
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+    doc = getattr(row, "document", None) if row else None
+    f = getattr(doc, "file", None) if doc else None
+    if not f:
+        return _api_error("not_found", status=404)
+
+    try:
+        fh = f.open("rb")
+    except Exception:
+        return _api_error("not_found", status=404)
+
+    original_name = ""
+    try:
+        original_name = Path(str(getattr(f, "name", "") or "")).name
+    except Exception:
+        original_name = ""
+
+    ext = Path(original_name).suffix
+    base = str(getattr(row, "title", "") or getattr(doc, "title", "") or "").strip()
+    if not base:
+        base = Path(original_name).stem or "document"
+    for ch in ['\\', '/', ':', '*', '?', '"', "<", ">", "|"]:
+        base = base.replace(ch, "-")
+    download_name = f"{base}{ext}" if ext else base
+
+    content_type = mimetypes.guess_type(download_name)[0] or ""
+    resp = FileResponse(fh, as_attachment=True, filename=download_name)
+    if content_type:
+        resp["Content-Type"] = content_type
+    return resp
+
+
+@require_POST
+def admin_company_documents_upload(request: HttpRequest) -> JsonResponse:
+    limited = _check_rate_limit(
+        request, scope="admin_company_document_upload", limit=24, window_seconds=300
+    )
+    if limited:
+        return limited
+    category = str(request.POST.get("category") or "").strip()
+    allowed = {
+        CompanyDocument.CATEGORY_TEMPLATE,
+        CompanyDocument.CATEGORY_LETTERHEAD,
+        CompanyDocument.CATEGORY_INVOICE,
+        CompanyDocument.CATEGORY_RECEIPT,
+        CompanyDocument.CATEGORY_COMPANY_DOCUMENT,
+        CompanyDocument.CATEGORY_COMPANY_CERTIFICATE,
+    }
+    if category not in allowed:
+        return _api_error("invalid_category", status=400)
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+
+    f = request.FILES.get("file")
+    if not f:
+        return _api_error("missing_file", status=400)
+    max_bytes = int(
+        getattr(settings, "ADMIN_COMPANY_DOCUMENT_UPLOAD_MAX_BYTES", 25 * 1024 * 1024)
+    )
+    if int(getattr(f, "size", 0) or 0) <= 0:
+        return _api_error("empty_file", status=400)
+    if int(getattr(f, "size", 0) or 0) > max_bytes:
+        return _api_error("file_too_large", status=413, details={"maxBytes": max_bytes})
+
+    original_name = str(getattr(f, "name", "") or "")
+    filename = original_name.lower()
+    blocked_exts = {
+        ".exe",
+        ".bat",
+        ".cmd",
+        ".ps1",
+        ".psm1",
+        ".sh",
+        ".php",
+        ".py",
+        ".js",
+        ".html",
+        ".htm",
+        ".vbs",
+        ".wsf",
+        ".jar",
+        ".dll",
+        ".com",
+        ".scr",
+    }
+    ext = Path(filename).suffix.lower()
+    if ext in blocked_exts:
+        return _api_error("invalid_file_type", status=400)
+    allowed_exts = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".txt",
+        ".csv",
+        ".rtf",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".zip",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+    }
+    allowed_mimes = {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+        "text/csv",
+        "application/rtf",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
+        "application/zip",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    }
+    if ext not in allowed_exts:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedExtensions": sorted(allowed_exts)},
+        )
+    content_type = str(getattr(f, "content_type", "") or "").lower()
+    if content_type and content_type not in allowed_mimes:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            details={"allowedMimeTypes": sorted(allowed_mimes)},
+        )
+
+    try:
+        f.name = _safe_uploaded_filename(original_name, allowed_exts=allowed_exts)
+    except Exception:
+        pass
+
+    title = str(request.POST.get("title") or getattr(f, "name", "") or "document")
+    try:
+        from wagtail.documents import get_document_model
+        from wagtail.models import Collection
+
+        DocumentModel = get_document_model()
+        root_collection = Collection.get_first_root_node()
+        doc = DocumentModel(title=title, file=f, collection=root_collection)
+        doc.save()
+
+        last = (
+            CompanyDocument.objects.filter(category=category)
+            .order_by("-sort_order", "-id")
+            .first()
+        )
+        sort_order = int(getattr(last, "sort_order", -1) or -1) + 1
+        row = CompanyDocument.objects.create(
+            category=category,
+            title=str(request.POST.get("rowTitle") or title or ""),
+            document=doc,
+            uploaded_by=getattr(request, "user", None),
+            sort_order=sort_order,
+        )
+        url = ""
+        try:
+            url = _abs_url(request, doc.file.url) if getattr(doc, "file", None) else ""
+        except Exception:
+            url = ""
+        return _api_ok(
+            {"id": row.id, "documentId": doc.id, "url": url, "title": row.title, "category": row.category}
+        )
+    except Exception:
+        return _api_error("upload_failed", status=400)
+
+
+@require_POST
+def admin_company_documents_remove(request: HttpRequest, item_id: int) -> JsonResponse:
+    row = CompanyDocument.objects.filter(pk=item_id).first()
+    if not row:
+        return _api_error("not_found", status=404)
+    category = str(getattr(row, "category", "") or "").strip()
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+    row.delete()
+    return _api_ok()
+
+
+@require_POST
+def admin_company_documents_update(request: HttpRequest, item_id: int) -> JsonResponse:
+    row = CompanyDocument.objects.filter(pk=item_id).first()
+    if not row:
+        return _api_error("not_found", status=404)
+    category = str(getattr(row, "category", "") or "").strip()
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    updated_fields: list[str] = []
+    if data.get("title") is not None:
+        row.title = str(data.get("title") or "")
+        updated_fields.append("title")
+    if data.get("sortOrder") is not None:
+        sort_order_raw = data.get("sortOrder")
+        try:
+            row.sort_order = int(str(sort_order_raw))
+        except Exception:
+            return _api_error("invalid_sortOrder", status=400)
+        updated_fields.append("sort_order")
+    if updated_fields:
+        row.save(update_fields=updated_fields)
+    return _api_ok()
+
+
+@require_POST
+def admin_company_documents_reorder(request: HttpRequest) -> JsonResponse:
+    data = _read_json(request)
+    category = str(data.get("category") or "").strip()
+    allowed = {
+        CompanyDocument.CATEGORY_TEMPLATE,
+        CompanyDocument.CATEGORY_LETTERHEAD,
+        CompanyDocument.CATEGORY_INVOICE,
+        CompanyDocument.CATEGORY_RECEIPT,
+        CompanyDocument.CATEGORY_COMPANY_DOCUMENT,
+        CompanyDocument.CATEGORY_COMPANY_CERTIFICATE,
+    }
+    if category not in allowed:
+        return _api_error("invalid_category", status=400)
+    forbidden = (
+        _require_accounting(request)
+        if category
+        in {
+            CompanyDocument.CATEGORY_INVOICE,
+            CompanyDocument.CATEGORY_RECEIPT,
+        }
+        else _require_registration(request)
+    )
+    if forbidden:
+        return forbidden
+    ids = data.get("ids")
+    if not isinstance(ids, list):
+        return _api_error("invalid_ids", status=400)
+    cleaned: list[int] = []
+    for x in ids:
+        try:
+            cleaned.append(int(x))
+        except Exception:
+            continue
+    if not cleaned:
+        return _api_error("invalid_ids", status=400)
+    rows = CompanyDocument.objects.filter(category=category, pk__in=cleaned)
+    by_id = {r.id: r for r in rows}
+    with transaction.atomic():
+        for idx, rid in enumerate(cleaned):
+            r = by_id.get(rid)
+            if not r:
+                continue
+            r.sort_order = idx
+            r.save(update_fields=["sort_order"])
+    return _api_ok()
+
+
+@require_POST
 def admin_image_upload(request: HttpRequest) -> JsonResponse:
     limited = _check_rate_limit(request, scope="admin_image_upload", limit=24, window_seconds=300)
     if limited:
         return limited
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     f = request.FILES.get("file")
@@ -3852,7 +4633,7 @@ def admin_image_upload(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 def admin_media_images(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     q = str(request.GET.get("q") or "").strip()
@@ -3899,7 +4680,7 @@ def admin_media_images(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_media_images_delete(request: HttpRequest, image_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     try:
@@ -3920,7 +4701,7 @@ def admin_media_images_delete(request: HttpRequest, image_id: int) -> JsonRespon
 
 @require_GET
 def admin_media_documents(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     q = str(request.GET.get("q") or "").strip()
@@ -3972,7 +4753,7 @@ def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
     limited = _check_rate_limit(request, scope="admin_document_upload", limit=24, window_seconds=300)
     if limited:
         return limited
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     f = request.FILES.get("file")
@@ -4080,7 +4861,7 @@ def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_media_documents_delete(request: HttpRequest, doc_id: int) -> JsonResponse:
-    forbidden = _require_staff(request)
+    forbidden = _require_registration(request)
     if forbidden:
         return forbidden
     try:
@@ -4368,6 +5149,18 @@ def admin_users(request: HttpRequest) -> JsonResponse:
     if not username:
         return _api_error("missing_username", status=400)
 
+    allowed_roles = {
+        "guest",
+        "registered_guest",
+        "employee",
+        "registrar",
+        "accountant",
+        "manager",
+        "superadmin",
+    }
+    if role not in allowed_roles:
+        return _api_error("invalid_role", status=400)
+
     User = get_user_model()
     obj, created = User.objects.get_or_create(username=username)
     obj.is_staff = True
@@ -4377,18 +5170,32 @@ def admin_users(request: HttpRequest) -> JsonResponse:
         generated_password = _generate_password()
         password = generated_password
 
+    try:
+        role_group_names: set[str] = set()
+        for names in ROLE_GROUPS.values():
+            role_group_names |= set(names)
+        to_remove = list(Group.objects.filter(name__in=role_group_names))
+        if to_remove:
+            obj.groups.remove(*to_remove)
+    except Exception:
+        pass
+
     if role == "superadmin":
         obj.is_superuser = True
-        try:
-            managers_group = Group.objects.filter(name="Managers").first()
-            if managers_group:
-                obj.groups.remove(managers_group)
-        except Exception:
-            pass
     else:
         obj.is_superuser = False
-        managers_group, _ = Group.objects.get_or_create(name="Managers")
-        obj.groups.add(managers_group)
+        role_to_group_name = {
+            "guest": "Guests",
+            "registered_guest": "Registered Guests",
+            "employee": "Employees",
+            "registrar": "Registrars",
+            "accountant": "Accountants",
+            "manager": "Managers",
+        }
+        group_name = role_to_group_name.get(role)
+        if group_name:
+            grp, _ = Group.objects.get_or_create(name=group_name)
+            obj.groups.add(grp)
 
     obj.set_password(password)
     obj.save()
@@ -4399,6 +5206,45 @@ def admin_users(request: HttpRequest) -> JsonResponse:
             "generatedPassword": generated_password,
         }
     )
+
+
+@require_GET
+def admin_users_list(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_superuser(request)
+    if forbidden:
+        return forbidden
+    limit = int(request.GET.get("limit") or 200) or 200
+    limit = max(1, min(limit, 500))
+    User = get_user_model()
+    qs = User.objects.filter(is_staff=True).prefetch_related("groups").order_by("username", "id")[:limit]
+    user_ids = [int(u.id) for u in qs]
+    worker_map: dict[int, int] = {}
+    try:
+        for row in Worker.objects.filter(user_id__in=user_ids).values("user_id", "id"):
+            uid = int(row.get("user_id") or 0)
+            wid = int(row.get("id") or 0)
+            if uid:
+                worker_map[uid] = wid
+    except Exception:
+        worker_map = {}
+    items: list[dict[str, Any]] = []
+    for u in qs:
+        groups = []
+        try:
+            groups = [str(g.name) for g in u.groups.all()]
+        except Exception:
+            groups = []
+        items.append(
+            {
+                "id": int(u.id),
+                "username": getattr(u, "username", "") or "",
+                "isSuperuser": bool(getattr(u, "is_superuser", False)),
+                "role": _user_role(u),
+                "groups": groups,
+                "workerId": int(worker_map.get(int(u.id), 0) or 0),
+            }
+        )
+    return _api_ok({"items": items})
 
 
 def _get_site(request: HttpRequest) -> Site | None:
@@ -5165,6 +6011,7 @@ def site_projects(request: HttpRequest) -> JsonResponse:
     )
     if status:
         pages = pages.filter(status=status)
+    pages = pages.order_by("path")
     pages = pages.prefetch_related("gallery_images__image")
     items: list[dict[str, Any]] = []
     for p in pages:
@@ -5275,3 +6122,3007 @@ def site_home_sections(request: HttpRequest) -> JsonResponse:
             "aiMetrics": ai_metrics,
         }
     )
+
+
+def _to_iso(val: Any) -> str:
+    if not val:
+        return ""
+    try:
+        return val.isoformat()
+    except Exception:
+        return str(val)
+
+
+def _to_date(raw: Any) -> Any:
+    if raw in {"", None}:
+        return None
+    from datetime import date
+
+    val = str(raw).strip()
+    if not val:
+        return None
+    return date.fromisoformat(val)
+
+
+def _to_dec(raw: Any, *, allow_none: bool = True) -> Decimal | None:
+    if raw in {"", None}:
+        return None if allow_none else Decimal("0")
+    try:
+        return Decimal(str(raw))
+    except Exception:
+        return None if allow_none else Decimal("0")
+
+
+@require_GET
+def admin_ops_clients(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_crm_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    for c in Client.objects.all():
+        items.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "phone": c.phone,
+                "email": c.email,
+                "address": c.address,
+                "notes": c.notes,
+                "createdAt": _to_iso(c.created_at),
+                "updatedAt": _to_iso(c.updated_at),
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_clients_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_crm_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    c = Client.objects.create(
+        name=name,
+        phone=str(data.get("phone") or "").strip(),
+        email=str(data.get("email") or "").strip(),
+        address=str(data.get("address") or "").strip(),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    return _api_ok({"id": c.id})
+
+
+@require_POST
+def admin_ops_clients_update(request: HttpRequest, client_id: int) -> JsonResponse:
+    forbidden = _require_ops_crm_write(request)
+    if forbidden:
+        return forbidden
+    c = Client.objects.filter(pk=client_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    if data.get("name") is not None:
+        c.name = str(data.get("name") or "").strip()
+    if data.get("phone") is not None:
+        c.phone = str(data.get("phone") or "").strip()
+    if data.get("email") is not None:
+        c.email = str(data.get("email") or "").strip()
+    if data.get("address") is not None:
+        c.address = str(data.get("address") or "").strip()
+    if data.get("notes") is not None:
+        c.notes = str(data.get("notes") or "").strip()
+    if not c.name:
+        return _api_error("missing_name", status=400)
+    c.save()
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_clients_delete(request: HttpRequest, client_id: int) -> JsonResponse:
+    forbidden = _require_ops_crm_write(request)
+    if forbidden:
+        return forbidden
+    c = Client.objects.filter(pk=client_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    c.delete()
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_client_contacts(request: HttpRequest, client_id: int) -> JsonResponse:
+    forbidden = _require_ops_crm_read(request)
+    if forbidden:
+        return forbidden
+    c = Client.objects.filter(pk=client_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    items: list[dict[str, Any]] = []
+    for row in ClientContactLog.objects.filter(client=c).select_related("created_by"):
+        items.append(
+            {
+                "id": row.id,
+                "kind": row.kind,
+                "subject": row.subject,
+                "body": row.body,
+                "createdAt": _to_iso(row.created_at),
+                "createdBy": getattr(row.created_by, "username", "") if row.created_by else "",
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_client_contacts_create(request: HttpRequest, client_id: int) -> JsonResponse:
+    forbidden = _require_ops_crm_write(request)
+    if forbidden:
+        return forbidden
+    c = Client.objects.filter(pk=client_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    kind = str(data.get("kind") or ClientContactLog.KIND_CALL).strip()
+    allowed = {k for k, _ in ClientContactLog.KIND_CHOICES}
+    if kind not in allowed:
+        return _api_error("invalid_kind", status=400)
+    row = ClientContactLog.objects.create(
+        client=c,
+        kind=kind,
+        subject=str(data.get("subject") or "").strip(),
+        body=str(data.get("body") or "").strip(),
+        created_by=getattr(request, "user", None)
+        if getattr(getattr(request, "user", None), "is_authenticated", False)
+        else None,
+    )
+    return _api_ok({"id": row.id})
+
+
+@require_GET
+def admin_ops_suppliers(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_procurement_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    for s in Supplier.objects.all():
+        items.append(
+            {
+                "id": s.id,
+                "name": s.name,
+                "category": s.category,
+                "phone": s.phone,
+                "email": s.email,
+                "address": s.address,
+                "notes": s.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_suppliers_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    s = Supplier.objects.create(
+        name=name,
+        category=str(data.get("category") or "").strip(),
+        phone=str(data.get("phone") or "").strip(),
+        email=str(data.get("email") or "").strip(),
+        address=str(data.get("address") or "").strip(),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_supplier_create",
+        entity_type="supplier",
+        entity_id=str(s.id),
+        after={"id": s.id, "name": s.name},
+    )
+    return _api_ok({"id": s.id})
+
+
+@require_POST
+def admin_ops_suppliers_update(request: HttpRequest, supplier_id: int) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    s = Supplier.objects.filter(pk=supplier_id).first()
+    if not s:
+        return _api_error("not_found", status=404)
+    before = {
+        "name": s.name,
+        "category": s.category,
+        "phone": s.phone,
+        "email": s.email,
+        "address": s.address,
+        "notes": s.notes,
+    }
+    data = _read_json(request)
+    if data.get("name") is not None:
+        s.name = str(data.get("name") or "").strip()
+    if data.get("category") is not None:
+        s.category = str(data.get("category") or "").strip()
+    if data.get("phone") is not None:
+        s.phone = str(data.get("phone") or "").strip()
+    if data.get("email") is not None:
+        s.email = str(data.get("email") or "").strip()
+    if data.get("address") is not None:
+        s.address = str(data.get("address") or "").strip()
+    if data.get("notes") is not None:
+        s.notes = str(data.get("notes") or "").strip()
+    if not s.name:
+        return _api_error("missing_name", status=400)
+    s.save()
+    after = {
+        "name": s.name,
+        "category": s.category,
+        "phone": s.phone,
+        "email": s.email,
+        "address": s.address,
+        "notes": s.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_supplier_update",
+        entity_type="supplier",
+        entity_id=str(s.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_suppliers_delete(request: HttpRequest, supplier_id: int) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    s = Supplier.objects.filter(pk=supplier_id).first()
+    if not s:
+        return _api_error("not_found", status=404)
+    before = {"id": s.id, "name": s.name}
+    s.delete()
+    _audit_ops(
+        request,
+        action="ops_supplier_delete",
+        entity_type="supplier",
+        entity_id=str(supplier_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_subcontractors(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_procurement_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    for s in Subcontractor.objects.all():
+        items.append(
+            {
+                "id": s.id,
+                "name": s.name,
+                "specialty": s.specialty,
+                "phone": s.phone,
+                "email": s.email,
+                "address": s.address,
+                "notes": s.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_subcontractors_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    s = Subcontractor.objects.create(
+        name=name,
+        specialty=str(data.get("specialty") or "").strip(),
+        phone=str(data.get("phone") or "").strip(),
+        email=str(data.get("email") or "").strip(),
+        address=str(data.get("address") or "").strip(),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_subcontractor_create",
+        entity_type="subcontractor",
+        entity_id=str(s.id),
+        after={"id": s.id, "name": s.name},
+    )
+    return _api_ok({"id": s.id})
+
+
+@require_POST
+def admin_ops_subcontractors_update(
+    request: HttpRequest, subcontractor_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    s = Subcontractor.objects.filter(pk=subcontractor_id).first()
+    if not s:
+        return _api_error("not_found", status=404)
+    before = {
+        "name": s.name,
+        "specialty": s.specialty,
+        "phone": s.phone,
+        "email": s.email,
+        "address": s.address,
+        "notes": s.notes,
+    }
+    data = _read_json(request)
+    if data.get("name") is not None:
+        s.name = str(data.get("name") or "").strip()
+    if data.get("specialty") is not None:
+        s.specialty = str(data.get("specialty") or "").strip()
+    if data.get("phone") is not None:
+        s.phone = str(data.get("phone") or "").strip()
+    if data.get("email") is not None:
+        s.email = str(data.get("email") or "").strip()
+    if data.get("address") is not None:
+        s.address = str(data.get("address") or "").strip()
+    if data.get("notes") is not None:
+        s.notes = str(data.get("notes") or "").strip()
+    if not s.name:
+        return _api_error("missing_name", status=400)
+    s.save()
+    after = {
+        "name": s.name,
+        "specialty": s.specialty,
+        "phone": s.phone,
+        "email": s.email,
+        "address": s.address,
+        "notes": s.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_subcontractor_update",
+        entity_type="subcontractor",
+        entity_id=str(s.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_subcontractors_delete(
+    request: HttpRequest, subcontractor_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_procurement_write(request)
+    if forbidden:
+        return forbidden
+    s = Subcontractor.objects.filter(pk=subcontractor_id).first()
+    if not s:
+        return _api_error("not_found", status=404)
+    before = {"id": s.id, "name": s.name}
+    s.delete()
+    _audit_ops(
+        request,
+        action="ops_subcontractor_delete",
+        entity_type="subcontractor",
+        entity_id=str(subcontractor_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_contracts(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_contracts_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    qs = ProjectContract.objects.select_related("client", "project")
+    for c in qs:
+        items.append(
+            {
+                "id": c.id,
+                "projectId": c.project_id or 0,
+                "projectTitle": getattr(c.project, "title", "") if c.project else "",
+                "clientId": c.client_id or 0,
+                "clientName": c.client.name if c.client else "",
+                "title": c.title,
+                "number": c.number,
+                "status": c.status,
+                "startDate": _to_iso(c.start_date),
+                "endDate": _to_iso(c.end_date),
+                "amount": float(c.amount or 0),
+                "notes": c.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_contracts_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_contracts_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    project_id = int(data.get("projectId") or 0) or None
+    client_id = int(data.get("clientId") or 0) or None
+    project = None
+    if project_id:
+        project = ProjectPage.objects.filter(pk=project_id).specific().first()
+    client = Client.objects.filter(pk=client_id).first() if client_id else None
+    try:
+        start_date = _to_date(data.get("startDate"))
+    except Exception:
+        return _api_error("invalid_start_date", status=400)
+    try:
+        end_date = _to_date(data.get("endDate"))
+    except Exception:
+        return _api_error("invalid_end_date", status=400)
+    status = str(data.get("status") or ProjectContract.STATUS_ACTIVE).strip()
+    allowed_status = {k for k, _ in ProjectContract.STATUS_CHOICES}
+    if status not in allowed_status:
+        return _api_error("invalid_status", status=400)
+    if start_date and end_date and end_date < start_date:
+        return _api_error("invalid_date_range", status=400)
+    amount = _to_dec(data.get("amount"), allow_none=True)
+    if amount is not None and amount < 0:
+        return _api_error("invalid_amount", status=400)
+
+    row = ProjectContract.objects.create(
+        project=project,
+        client=client,
+        title=str(data.get("title") or "").strip(),
+        number=str(data.get("number") or "").strip(),
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        amount=amount,
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_contract_create",
+        entity_type="contract",
+        entity_id=str(row.id),
+        after={
+            "id": row.id,
+            "projectId": row.project_id,
+            "clientId": row.client_id,
+            "number": row.number,
+            "status": row.status,
+            "amount": float(row.amount or 0) if row.amount is not None else None,
+        },
+    )
+    return _api_ok({"id": row.id})
+
+
+@require_POST
+def admin_ops_contracts_update(request: HttpRequest, contract_id: int) -> JsonResponse:
+    forbidden = _require_ops_contracts_write(request)
+    if forbidden:
+        return forbidden
+    row = ProjectContract.objects.filter(pk=contract_id).first()
+    if not row:
+        return _api_error("not_found", status=404)
+    before = {
+        "projectId": row.project_id,
+        "clientId": row.client_id,
+        "title": row.title,
+        "number": row.number,
+        "status": row.status,
+        "startDate": _to_iso(row.start_date),
+        "endDate": _to_iso(row.end_date),
+        "amount": float(row.amount or 0) if row.amount is not None else None,
+        "notes": row.notes,
+    }
+    data = _read_json(request)
+    if data.get("projectId") is not None:
+        pid = int(data.get("projectId") or 0) or None
+        row.project = ProjectPage.objects.filter(pk=pid).specific().first() if pid else None
+    if data.get("clientId") is not None:
+        cid = int(data.get("clientId") or 0) or None
+        row.client = Client.objects.filter(pk=cid).first() if cid else None
+    if data.get("title") is not None:
+        row.title = str(data.get("title") or "").strip()
+    if data.get("number") is not None:
+        row.number = str(data.get("number") or "").strip()
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        allowed_status = {k for k, _ in ProjectContract.STATUS_CHOICES}
+        if status not in allowed_status:
+            return _api_error("invalid_status", status=400)
+        row.status = status
+    if data.get("startDate") is not None:
+        try:
+            row.start_date = _to_date(data.get("startDate"))
+        except Exception:
+            return _api_error("invalid_start_date", status=400)
+    if data.get("endDate") is not None:
+        try:
+            row.end_date = _to_date(data.get("endDate"))
+        except Exception:
+            return _api_error("invalid_end_date", status=400)
+    if data.get("amount") is not None:
+        amount = _to_dec(data.get("amount"), allow_none=True)
+        if amount is not None and amount < 0:
+            return _api_error("invalid_amount", status=400)
+        row.amount = amount
+    if data.get("notes") is not None:
+        row.notes = str(data.get("notes") or "").strip()
+    if row.start_date and row.end_date and row.end_date < row.start_date:
+        return _api_error("invalid_date_range", status=400)
+    row.save()
+    after = {
+        "projectId": row.project_id,
+        "clientId": row.client_id,
+        "title": row.title,
+        "number": row.number,
+        "status": row.status,
+        "startDate": _to_iso(row.start_date),
+        "endDate": _to_iso(row.end_date),
+        "amount": float(row.amount or 0) if row.amount is not None else None,
+        "notes": row.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_contract_update",
+        entity_type="contract",
+        entity_id=str(row.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_contracts_delete(request: HttpRequest, contract_id: int) -> JsonResponse:
+    forbidden = _require_ops_contracts_write(request)
+    if forbidden:
+        return forbidden
+    row = ProjectContract.objects.filter(pk=contract_id).first()
+    if not row:
+        return _api_error("not_found", status=404)
+    before = {
+        "id": row.id,
+        "projectId": row.project_id,
+        "clientId": row.client_id,
+        "number": row.number,
+        "status": row.status,
+        "amount": float(row.amount or 0) if row.amount is not None else None,
+    }
+    row.delete()
+    _audit_ops(
+        request,
+        action="ops_contract_delete",
+        entity_type="contract",
+        entity_id=str(contract_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_contract_addendums(request: HttpRequest, contract_id: int) -> JsonResponse:
+    forbidden = _require_ops_contracts_read(request)
+    if forbidden:
+        return forbidden
+    c = ProjectContract.objects.filter(pk=contract_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    items: list[dict[str, Any]] = []
+    for a in ContractAddendum.objects.filter(contract=c):
+        items.append(
+            {
+                "id": a.id,
+                "title": a.title,
+                "amountDelta": float(a.amount_delta or 0),
+                "startDate": _to_iso(a.start_date),
+                "endDate": _to_iso(a.end_date),
+                "notes": a.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_contract_addendums_create(
+    request: HttpRequest, contract_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_contracts_write(request)
+    if forbidden:
+        return forbidden
+    c = ProjectContract.objects.filter(pk=contract_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    try:
+        start_date = _to_date(data.get("startDate"))
+    except Exception:
+        return _api_error("invalid_start_date", status=400)
+    try:
+        end_date = _to_date(data.get("endDate"))
+    except Exception:
+        return _api_error("invalid_end_date", status=400)
+    a = ContractAddendum.objects.create(
+        contract=c,
+        title=str(data.get("title") or "").strip(),
+        amount_delta=_to_dec(data.get("amountDelta"), allow_none=True),
+        start_date=start_date,
+        end_date=end_date,
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_contract_addendum_create",
+        entity_type="contract_addendum",
+        entity_id=str(a.id),
+        after={
+            "id": a.id,
+            "contractId": c.id,
+            "amountDelta": float(a.amount_delta or 0) if a.amount_delta is not None else None,
+            "startDate": _to_iso(a.start_date),
+            "endDate": _to_iso(a.end_date),
+        },
+    )
+    return _api_ok({"id": a.id})
+
+
+@require_GET
+def admin_ops_contract_payments(request: HttpRequest, contract_id: int) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    c = ProjectContract.objects.filter(pk=contract_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    items: list[dict[str, Any]] = []
+    for p in ContractPayment.objects.filter(contract=c):
+        items.append(
+            {
+                "id": p.id,
+                "title": p.title,
+                "dueDate": _to_iso(p.due_date),
+                "amount": float(p.amount or 0),
+                "paidAmount": float(p.paid_amount or 0),
+                "paidDate": _to_iso(p.paid_date),
+                "status": p.status,
+                "notes": p.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_contract_payments_create(
+    request: HttpRequest, contract_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    c = ProjectContract.objects.filter(pk=contract_id).first()
+    if not c:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    try:
+        due_date = _to_date(data.get("dueDate"))
+    except Exception:
+        return _api_error("invalid_due_date", status=400)
+    try:
+        paid_date = _to_date(data.get("paidDate"))
+    except Exception:
+        return _api_error("invalid_paid_date", status=400)
+    status = str(data.get("status") or ContractPayment.STATUS_PENDING).strip()
+    allowed_status = {k for k, _ in ContractPayment.STATUS_CHOICES}
+    if status not in allowed_status:
+        return _api_error("invalid_status", status=400)
+    amount = _to_dec(data.get("amount"), allow_none=True)
+    if amount is not None and amount < 0:
+        return _api_error("invalid_amount", status=400)
+    paid_amount = _to_dec(data.get("paidAmount"), allow_none=True)
+    if paid_amount is not None and paid_amount < 0:
+        return _api_error("invalid_paid_amount", status=400)
+    if paid_amount and paid_amount > 0 and not paid_date:
+        return _api_error("invalid_paid_date", status=400)
+    if amount is not None and paid_amount is not None and paid_amount > amount:
+        return _api_error("invalid_paid_amount", status=400)
+    if status == ContractPayment.STATUS_PAID and (paid_amount is None or paid_amount <= 0):
+        return _api_error("invalid_paid_amount", status=400)
+    p = ContractPayment.objects.create(
+        contract=c,
+        title=str(data.get("title") or "").strip(),
+        due_date=due_date,
+        amount=amount,
+        paid_amount=paid_amount,
+        paid_date=paid_date,
+        status=status,
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_contract_payment_create",
+        entity_type="contract_payment",
+        entity_id=str(p.id),
+        after={
+            "id": p.id,
+            "contractId": c.id,
+            "dueDate": _to_iso(p.due_date),
+            "amount": float(p.amount or 0) if p.amount is not None else None,
+            "paidAmount": float(p.paid_amount or 0) if p.paid_amount is not None else None,
+            "paidDate": _to_iso(p.paid_date),
+            "status": p.status,
+        },
+    )
+    return _api_ok({"id": p.id})
+
+
+@require_POST
+def admin_ops_contract_payments_update(
+    request: HttpRequest, payment_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    p = ContractPayment.objects.filter(pk=payment_id).first()
+    if not p:
+        return _api_error("not_found", status=404)
+    before = {
+        "contractId": p.contract_id,
+        "title": p.title,
+        "dueDate": _to_iso(p.due_date),
+        "amount": float(p.amount or 0) if p.amount is not None else None,
+        "paidAmount": float(p.paid_amount or 0) if p.paid_amount is not None else None,
+        "paidDate": _to_iso(p.paid_date),
+        "status": p.status,
+        "notes": p.notes,
+    }
+    data = _read_json(request)
+    if data.get("title") is not None:
+        p.title = str(data.get("title") or "").strip()
+    if data.get("dueDate") is not None:
+        try:
+            p.due_date = _to_date(data.get("dueDate"))
+        except Exception:
+            return _api_error("invalid_due_date", status=400)
+    if data.get("amount") is not None:
+        amount = _to_dec(data.get("amount"), allow_none=True)
+        if amount is not None and amount < 0:
+            return _api_error("invalid_amount", status=400)
+        p.amount = amount
+    if data.get("paidAmount") is not None:
+        paid_amount = _to_dec(data.get("paidAmount"), allow_none=True)
+        if paid_amount is not None and paid_amount < 0:
+            return _api_error("invalid_paid_amount", status=400)
+        p.paid_amount = paid_amount
+    if data.get("paidDate") is not None:
+        try:
+            p.paid_date = _to_date(data.get("paidDate"))
+        except Exception:
+            return _api_error("invalid_paid_date", status=400)
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        allowed_status = {k for k, _ in ContractPayment.STATUS_CHOICES}
+        if status not in allowed_status:
+            return _api_error("invalid_status", status=400)
+        p.status = status
+    if data.get("notes") is not None:
+        p.notes = str(data.get("notes") or "").strip()
+    if p.paid_amount is not None and p.paid_amount > 0 and not p.paid_date:
+        return _api_error("invalid_paid_date", status=400)
+    if p.amount is not None and p.paid_amount is not None and p.paid_amount > p.amount:
+        return _api_error("invalid_paid_amount", status=400)
+    if p.status == ContractPayment.STATUS_PAID and (p.paid_amount is None or p.paid_amount <= 0):
+        return _api_error("invalid_paid_amount", status=400)
+    p.save()
+    after = {
+        "contractId": p.contract_id,
+        "title": p.title,
+        "dueDate": _to_iso(p.due_date),
+        "amount": float(p.amount or 0) if p.amount is not None else None,
+        "paidAmount": float(p.paid_amount or 0) if p.paid_amount is not None else None,
+        "paidDate": _to_iso(p.paid_date),
+        "status": p.status,
+        "notes": p.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_contract_payment_update",
+        entity_type="contract_payment",
+        entity_id=str(p.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_contract_payments_delete(
+    request: HttpRequest, payment_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    p = ContractPayment.objects.filter(pk=payment_id).first()
+    if not p:
+        return _api_error("not_found", status=404)
+    before = {
+        "id": p.id,
+        "contractId": p.contract_id,
+        "amount": float(p.amount or 0) if p.amount is not None else None,
+        "paidAmount": float(p.paid_amount or 0) if p.paid_amount is not None else None,
+        "status": p.status,
+    }
+    p.delete()
+    _audit_ops(
+        request,
+        action="ops_contract_payment_delete",
+        entity_type="contract_payment",
+        entity_id=str(payment_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_purchase_orders(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    qs = PurchaseOrder.objects.select_related("supplier", "project")
+    for po in qs:
+        items.append(
+            {
+                "id": po.id,
+                "supplierId": po.supplier_id or 0,
+                "supplierName": po.supplier.name if po.supplier else "",
+                "projectId": po.project_id or 0,
+                "projectTitle": getattr(po.project, "title", "") if po.project else "",
+                "number": po.number,
+                "date": _to_iso(po.date),
+                "status": po.status,
+                "totalAmount": float(po.total_amount or 0),
+                "notes": po.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_purchase_orders_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    supplier_id = int(data.get("supplierId") or 0) or None
+    project_id = int(data.get("projectId") or 0) or None
+    supplier = Supplier.objects.filter(pk=supplier_id).first() if supplier_id else None
+    project = ProjectPage.objects.filter(pk=project_id).specific().first() if project_id else None
+    try:
+        po_date = _to_date(data.get("date"))
+    except Exception:
+        return _api_error("invalid_date", status=400)
+    status = str(data.get("status") or PurchaseOrder.STATUS_DRAFT).strip()
+    allowed_status = {k for k, _ in PurchaseOrder.STATUS_CHOICES}
+    if status not in allowed_status:
+        return _api_error("invalid_status", status=400)
+    total_amount = _to_dec(data.get("totalAmount"), allow_none=True)
+    if total_amount is not None and total_amount < 0:
+        return _api_error("invalid_total_amount", status=400)
+    po = PurchaseOrder.objects.create(
+        supplier=supplier,
+        project=project,
+        number=str(data.get("number") or "").strip(),
+        date=po_date,
+        status=status,
+        total_amount=total_amount,
+        notes=str(data.get("notes") or "").strip(),
+    )
+    _audit_ops(
+        request,
+        action="ops_purchase_order_create",
+        entity_type="purchase_order",
+        entity_id=str(po.id),
+        after={
+            "id": po.id,
+            "supplierId": po.supplier_id,
+            "projectId": po.project_id,
+            "number": po.number,
+            "date": _to_iso(po.date),
+            "status": po.status,
+            "totalAmount": float(po.total_amount or 0) if po.total_amount is not None else None,
+        },
+    )
+    return _api_ok({"id": po.id})
+
+
+@require_POST
+def admin_ops_purchase_orders_update(
+    request: HttpRequest, purchase_order_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    po = PurchaseOrder.objects.filter(pk=purchase_order_id).first()
+    if not po:
+        return _api_error("not_found", status=404)
+    before = {
+        "supplierId": po.supplier_id,
+        "projectId": po.project_id,
+        "number": po.number,
+        "date": _to_iso(po.date),
+        "status": po.status,
+        "totalAmount": float(po.total_amount or 0) if po.total_amount is not None else None,
+        "notes": po.notes,
+    }
+    data = _read_json(request)
+    if data.get("supplierId") is not None:
+        sid = int(data.get("supplierId") or 0) or None
+        po.supplier = Supplier.objects.filter(pk=sid).first() if sid else None
+    if data.get("projectId") is not None:
+        pid = int(data.get("projectId") or 0) or None
+        po.project = ProjectPage.objects.filter(pk=pid).specific().first() if pid else None
+    if data.get("number") is not None:
+        po.number = str(data.get("number") or "").strip()
+    if data.get("date") is not None:
+        try:
+            po.date = _to_date(data.get("date"))
+        except Exception:
+            return _api_error("invalid_date", status=400)
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        allowed_status = {k for k, _ in PurchaseOrder.STATUS_CHOICES}
+        if status not in allowed_status:
+            return _api_error("invalid_status", status=400)
+        po.status = status
+    if data.get("totalAmount") is not None:
+        total_amount = _to_dec(data.get("totalAmount"), allow_none=True)
+        if total_amount is not None and total_amount < 0:
+            return _api_error("invalid_total_amount", status=400)
+        po.total_amount = total_amount
+    if data.get("notes") is not None:
+        po.notes = str(data.get("notes") or "").strip()
+    po.save()
+    after = {
+        "supplierId": po.supplier_id,
+        "projectId": po.project_id,
+        "number": po.number,
+        "date": _to_iso(po.date),
+        "status": po.status,
+        "totalAmount": float(po.total_amount or 0) if po.total_amount is not None else None,
+        "notes": po.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_purchase_order_update",
+        entity_type="purchase_order",
+        entity_id=str(po.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_purchase_orders_delete(
+    request: HttpRequest, purchase_order_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    po = PurchaseOrder.objects.filter(pk=purchase_order_id).first()
+    if not po:
+        return _api_error("not_found", status=404)
+    before = {
+        "id": po.id,
+        "supplierId": po.supplier_id,
+        "projectId": po.project_id,
+        "number": po.number,
+        "status": po.status,
+        "totalAmount": float(po.total_amount or 0) if po.total_amount is not None else None,
+    }
+    po.delete()
+    _audit_ops(
+        request,
+        action="ops_purchase_order_delete",
+        entity_type="purchase_order",
+        entity_id=str(purchase_order_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_inventory_items(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    for it in InventoryItem.objects.all():
+        items.append(
+            {
+                "id": it.id,
+                "sku": it.sku,
+                "name": it.name,
+                "unit": it.unit,
+                "currentQty": float(it.current_qty or 0),
+                "reorderLevel": float(it.reorder_level or 0) if it.reorder_level is not None else None,
+                "notes": it.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_inventory_items_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    it = InventoryItem.objects.create(
+        sku=str(data.get("sku") or "").strip(),
+        name=name,
+        unit=str(data.get("unit") or "").strip(),
+        current_qty=_to_dec(data.get("currentQty"), allow_none=False) or Decimal("0"),
+        reorder_level=_to_dec(data.get("reorderLevel"), allow_none=True),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    if it.current_qty is not None and it.current_qty < 0:
+        it.delete()
+        return _api_error("invalid_quantity", status=400)
+    if it.reorder_level is not None and it.reorder_level < 0:
+        it.delete()
+        return _api_error("invalid_quantity", status=400)
+    _audit_ops(
+        request,
+        action="ops_inventory_item_create",
+        entity_type="inventory_item",
+        entity_id=str(it.id),
+        after={"id": it.id, "name": it.name, "currentQty": float(it.current_qty or 0)},
+    )
+    return _api_ok({"id": it.id})
+
+
+@require_POST
+def admin_ops_inventory_items_update(
+    request: HttpRequest, item_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    it = InventoryItem.objects.filter(pk=item_id).first()
+    if not it:
+        return _api_error("not_found", status=404)
+    before = {
+        "sku": it.sku,
+        "name": it.name,
+        "unit": it.unit,
+        "currentQty": float(it.current_qty or 0),
+        "reorderLevel": float(it.reorder_level or 0) if it.reorder_level is not None else None,
+        "notes": it.notes,
+    }
+    data = _read_json(request)
+    if data.get("sku") is not None:
+        it.sku = str(data.get("sku") or "").strip()
+    if data.get("name") is not None:
+        it.name = str(data.get("name") or "").strip()
+    if data.get("unit") is not None:
+        it.unit = str(data.get("unit") or "").strip()
+    if data.get("currentQty") is not None:
+        it.current_qty = _to_dec(data.get("currentQty"), allow_none=False) or Decimal("0")
+    if data.get("reorderLevel") is not None:
+        it.reorder_level = _to_dec(data.get("reorderLevel"), allow_none=True)
+    if data.get("notes") is not None:
+        it.notes = str(data.get("notes") or "").strip()
+    if not it.name:
+        return _api_error("missing_name", status=400)
+    if it.current_qty is not None and it.current_qty < 0:
+        return _api_error("invalid_quantity", status=400)
+    if it.reorder_level is not None and it.reorder_level < 0:
+        return _api_error("invalid_quantity", status=400)
+    it.save()
+    after = {
+        "sku": it.sku,
+        "name": it.name,
+        "unit": it.unit,
+        "currentQty": float(it.current_qty or 0),
+        "reorderLevel": float(it.reorder_level or 0) if it.reorder_level is not None else None,
+        "notes": it.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_inventory_item_update",
+        entity_type="inventory_item",
+        entity_id=str(it.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_inventory_items_delete(
+    request: HttpRequest, item_id: int
+) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    it = InventoryItem.objects.filter(pk=item_id).first()
+    if not it:
+        return _api_error("not_found", status=404)
+    before = {"id": it.id, "name": it.name, "currentQty": float(it.current_qty or 0)}
+    it.delete()
+    _audit_ops(
+        request,
+        action="ops_inventory_item_delete",
+        entity_type="inventory_item",
+        entity_id=str(item_id),
+        before=before,
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_inventory_transactions(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    item_id = int(request.GET.get("itemId") or 0) or None
+    qs = InventoryTransaction.objects.select_related("item", "project")
+    if item_id:
+        qs = qs.filter(item_id=item_id)
+    items: list[dict[str, Any]] = []
+    for t in qs:
+        items.append(
+            {
+                "id": t.id,
+                "itemId": t.item_id,
+                "itemName": t.item.name if t.item else "",
+                "projectId": t.project_id or 0,
+                "projectTitle": getattr(t.project, "title", "") if t.project else "",
+                "kind": t.kind,
+                "quantity": float(t.quantity or 0),
+                "unitCost": float(t.unit_cost or 0) if t.unit_cost is not None else None,
+                "date": _to_iso(t.date),
+                "reference": t.reference,
+                "notes": t.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_inventory_transactions_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    item_id = int(data.get("itemId") or 0) or 0
+    it = InventoryItem.objects.filter(pk=item_id).first()
+    if not it:
+        return _api_error("invalid_item", status=400)
+    kind = str(data.get("kind") or InventoryTransaction.KIND_IN).strip()
+    allowed = {k for k, _ in InventoryTransaction.KIND_CHOICES}
+    if kind not in allowed:
+        return _api_error("invalid_kind", status=400)
+    qty = _to_dec(data.get("quantity"), allow_none=False)
+    if qty is None:
+        return _api_error("invalid_quantity", status=400)
+    if qty <= 0:
+        return _api_error("invalid_quantity", status=400)
+    unit_cost = _to_dec(data.get("unitCost"), allow_none=True)
+    if unit_cost is not None and unit_cost < 0:
+        return _api_error("invalid_unit_cost", status=400)
+    project_id = int(data.get("projectId") or 0) or None
+    project = ProjectPage.objects.filter(pk=project_id).specific().first() if project_id else None
+    user = getattr(request, "user", None)
+    created_by = user if user and getattr(user, "is_authenticated", False) else None
+    try:
+        tx_date = _to_date(data.get("date"))
+    except Exception:
+        return _api_error("invalid_date", status=400)
+
+    with transaction.atomic():
+        it = InventoryItem.objects.select_for_update().filter(pk=it.id).first() or it
+        if kind == InventoryTransaction.KIND_OUT:
+            current = it.current_qty or Decimal("0")
+            if (current - qty) < 0:
+                return _api_error("insufficient_stock", status=400)
+        if kind == InventoryTransaction.KIND_ADJUST and qty < 0:
+            return _api_error("invalid_quantity", status=400)
+        t = InventoryTransaction.objects.create(
+            item=it,
+            project=project,
+            kind=kind,
+            quantity=qty,
+            unit_cost=unit_cost,
+            date=tx_date,
+            reference=str(data.get("reference") or "").strip(),
+            notes=str(data.get("notes") or "").strip(),
+            created_by=created_by,
+        )
+        if kind == InventoryTransaction.KIND_IN:
+            it.current_qty = (it.current_qty or Decimal("0")) + qty
+        elif kind == InventoryTransaction.KIND_OUT:
+            it.current_qty = (it.current_qty or Decimal("0")) - qty
+        else:
+            it.current_qty = qty
+        it.save(update_fields=["current_qty", "updated_at"])
+    _audit_ops(
+        request,
+        action="ops_inventory_tx_create",
+        entity_type="inventory_transaction",
+        entity_id=str(t.id),
+        after={
+            "id": t.id,
+            "itemId": it.id,
+            "projectId": project.id if project else 0,
+            "kind": t.kind,
+            "quantity": float(t.quantity or 0),
+            "unitCost": float(t.unit_cost or 0) if t.unit_cost is not None else None,
+            "date": _to_iso(t.date),
+            "reference": t.reference,
+            "resultingQty": float(it.current_qty or 0),
+        },
+    )
+    return _api_ok({"id": t.id})
+
+
+@require_GET
+def admin_ops_workers(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_workers_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    user = getattr(request, "user", None)
+    role = _user_role(user)
+    qs = Worker.objects.select_related("user")
+    if role == "employee":
+        linked_id = 0
+        try:
+            linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+        except Exception:
+            linked_id = 0
+        if linked_id:
+            qs = qs.filter(pk=linked_id)
+        else:
+            qs = qs.none()
+    for w in qs.all():
+        items.append(
+            {
+                "id": w.id,
+                "userId": int(getattr(w, "user_id", None) or 0),
+                "userUsername": getattr(getattr(w, "user", None), "username", "") if getattr(w, "user_id", None) else "",
+                "name": w.name,
+                "role": w.role,
+                "phone": w.phone,
+                "timeClockId": w.time_clock_id or "",
+                "kind": w.kind,
+                "active": bool(w.active),
+                "dailyCost": float(w.daily_cost or 0) if w.daily_cost is not None else None,
+                "monthlySalary": float(w.monthly_salary or 0) if w.monthly_salary is not None else None,
+                "notes": w.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_workers_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_workers_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    kind = str(data.get("kind") or Worker.KIND_WORKER).strip() or Worker.KIND_WORKER
+    if kind not in {Worker.KIND_WORKER, Worker.KIND_EMPLOYEE}:
+        return _api_error("invalid_kind", status=400)
+    time_clock_id = None
+    if data.get("timeClockId") is not None:
+        raw = str(data.get("timeClockId") or "").strip()
+        time_clock_id = raw or None
+        if time_clock_id and Worker.objects.filter(time_clock_id=time_clock_id).exists():
+            return _api_error("duplicate_time_clock_id", status=409)
+    active_raw = data.get("active")
+    active = bool(active_raw) if active_raw is not None else True
+    user_obj = None
+    if data.get("userId") is not None:
+        try:
+            user_id = int(data.get("userId") or 0) or 0
+        except Exception:
+            user_id = 0
+        if user_id:
+            User = get_user_model()
+            user_obj = User.objects.filter(pk=user_id, is_staff=True).first()
+            if not user_obj:
+                return _api_error("user_not_found", status=404)
+            if Worker.objects.filter(user=user_obj).exists():
+                return _api_error("user_already_linked", status=409)
+    try:
+        w = Worker.objects.create(
+            user=user_obj,
+            name=name,
+            role=str(data.get("role") or "").strip(),
+            phone=str(data.get("phone") or "").strip(),
+            time_clock_id=time_clock_id,
+            kind=kind,
+            active=active,
+            daily_cost=_to_dec(data.get("dailyCost"), allow_none=True),
+            monthly_salary=_to_dec(data.get("monthlySalary"), allow_none=True),
+            notes=str(data.get("notes") or "").strip(),
+        )
+    except IntegrityError:
+        return _api_error("duplicate_time_clock_id", status=409)
+    _audit_ops(
+        request,
+        action="ops_worker_create",
+        entity_type="worker",
+        entity_id=str(w.id),
+        after={
+            "id": w.id,
+            "userId": int(getattr(w, "user_id", None) or 0),
+            "timeClockId": w.time_clock_id or "",
+        },
+    )
+    return _api_ok({"id": w.id})
+
+
+@require_POST
+def admin_ops_workers_update(request: HttpRequest, worker_id: int) -> JsonResponse:
+    forbidden = _require_ops_workers_write(request)
+    if forbidden:
+        return forbidden
+    w = Worker.objects.filter(pk=worker_id).first()
+    if not w:
+        return _api_error("not_found", status=404)
+    before = {
+        "userId": int(getattr(w, "user_id", None) or 0),
+        "name": w.name,
+        "role": w.role,
+        "phone": w.phone,
+        "timeClockId": w.time_clock_id or "",
+        "kind": w.kind,
+        "active": bool(w.active),
+        "dailyCost": float(w.daily_cost or 0) if w.daily_cost is not None else None,
+        "monthlySalary": float(w.monthly_salary or 0) if w.monthly_salary is not None else None,
+        "notes": w.notes,
+    }
+    data = _read_json(request)
+    if data.get("name") is not None:
+        w.name = str(data.get("name") or "").strip()
+    if data.get("role") is not None:
+        w.role = str(data.get("role") or "").strip()
+    if data.get("phone") is not None:
+        w.phone = str(data.get("phone") or "").strip()
+    if data.get("timeClockId") is not None:
+        raw = str(data.get("timeClockId") or "").strip()
+        time_clock_id = raw or None
+        if time_clock_id and Worker.objects.exclude(pk=w.id).filter(time_clock_id=time_clock_id).exists():
+            return _api_error("duplicate_time_clock_id", status=409)
+        w.time_clock_id = time_clock_id
+    if data.get("userId") is not None:
+        try:
+            user_id = int(data.get("userId") or 0) or 0
+        except Exception:
+            user_id = 0
+        if not user_id:
+            w.user = None
+        else:
+            User = get_user_model()
+            user_obj = User.objects.filter(pk=user_id, is_staff=True).first()
+            if not user_obj:
+                return _api_error("user_not_found", status=404)
+            if Worker.objects.exclude(pk=w.id).filter(user=user_obj).exists():
+                return _api_error("user_already_linked", status=409)
+            w.user = user_obj
+    if data.get("kind") is not None:
+        kind = str(data.get("kind") or "").strip()
+        if kind not in {Worker.KIND_WORKER, Worker.KIND_EMPLOYEE}:
+            return _api_error("invalid_kind", status=400)
+        w.kind = kind
+    if data.get("active") is not None:
+        w.active = bool(data.get("active"))
+    if data.get("dailyCost") is not None:
+        w.daily_cost = _to_dec(data.get("dailyCost"), allow_none=True)
+    if data.get("monthlySalary") is not None:
+        w.monthly_salary = _to_dec(data.get("monthlySalary"), allow_none=True)
+    if data.get("notes") is not None:
+        w.notes = str(data.get("notes") or "").strip()
+    if not w.name:
+        return _api_error("missing_name", status=400)
+    try:
+        w.save()
+    except IntegrityError:
+        return _api_error("duplicate_time_clock_id", status=409)
+    after = {
+        "userId": int(getattr(w, "user_id", None) or 0),
+        "name": w.name,
+        "role": w.role,
+        "phone": w.phone,
+        "timeClockId": w.time_clock_id or "",
+        "kind": w.kind,
+        "active": bool(w.active),
+        "dailyCost": float(w.daily_cost or 0) if w.daily_cost is not None else None,
+        "monthlySalary": float(w.monthly_salary or 0) if w.monthly_salary is not None else None,
+        "notes": w.notes,
+    }
+    _audit_ops(
+        request,
+        action="ops_worker_update",
+        entity_type="worker",
+        entity_id=str(w.id),
+        before=before,
+        after=after,
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_workers_delete(request: HttpRequest, worker_id: int) -> JsonResponse:
+    forbidden = _require_ops_workers_write(request)
+    if forbidden:
+        return forbidden
+    w = Worker.objects.filter(pk=worker_id).first()
+    if not w:
+        return _api_error("not_found", status=404)
+    w.delete()
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_attendance(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_attendance_read(request)
+    if forbidden:
+        return forbidden
+    qs = WorkerAttendance.objects.select_related("worker", "project")
+    user = getattr(request, "user", None)
+    role = _user_role(user)
+    if role == "employee":
+        linked_id = 0
+        try:
+            linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+        except Exception:
+            linked_id = 0
+        if not linked_id:
+            return _api_ok({"items": []})
+        qs = qs.filter(worker_id=linked_id)
+    else:
+        worker_id = int(request.GET.get("workerId") or 0) or None
+        if worker_id:
+            qs = qs.filter(worker_id=worker_id)
+    year = int(request.GET.get("year") or 0) or None
+    month = int(request.GET.get("month") or 0) or None
+    if year and month and 1 <= month <= 12:
+        qs = qs.filter(date__year=year, date__month=month)
+    items: list[dict[str, Any]] = []
+    for a in qs.order_by("-date", "-id"):
+        items.append(
+            {
+                "id": a.id,
+                "workerId": a.worker_id,
+                "workerName": a.worker.name if a.worker else "",
+                "projectId": a.project_id or 0,
+                "projectTitle": getattr(a.project, "title", "") if a.project else "",
+                "date": _to_iso(a.date),
+                "status": a.status,
+                "hours": float(a.hours or 0) if a.hours is not None else None,
+                "notes": a.notes,
+                "state": getattr(a, "state", WorkerAttendance.STATE_DRAFT),
+                "approvedById": getattr(a, "approved_by_id", None) or 0,
+                "approvedAt": a.approved_at.isoformat() if getattr(a, "approved_at", None) else "",
+                "lockedById": getattr(a, "locked_by_id", None) or 0,
+                "lockedAt": a.locked_at.isoformat() if getattr(a, "locked_at", None) else "",
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_attendance_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_attendance_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    user = getattr(request, "user", None)
+    role = _user_role(user)
+    worker_id = int(data.get("workerId") or 0) or 0
+    if role == "employee":
+        linked_id = 0
+        try:
+            linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+        except Exception:
+            linked_id = 0
+        if not linked_id:
+            return _api_error("forbidden", status=403)
+        worker_id = linked_id
+    w = Worker.objects.filter(pk=worker_id).first()
+    if not w:
+        return _api_error("worker_not_found", status=404)
+    try:
+        att_date = _to_date(data.get("date"))
+    except Exception:
+        return _api_error("invalid_date", status=400)
+    if not att_date:
+        return _api_error("missing_date", status=400)
+    status = str(data.get("status") or WorkerAttendance.STATUS_PRESENT).strip() or WorkerAttendance.STATUS_PRESENT
+    allowed_status = {
+        WorkerAttendance.STATUS_PRESENT,
+        WorkerAttendance.STATUS_ABSENT,
+        WorkerAttendance.STATUS_HALF_DAY,
+        WorkerAttendance.STATUS_LEAVE,
+    }
+    if status not in allowed_status:
+        return _api_error("invalid_status", status=400)
+    project_id = int(data.get("projectId") or 0) or None
+    project = ProjectPage.objects.filter(pk=project_id).specific().first() if project_id else None
+    defaults = {
+        "status": status,
+        "hours": _to_dec(data.get("hours"), allow_none=True),
+        "project": project,
+        "notes": str(data.get("notes") or "").strip(),
+    }
+    existing = WorkerAttendance.objects.filter(worker=w, date=att_date).first()
+    if existing and getattr(existing, "state", "") == WorkerAttendance.STATE_LOCKED:
+        return _api_error("attendance_locked", status=409)
+
+    a, created = WorkerAttendance.objects.update_or_create(worker=w, date=att_date, defaults=defaults)
+    if created:
+        try:
+            if getattr(a, "state", "") in {"", None}:
+                a.state = WorkerAttendance.STATE_DRAFT
+                a.save(update_fields=["state"])
+        except Exception:
+            pass
+
+    _audit_ops(
+        request,
+        action="ops_attendance_upsert",
+        entity_type="attendance",
+        entity_id=str(a.id),
+        meta={"created": created},
+    )
+    return _api_ok({"id": a.id, "created": created})
+
+
+def _process_timeclock_items(
+    items: list[Any],
+    *,
+    dry_run: bool,
+    default_project: Any,
+) -> tuple[int, int, list[dict[str, Any]], list[dict[str, Any]]]:
+    from datetime import datetime as _dt
+
+    created_count = 0
+    updated_count = 0
+    errors: list[dict[str, Any]] = []
+    item_results: list[dict[str, Any]] = []
+
+    if dry_run:
+        for idx, raw in enumerate(items):
+            if not isinstance(raw, dict):
+                errors.append({"index": idx, "error": "invalid_item"})
+                continue
+
+            worker_id = int(raw.get("workerId") or 0) or 0
+            time_clock_id = str(raw.get("timeClockId") or "").strip()
+            w = None
+            if worker_id:
+                w = Worker.objects.filter(pk=worker_id).first()
+            elif time_clock_id:
+                w = Worker.objects.filter(time_clock_id=time_clock_id).first()
+            if not w:
+                errors.append(
+                    {
+                        "index": idx,
+                        "error": "worker_not_found",
+                        "workerId": worker_id or None,
+                        "timeClockId": time_clock_id or None,
+                    }
+                )
+                continue
+
+            try:
+                att_date = _to_date(raw.get("date"))
+            except Exception:
+                errors.append({"index": idx, "error": "invalid_date"})
+                continue
+            if not att_date:
+                errors.append({"index": idx, "error": "missing_date"})
+                continue
+
+            item_project = default_project
+            if raw.get("projectId") is not None:
+                pid = int(raw.get("projectId") or 0) or None
+                if pid:
+                    item_project = ProjectPage.objects.filter(pk=pid).specific().first()
+                    if not item_project:
+                        errors.append({"index": idx, "error": "project_not_found", "projectId": pid})
+                        continue
+                else:
+                    item_project = None
+
+            hours = None
+            if raw.get("hours") is not None:
+                hours = _to_dec(raw.get("hours"), allow_none=True)
+            else:
+                check_in = str(raw.get("checkIn") or "").strip()
+                check_out = str(raw.get("checkOut") or "").strip()
+                if check_in and check_out:
+                    try:
+                        t1 = _dt.strptime(check_in, "%H:%M")
+                        t2 = _dt.strptime(check_out, "%H:%M")
+                        minutes = int((t2 - t1).total_seconds() // 60)
+                        if minutes < 0:
+                            minutes += 24 * 60
+                        hours = _to_dec(round(minutes / 60, 2), allow_none=True)
+                    except Exception:
+                        errors.append({"index": idx, "error": "invalid_time_range"})
+                        continue
+                else:
+                    check_in_at = str(raw.get("checkInAt") or "").strip()
+                    check_out_at = str(raw.get("checkOutAt") or "").strip()
+                    if check_in_at and check_out_at:
+                        try:
+                            t1s = check_in_at.replace("Z", "+00:00")
+                            t2s = check_out_at.replace("Z", "+00:00")
+                            t1 = _dt.fromisoformat(t1s)
+                            t2 = _dt.fromisoformat(t2s)
+                            minutes = int((t2 - t1).total_seconds() // 60)
+                            if minutes < 0:
+                                errors.append({"index": idx, "error": "invalid_time_range"})
+                                continue
+                            hours = _to_dec(round(minutes / 60, 2), allow_none=True)
+                        except Exception:
+                            errors.append({"index": idx, "error": "invalid_time_range"})
+                            continue
+
+            status = str(raw.get("status") or "").strip()
+            if not status and hours is None:
+                errors.append({"index": idx, "error": "missing_status_or_time"})
+                continue
+            if not status:
+                status = (
+                    WorkerAttendance.STATUS_PRESENT
+                    if (hours is not None and hours > 0)
+                    else WorkerAttendance.STATUS_ABSENT
+                )
+            allowed_status = {
+                WorkerAttendance.STATUS_PRESENT,
+                WorkerAttendance.STATUS_ABSENT,
+                WorkerAttendance.STATUS_HALF_DAY,
+                WorkerAttendance.STATUS_LEAVE,
+            }
+            if status not in allowed_status:
+                errors.append({"index": idx, "error": "invalid_status"})
+                continue
+
+            existing = WorkerAttendance.objects.filter(worker=w, date=att_date).first()
+            if existing and getattr(existing, "state", "") == WorkerAttendance.STATE_LOCKED:
+                errors.append({"index": idx, "error": "attendance_locked", "id": existing.id})
+                continue
+            created = existing is None
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+            item_results.append(
+                {
+                    "index": idx,
+                    "id": getattr(existing, "id", None),
+                    "workerId": w.id,
+                    "workerName": w.name,
+                    "date": _to_iso(att_date),
+                    "created": created,
+                    "dryRun": True,
+                }
+            )
+    else:
+        with transaction.atomic():
+            for idx, raw in enumerate(items):
+                if not isinstance(raw, dict):
+                    errors.append({"index": idx, "error": "invalid_item"})
+                    continue
+
+                worker_id = int(raw.get("workerId") or 0) or 0
+                time_clock_id = str(raw.get("timeClockId") or "").strip()
+                w = None
+                if worker_id:
+                    w = Worker.objects.filter(pk=worker_id).first()
+                elif time_clock_id:
+                    w = Worker.objects.filter(time_clock_id=time_clock_id).first()
+                if not w:
+                    errors.append(
+                        {
+                            "index": idx,
+                            "error": "worker_not_found",
+                            "workerId": worker_id or None,
+                            "timeClockId": time_clock_id or None,
+                        }
+                    )
+                    continue
+
+                try:
+                    att_date = _to_date(raw.get("date"))
+                except Exception:
+                    errors.append({"index": idx, "error": "invalid_date"})
+                    continue
+                if not att_date:
+                    errors.append({"index": idx, "error": "missing_date"})
+                    continue
+
+                item_project = default_project
+                if raw.get("projectId") is not None:
+                    pid = int(raw.get("projectId") or 0) or None
+                    if pid:
+                        item_project = ProjectPage.objects.filter(pk=pid).specific().first()
+                        if not item_project:
+                            errors.append({"index": idx, "error": "project_not_found", "projectId": pid})
+                            continue
+                    else:
+                        item_project = None
+
+                hours = None
+                if raw.get("hours") is not None:
+                    hours = _to_dec(raw.get("hours"), allow_none=True)
+                else:
+                    check_in = str(raw.get("checkIn") or "").strip()
+                    check_out = str(raw.get("checkOut") or "").strip()
+                    if check_in and check_out:
+                        try:
+                            t1 = _dt.strptime(check_in, "%H:%M")
+                            t2 = _dt.strptime(check_out, "%H:%M")
+                            minutes = int((t2 - t1).total_seconds() // 60)
+                            if minutes < 0:
+                                minutes += 24 * 60
+                            hours = _to_dec(round(minutes / 60, 2), allow_none=True)
+                        except Exception:
+                            errors.append({"index": idx, "error": "invalid_time_range"})
+                            continue
+                    else:
+                        check_in_at = str(raw.get("checkInAt") or "").strip()
+                        check_out_at = str(raw.get("checkOutAt") or "").strip()
+                        if check_in_at and check_out_at:
+                            try:
+                                t1s = check_in_at.replace("Z", "+00:00")
+                                t2s = check_out_at.replace("Z", "+00:00")
+                                t1 = _dt.fromisoformat(t1s)
+                                t2 = _dt.fromisoformat(t2s)
+                                minutes = int((t2 - t1).total_seconds() // 60)
+                                if minutes < 0:
+                                    errors.append({"index": idx, "error": "invalid_time_range"})
+                                    continue
+                                hours = _to_dec(round(minutes / 60, 2), allow_none=True)
+                            except Exception:
+                                errors.append({"index": idx, "error": "invalid_time_range"})
+                                continue
+
+                status = str(raw.get("status") or "").strip()
+                if not status and hours is None:
+                    errors.append({"index": idx, "error": "missing_status_or_time"})
+                    continue
+                if not status:
+                    status = (
+                        WorkerAttendance.STATUS_PRESENT
+                        if (hours is not None and hours > 0)
+                        else WorkerAttendance.STATUS_ABSENT
+                    )
+                allowed_status = {
+                    WorkerAttendance.STATUS_PRESENT,
+                    WorkerAttendance.STATUS_ABSENT,
+                    WorkerAttendance.STATUS_HALF_DAY,
+                    WorkerAttendance.STATUS_LEAVE,
+                }
+                if status not in allowed_status:
+                    errors.append({"index": idx, "error": "invalid_status"})
+                    continue
+
+                notes = str(raw.get("notes") or "").strip()
+                import_note = "Imported from time clock"
+
+                a = WorkerAttendance.objects.select_for_update().filter(worker=w, date=att_date).first()
+                if a and getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+                    errors.append({"index": idx, "error": "attendance_locked", "id": a.id})
+                    continue
+                created = a is None
+                if not a:
+                    a = WorkerAttendance(worker=w, date=att_date)
+                    created_count += 1
+                else:
+                    updated_count += 1
+                a.status = status
+                a.hours = hours
+                a.project = item_project
+                if notes:
+                    a.notes = notes
+                else:
+                    if not a.notes:
+                        a.notes = import_note
+                a.save()
+                item_results.append(
+                    {
+                        "index": idx,
+                        "id": a.id,
+                        "workerId": w.id,
+                        "workerName": w.name,
+                        "date": _to_iso(att_date),
+                        "created": created,
+                    }
+                )
+
+    return created_count, updated_count, errors, item_results
+
+
+@require_POST
+def admin_ops_timeclock_import(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_timeclock_import(request)
+    if forbidden:
+        return forbidden
+
+    data = _read_json(request)
+    raw_items = data.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        return _api_error("missing_items", status=400)
+    dry_run = bool(data.get("dryRun"))
+    default_project_id = int(data.get("defaultProjectId") or 0) or None
+    default_project = (
+        ProjectPage.objects.filter(pk=default_project_id).specific().first()
+        if default_project_id
+        else None
+    )
+    if default_project_id and not default_project:
+        return _api_error("default_project_not_found", status=404)
+
+    created_count, updated_count, errors, item_results = _process_timeclock_items(
+        raw_items, dry_run=dry_run, default_project=default_project
+    )
+
+    payload = {
+        "dryRun": dry_run,
+        "createdCount": created_count,
+        "updatedCount": updated_count,
+        "errors": errors,
+        "results": item_results,
+    }
+    user = getattr(request, "user", None)
+    OpsTimeclockImportRun.objects.create(
+        actor=user if user and getattr(user, "is_authenticated", False) else None,
+        role=_user_role(user),
+        source=OpsTimeclockImportRun.SOURCE_MANUAL,
+        dry_run=dry_run,
+        default_project=default_project,
+        items_count=len(raw_items),
+        created_count=created_count,
+        updated_count=updated_count,
+        error_count=len(errors),
+        errors=errors[:200],
+        results=item_results[:200],
+    )
+    _audit_ops(
+        request,
+        action="ops_timeclock_import",
+        entity_type="timeclock",
+        entity_id="import",
+        meta={
+            "dryRun": dry_run,
+            "defaultProjectId": default_project_id,
+            "itemsCount": len(raw_items),
+            "createdCount": created_count,
+            "updatedCount": updated_count,
+            "errorCount": len(errors),
+        },
+    )
+    return _api_ok(payload)
+
+
+@require_POST
+def admin_ops_timeclock_import_from_folder(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_timeclock_import(request)
+    if forbidden:
+        return forbidden
+
+    data = _read_json(request)
+    dry_run = bool(data.get("dryRun"))
+    default_project_id = int(data.get("defaultProjectId") or 0) or None
+    default_project = (
+        ProjectPage.objects.filter(pk=default_project_id).specific().first()
+        if default_project_id
+        else None
+    )
+    if default_project_id and not default_project:
+        return _api_error("default_project_not_found", status=404)
+
+    limit_files = int(data.get("limitFiles") or 5) or 5
+    limit_files = max(1, min(limit_files, 50))
+
+    dir_raw = str(os.environ.get("TIME_CLOCK_IMPORT_DIR") or "").strip()
+    if not dir_raw:
+        return _api_error("timeclock_import_dir_not_set", status=400)
+    base_dir = Path(dir_raw)
+    if not base_dir.exists() or not base_dir.is_dir():
+        return _api_error("timeclock_import_dir_not_found", status=404)
+
+    candidates = [
+        p
+        for p in base_dir.iterdir()
+        if p.is_file() and p.suffix.lower() == ".json" and not p.name.startswith(".")
+    ]
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=False)
+    selected = candidates[:limit_files]
+    if not selected:
+        return _api_ok(
+            {
+                "dryRun": dry_run,
+                "files": [],
+                "createdCount": 0,
+                "updatedCount": 0,
+                "errors": [],
+                "results": [],
+            }
+        )
+
+    all_items: list[Any] = []
+    file_errors: list[dict[str, Any]] = []
+    files: list[str] = []
+    for p in selected:
+        files.append(p.name)
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            file_errors.append({"file": p.name, "error": "invalid_json"})
+            continue
+        items = None
+        if isinstance(raw, list):
+            items = raw
+        elif isinstance(raw, dict) and isinstance(raw.get("items"), list):
+            items = raw.get("items")
+        if not isinstance(items, list) or not items:
+            file_errors.append({"file": p.name, "error": "missing_items"})
+            continue
+        for it in items:
+            if isinstance(it, dict) and it.get("sourceFile") is None:
+                it = {**it, "sourceFile": p.name}
+            all_items.append(it)
+
+    if not all_items and file_errors:
+        return _api_ok(
+            {
+                "dryRun": dry_run,
+                "files": files,
+                "createdCount": 0,
+                "updatedCount": 0,
+                "errors": file_errors,
+                "results": [],
+            }
+        )
+
+    created_count, updated_count, errors, item_results = _process_timeclock_items(
+        all_items, dry_run=dry_run, default_project=default_project
+    )
+    combined_errors = file_errors + errors
+
+    payload = {
+        "dryRun": dry_run,
+        "files": files,
+        "createdCount": created_count,
+        "updatedCount": updated_count,
+        "errors": combined_errors,
+        "results": item_results,
+    }
+
+    user = getattr(request, "user", None)
+    OpsTimeclockImportRun.objects.create(
+        actor=user if user and getattr(user, "is_authenticated", False) else None,
+        role=_user_role(user),
+        source=OpsTimeclockImportRun.SOURCE_FOLDER,
+        dry_run=dry_run,
+        default_project=default_project,
+        items_count=len(all_items),
+        created_count=created_count,
+        updated_count=updated_count,
+        error_count=len(combined_errors),
+        errors=combined_errors[:200],
+        results=item_results[:200],
+    )
+    _audit_ops(
+        request,
+        action="ops_timeclock_import_folder",
+        entity_type="timeclock",
+        entity_id="import_from_folder",
+        meta={
+            "dryRun": dry_run,
+            "defaultProjectId": default_project_id,
+            "files": files,
+            "itemsCount": len(all_items),
+            "createdCount": created_count,
+            "updatedCount": updated_count,
+            "errorCount": len(combined_errors),
+        },
+    )
+    return _api_ok(payload)
+
+
+@require_POST
+def admin_ops_attendance_update(request: HttpRequest, item_id: int) -> JsonResponse:
+    forbidden = _require_ops_attendance_write(request)
+    if forbidden:
+        return forbidden
+    a = WorkerAttendance.objects.select_related("worker").filter(pk=item_id).first()
+    if not a:
+        return _api_error("not_found", status=404)
+    user = getattr(request, "user", None)
+    role = _user_role(user)
+    if role == "employee":
+        linked_id = 0
+        try:
+            linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+        except Exception:
+            linked_id = 0
+        if not linked_id or int(getattr(a, "worker_id", 0) or 0) != linked_id:
+            return _api_error("forbidden", status=403)
+    if getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+        return _api_error("attendance_locked", status=409)
+    data = _read_json(request)
+    if data.get("workerId") is not None:
+        worker_id = int(data.get("workerId") or 0) or 0
+        if role == "employee":
+            return _api_error("forbidden", status=403)
+        w = Worker.objects.filter(pk=worker_id).first()
+        if not w:
+            return _api_error("worker_not_found", status=404)
+        a.worker = w
+    if data.get("date") is not None:
+        try:
+            att_date = _to_date(data.get("date"))
+        except Exception:
+            return _api_error("invalid_date", status=400)
+        if not att_date:
+            return _api_error("missing_date", status=400)
+        a.date = att_date
+    if WorkerAttendance.objects.exclude(pk=a.id).filter(worker=a.worker, date=a.date).exists():
+        return _api_error("duplicate_attendance", status=409)
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        allowed_status = {
+            WorkerAttendance.STATUS_PRESENT,
+            WorkerAttendance.STATUS_ABSENT,
+            WorkerAttendance.STATUS_HALF_DAY,
+            WorkerAttendance.STATUS_LEAVE,
+        }
+        if status not in allowed_status:
+            return _api_error("invalid_status", status=400)
+        a.status = status
+    if data.get("hours") is not None:
+        a.hours = _to_dec(data.get("hours"), allow_none=True)
+    if data.get("projectId") is not None:
+        project_id = int(data.get("projectId") or 0) or None
+        a.project = ProjectPage.objects.filter(pk=project_id).specific().first() if project_id else None
+    if data.get("notes") is not None:
+        a.notes = str(data.get("notes") or "").strip()
+    a.save()
+    _audit_ops(
+        request,
+        action="ops_attendance_update",
+        entity_type="attendance",
+        entity_id=str(item_id),
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_attendance_delete(request: HttpRequest, item_id: int) -> JsonResponse:
+    forbidden = _require_ops_attendance_write(request)
+    if forbidden:
+        return forbidden
+    a = WorkerAttendance.objects.filter(pk=item_id).first()
+    if not a:
+        return _api_error("not_found", status=404)
+    user = getattr(request, "user", None)
+    role = _user_role(user)
+    if role == "employee":
+        linked_id = 0
+        try:
+            linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+        except Exception:
+            linked_id = 0
+        if not linked_id or int(getattr(a, "worker_id", 0) or 0) != linked_id:
+            return _api_error("forbidden", status=403)
+    if getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+        return _api_error("attendance_locked", status=409)
+    a.delete()
+    _audit_ops(
+        request,
+        action="ops_attendance_delete",
+        entity_type="attendance",
+        entity_id=str(item_id),
+    )
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_attendance_submit(request: HttpRequest, item_id: int) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request,
+        "ops_attendance_submit",
+        default_allowed_roles={"employee", "manager", "accountant"},
+    )
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    with transaction.atomic():
+        a = WorkerAttendance.objects.select_for_update().filter(pk=item_id).first()
+        if not a:
+            return _api_error("not_found", status=404)
+        if _user_role(user) == "employee":
+            linked_id = 0
+            try:
+                linked_id = int(Worker.objects.filter(user=user).values_list("id", flat=True).first() or 0)
+            except Exception:
+                linked_id = 0
+            if not linked_id or int(getattr(a, "worker_id", 0) or 0) != linked_id:
+                return _api_error("forbidden", status=403)
+        if getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+            return _api_error("attendance_locked", status=409)
+        before = {"state": getattr(a, "state", "")}
+        if getattr(a, "state", "") in {"", None, WorkerAttendance.STATE_DRAFT}:
+            a.state = WorkerAttendance.STATE_REVIEW
+            a.save(update_fields=["state", "updated_at"])
+        after = {"state": getattr(a, "state", "")}
+    _audit_ops(
+        request,
+        action="ops_attendance_submit",
+        entity_type="attendance",
+        entity_id=str(item_id),
+        before=before,
+        after=after,
+        meta={"actorId": getattr(user, "id", None)},
+    )
+    return _api_ok({"state": getattr(a, "state", "")})
+
+
+@require_POST
+def admin_ops_attendance_approve(request: HttpRequest, item_id: int) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request,
+        "ops_attendance_approve",
+        default_allowed_roles={"manager", "accountant"},
+    )
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    with transaction.atomic():
+        a = WorkerAttendance.objects.select_for_update().filter(pk=item_id).first()
+        if not a:
+            return _api_error("not_found", status=404)
+        if getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+            return _api_error("attendance_locked", status=409)
+        before = {
+            "state": getattr(a, "state", ""),
+            "approvedById": getattr(a, "approved_by_id", None),
+            "approvedAt": a.approved_at.isoformat() if getattr(a, "approved_at", None) else "",
+        }
+        a.state = WorkerAttendance.STATE_APPROVED
+        a.approved_by = user if user and getattr(user, "is_authenticated", False) else None
+        a.approved_at = timezone.now()
+        a.save(update_fields=["state", "approved_by", "approved_at", "updated_at"])
+        after = {
+            "state": getattr(a, "state", ""),
+            "approvedById": getattr(a, "approved_by_id", None),
+            "approvedAt": a.approved_at.isoformat() if getattr(a, "approved_at", None) else "",
+        }
+    _audit_ops(
+        request,
+        action="ops_attendance_approve",
+        entity_type="attendance",
+        entity_id=str(item_id),
+        before=before,
+        after=after,
+    )
+    return _api_ok({"state": getattr(a, "state", "")})
+
+
+@require_POST
+def admin_ops_attendance_lock(request: HttpRequest, item_id: int) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request,
+        "ops_attendance_lock",
+        default_allowed_roles={"manager", "accountant"},
+    )
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    with transaction.atomic():
+        a = WorkerAttendance.objects.select_for_update().filter(pk=item_id).first()
+        if not a:
+            return _api_error("not_found", status=404)
+        if getattr(a, "state", "") == WorkerAttendance.STATE_LOCKED:
+            return _api_ok({"state": getattr(a, "state", "")})
+        if getattr(a, "state", "") != WorkerAttendance.STATE_APPROVED:
+            return _api_error("attendance_not_approved", status=409)
+        before = {
+            "state": getattr(a, "state", ""),
+            "lockedById": getattr(a, "locked_by_id", None),
+            "lockedAt": a.locked_at.isoformat() if getattr(a, "locked_at", None) else "",
+        }
+        a.state = WorkerAttendance.STATE_LOCKED
+        a.locked_by = user if user and getattr(user, "is_authenticated", False) else None
+        a.locked_at = timezone.now()
+        a.save(update_fields=["state", "locked_by", "locked_at", "updated_at"])
+        after = {
+            "state": getattr(a, "state", ""),
+            "lockedById": getattr(a, "locked_by_id", None),
+            "lockedAt": a.locked_at.isoformat() if getattr(a, "locked_at", None) else "",
+        }
+    _audit_ops(
+        request,
+        action="ops_attendance_lock",
+        entity_type="attendance",
+        entity_id=str(item_id),
+        before=before,
+        after=after,
+    )
+    return _api_ok({"state": getattr(a, "state", "")})
+
+
+@require_POST
+def admin_ops_payroll_generate_from_attendance(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request, "ops_payroll_generate", default_allowed_roles={"manager", "accountant"}
+    )
+    if forbidden:
+        return forbidden
+
+    data = _read_json(request)
+    dry_run = bool(data.get("dryRun"))
+    year = int(data.get("year") or 0) or 0
+    month = int(data.get("month") or 0) or 0
+    if not (1900 <= year <= 2200):
+        return _api_error("invalid_year", status=400)
+    if not (1 <= month <= 12):
+        return _api_error("invalid_month", status=400)
+
+    worker_id = int(data.get("workerId") or 0) or None
+    workers_qs = Worker.objects.filter(active=True)
+    if worker_id:
+        workers_qs = workers_qs.filter(pk=worker_id)
+    workers = list(workers_qs.order_by("id"))
+    if worker_id and not workers:
+        return _api_error("worker_not_found", status=404)
+
+    attendances = (
+        WorkerAttendance.objects.filter(worker__in=workers, date__year=year, date__month=month)
+        .exclude(state=WorkerAttendance.STATE_DRAFT)
+        .values("worker_id", "status")
+        .annotate(total=Sum(1))
+    )
+    att_counts: dict[int, dict[str, int]] = {}
+    for r in attendances:
+        wid = int(r.get("worker_id") or 0)
+        status = str(r.get("status") or "")
+        total = int(r.get("total") or 0)
+        att_counts.setdefault(wid, {})[status] = total
+
+    user = getattr(request, "user", None)
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+    errors: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+
+    def _calc_amount(w: Worker) -> Decimal | None:
+        monthly = getattr(w, "monthly_salary", None)
+        if monthly is not None:
+            try:
+                return Decimal(str(monthly))
+            except Exception:
+                return None
+        daily = getattr(w, "daily_cost", None)
+        if daily is None:
+            return None
+        try:
+            daily_dec = Decimal(str(daily))
+        except Exception:
+            return None
+        counts = att_counts.get(w.id, {})
+        present = Decimal(str(counts.get(WorkerAttendance.STATUS_PRESENT, 0)))
+        half = Decimal(str(counts.get(WorkerAttendance.STATUS_HALF_DAY, 0)))
+        return daily_dec * (present + (half * Decimal("0.5")))
+
+    with transaction.atomic():
+        for w in workers:
+            amount = _calc_amount(w)
+            counts = att_counts.get(w.id, {})
+            if amount is None:
+                errors.append({"workerId": w.id, "error": "missing_rate"})
+                continue
+            amount = max(Decimal("0"), amount)
+            existing = WorkerPayrollEntry.objects.select_for_update().filter(
+                worker=w,
+                year=year,
+                month=month,
+                kind=WorkerPayrollEntry.KIND_SALARY,
+                source=WorkerPayrollEntry.SOURCE_AUTO_ATTENDANCE,
+            ).first()
+            if existing and getattr(existing, "status", "") != WorkerPayrollEntry.STATUS_DRAFT:
+                skipped_count += 1
+                results.append(
+                    {
+                        "workerId": w.id,
+                        "workerName": w.name,
+                        "status": "skipped",
+                        "reason": "not_draft",
+                        "entryId": existing.id,
+                        "amount": float(existing.amount or 0) if existing.amount is not None else None,
+                    }
+                )
+                continue
+
+            if dry_run:
+                results.append(
+                    {
+                        "workerId": w.id,
+                        "workerName": w.name,
+                        "status": "would_update" if existing else "would_create",
+                        "entryId": existing.id if existing else 0,
+                        "amount": float(amount),
+                        "attendance": counts,
+                    }
+                )
+                continue
+
+            if existing:
+                existing.amount = amount
+                existing.date = existing.date or timezone.localdate()
+                existing.notes = str(existing.notes or "") or "Generated from attendance"
+                existing.source_meta = {"attendance": counts}
+                existing.save(update_fields=["amount", "date", "notes", "source_meta", "updated_at"])
+                updated_count += 1
+                results.append(
+                    {
+                        "workerId": w.id,
+                        "workerName": w.name,
+                        "status": "updated",
+                        "entryId": existing.id,
+                        "amount": float(amount),
+                        "attendance": counts,
+                    }
+                )
+            else:
+                entry = WorkerPayrollEntry.objects.create(
+                    worker=w,
+                    year=year,
+                    month=month,
+                    kind=WorkerPayrollEntry.KIND_SALARY,
+                    amount=amount,
+                    date=timezone.localdate(),
+                    notes="Generated from attendance",
+                    source=WorkerPayrollEntry.SOURCE_AUTO_ATTENDANCE,
+                    source_meta={"attendance": counts},
+                    status=WorkerPayrollEntry.STATUS_DRAFT,
+                )
+                created_count += 1
+                results.append(
+                    {
+                        "workerId": w.id,
+                        "workerName": w.name,
+                        "status": "created",
+                        "entryId": entry.id,
+                        "amount": float(amount),
+                        "attendance": counts,
+                    }
+                )
+
+    _audit_ops(
+        request,
+        action="ops_payroll_generate_from_attendance",
+        entity_type="payroll",
+        entity_id=f"{year}-{month}",
+        meta={
+            "dryRun": dry_run,
+            "workerId": worker_id or 0,
+            "createdCount": created_count,
+            "updatedCount": updated_count,
+            "skippedCount": skipped_count,
+            "errorCount": len(errors),
+            "actorId": getattr(user, "id", None),
+        },
+    )
+    return _api_ok(
+        {
+            "dryRun": dry_run,
+            "year": year,
+            "month": month,
+            "workerId": worker_id or 0,
+            "createdCount": created_count,
+            "updatedCount": updated_count,
+            "skippedCount": skipped_count,
+            "errors": errors,
+            "results": results,
+        }
+    )
+
+
+@require_GET
+def admin_ops_payroll(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    qs = WorkerPayrollEntry.objects.select_related("worker")
+    worker_id = int(request.GET.get("workerId") or 0) or None
+    if worker_id:
+        qs = qs.filter(worker_id=worker_id)
+    year = int(request.GET.get("year") or 0) or None
+    if year:
+        qs = qs.filter(year=year)
+    month = int(request.GET.get("month") or 0) or None
+    if month and 1 <= month <= 12:
+        qs = qs.filter(month=month)
+    items: list[dict[str, Any]] = []
+    for p in qs.order_by("-year", "-month", "-id"):
+        items.append(
+            {
+                "id": p.id,
+                "workerId": p.worker_id,
+                "workerName": p.worker.name if p.worker else "",
+                "year": p.year,
+                "month": p.month,
+                "kind": p.kind,
+                "amount": float(p.amount or 0) if p.amount is not None else None,
+                "date": _to_iso(p.date),
+                "notes": p.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_payroll_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    from datetime import date as _date
+
+    data = _read_json(request)
+    worker_id = int(data.get("workerId") or 0) or 0
+    w = Worker.objects.filter(pk=worker_id).first()
+    if not w:
+        return _api_error("worker_not_found", status=404)
+    year = int(data.get("year") or 0) or 0
+    month = int(data.get("month") or 0) or 0
+    if not (1900 <= year <= 2200):
+        return _api_error("invalid_year", status=400)
+    if not (1 <= month <= 12):
+        return _api_error("invalid_month", status=400)
+    kind = str(data.get("kind") or WorkerPayrollEntry.KIND_SALARY).strip() or WorkerPayrollEntry.KIND_SALARY
+    allowed_kind = {
+        WorkerPayrollEntry.KIND_SALARY,
+        WorkerPayrollEntry.KIND_ADVANCE,
+        WorkerPayrollEntry.KIND_BONUS,
+        WorkerPayrollEntry.KIND_DEDUCTION,
+    }
+    if kind not in allowed_kind:
+        return _api_error("invalid_kind", status=400)
+    amount = _to_dec(data.get("amount"), allow_none=True)
+    if amount is None:
+        return _api_error("missing_amount", status=400)
+    pay_date = None
+    if data.get("date") is not None:
+        try:
+            pay_date = _to_date(data.get("date"))
+        except Exception:
+            return _api_error("invalid_date", status=400)
+    if not pay_date:
+        pay_date = _date.today()
+    p = WorkerPayrollEntry.objects.create(
+        worker=w,
+        year=year,
+        month=month,
+        kind=kind,
+        amount=amount,
+        date=pay_date,
+        notes=str(data.get("notes") or "").strip(),
+    )
+    return _api_ok({"id": p.id})
+
+
+@require_POST
+def admin_ops_payroll_update(request: HttpRequest, entry_id: int) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    p = WorkerPayrollEntry.objects.select_related("worker").filter(pk=entry_id).first()
+    if not p:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    if data.get("workerId") is not None:
+        worker_id = int(data.get("workerId") or 0) or 0
+        w = Worker.objects.filter(pk=worker_id).first()
+        if not w:
+            return _api_error("worker_not_found", status=404)
+        p.worker = w
+    if data.get("year") is not None:
+        year = int(data.get("year") or 0) or 0
+        if not (1900 <= year <= 2200):
+            return _api_error("invalid_year", status=400)
+        p.year = year
+    if data.get("month") is not None:
+        month = int(data.get("month") or 0) or 0
+        if not (1 <= month <= 12):
+            return _api_error("invalid_month", status=400)
+        p.month = month
+    if data.get("kind") is not None:
+        kind = str(data.get("kind") or "").strip()
+        allowed_kind = {
+            WorkerPayrollEntry.KIND_SALARY,
+            WorkerPayrollEntry.KIND_ADVANCE,
+            WorkerPayrollEntry.KIND_BONUS,
+            WorkerPayrollEntry.KIND_DEDUCTION,
+        }
+        if kind not in allowed_kind:
+            return _api_error("invalid_kind", status=400)
+        p.kind = kind
+    if data.get("amount") is not None:
+        amount = _to_dec(data.get("amount"), allow_none=True)
+        if amount is None:
+            return _api_error("missing_amount", status=400)
+        p.amount = amount
+    if data.get("date") is not None:
+        try:
+            pay_date = _to_date(data.get("date"))
+        except Exception:
+            return _api_error("invalid_date", status=400)
+        p.date = pay_date
+    if data.get("notes") is not None:
+        p.notes = str(data.get("notes") or "").strip()
+    p.save()
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_payroll_delete(request: HttpRequest, entry_id: int) -> JsonResponse:
+    forbidden = _require_accounting(request)
+    if forbidden:
+        return forbidden
+    p = WorkerPayrollEntry.objects.filter(pk=entry_id).first()
+    if not p:
+        return _api_error("not_found", status=404)
+    p.delete()
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_equipment(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_equipment_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    for e in Equipment.objects.all():
+        items.append(
+            {
+                "id": e.id,
+                "name": e.name,
+                "code": e.code,
+                "status": e.status,
+                "hourlyCost": float(e.hourly_cost or 0) if e.hourly_cost is not None else None,
+                "notes": e.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_equipment_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_equipment_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return _api_error("missing_name", status=400)
+    e = Equipment.objects.create(
+        name=name,
+        code=str(data.get("code") or "").strip(),
+        status=str(data.get("status") or Equipment.STATUS_AVAILABLE).strip(),
+        hourly_cost=_to_dec(data.get("hourlyCost"), allow_none=True),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    return _api_ok({"id": e.id})
+
+
+@require_POST
+def admin_ops_equipment_update(
+    request: HttpRequest, equipment_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_equipment_write(request)
+    if forbidden:
+        return forbidden
+    e = Equipment.objects.filter(pk=equipment_id).first()
+    if not e:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    if data.get("name") is not None:
+        e.name = str(data.get("name") or "").strip()
+    if data.get("code") is not None:
+        e.code = str(data.get("code") or "").strip()
+    if data.get("status") is not None:
+        e.status = str(data.get("status") or "").strip()
+    if data.get("hourlyCost") is not None:
+        e.hourly_cost = _to_dec(data.get("hourlyCost"), allow_none=True)
+    if data.get("notes") is not None:
+        e.notes = str(data.get("notes") or "").strip()
+    if not e.name:
+        return _api_error("missing_name", status=400)
+    e.save()
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_equipment_delete(
+    request: HttpRequest, equipment_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_equipment_write(request)
+    if forbidden:
+        return forbidden
+    e = Equipment.objects.filter(pk=equipment_id).first()
+    if not e:
+        return _api_error("not_found", status=404)
+    e.delete()
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_assignments(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_assignments_read(request)
+    if forbidden:
+        return forbidden
+    items: list[dict[str, Any]] = []
+    qs = ResourceAssignment.objects.select_related(
+        "project", "worker", "equipment"
+    )
+    for a in qs:
+        items.append(
+            {
+                "id": a.id,
+                "projectId": a.project_id or 0,
+                "projectTitle": getattr(a.project, "title", "") if a.project else "",
+                "resourceType": a.resource_type,
+                "workerId": a.worker_id or 0,
+                "workerName": a.worker.name if a.worker else "",
+                "equipmentId": a.equipment_id or 0,
+                "equipmentName": a.equipment.name if a.equipment else "",
+                "startDate": _to_iso(a.start_date),
+                "endDate": _to_iso(a.end_date),
+                "hoursPerDay": float(a.hours_per_day or 0) if a.hours_per_day is not None else None,
+                "costOverride": float(a.cost_override or 0) if a.cost_override is not None else None,
+                "notes": a.notes,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_assignments_create(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_assignments_write(request)
+    if forbidden:
+        return forbidden
+    data = _read_json(request)
+    project_id = int(data.get("projectId") or 0) or None
+    project = ProjectPage.objects.filter(pk=project_id).specific().first() if project_id else None
+    resource_type = str(data.get("resourceType") or ResourceAssignment.RESOURCE_WORKER).strip()
+    if resource_type not in {k for k, _ in ResourceAssignment.RESOURCE_CHOICES}:
+        return _api_error("invalid_resourceType", status=400)
+    worker_id = int(data.get("workerId") or 0) or None
+    equipment_id = int(data.get("equipmentId") or 0) or None
+    worker = Worker.objects.filter(pk=worker_id).first() if worker_id else None
+    equipment = Equipment.objects.filter(pk=equipment_id).first() if equipment_id else None
+    if resource_type == ResourceAssignment.RESOURCE_WORKER and not worker:
+        return _api_error("missing_worker", status=400)
+    if resource_type == ResourceAssignment.RESOURCE_EQUIPMENT and not equipment:
+        return _api_error("missing_equipment", status=400)
+    try:
+        start_date = _to_date(data.get("startDate"))
+    except Exception:
+        return _api_error("invalid_start_date", status=400)
+    try:
+        end_date = _to_date(data.get("endDate"))
+    except Exception:
+        return _api_error("invalid_end_date", status=400)
+    a = ResourceAssignment.objects.create(
+        project=project,
+        resource_type=resource_type,
+        worker=worker if resource_type == ResourceAssignment.RESOURCE_WORKER else None,
+        equipment=equipment if resource_type == ResourceAssignment.RESOURCE_EQUIPMENT else None,
+        start_date=start_date,
+        end_date=end_date,
+        hours_per_day=_to_dec(data.get("hoursPerDay"), allow_none=True),
+        cost_override=_to_dec(data.get("costOverride"), allow_none=True),
+        notes=str(data.get("notes") or "").strip(),
+    )
+    return _api_ok({"id": a.id})
+
+
+@require_POST
+def admin_ops_assignments_update(
+    request: HttpRequest, assignment_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_assignments_write(request)
+    if forbidden:
+        return forbidden
+    a = ResourceAssignment.objects.filter(pk=assignment_id).first()
+    if not a:
+        return _api_error("not_found", status=404)
+    data = _read_json(request)
+    if data.get("projectId") is not None:
+        pid = int(data.get("projectId") or 0) or None
+        a.project = ProjectPage.objects.filter(pk=pid).specific().first() if pid else None
+    if data.get("resourceType") is not None:
+        rt = str(data.get("resourceType") or "").strip()
+        if rt not in {k for k, _ in ResourceAssignment.RESOURCE_CHOICES}:
+            return _api_error("invalid_resourceType", status=400)
+        a.resource_type = rt
+    if data.get("workerId") is not None:
+        wid = int(data.get("workerId") or 0) or None
+        a.worker = Worker.objects.filter(pk=wid).first() if wid else None
+    if data.get("equipmentId") is not None:
+        eid = int(data.get("equipmentId") or 0) or None
+        a.equipment = Equipment.objects.filter(pk=eid).first() if eid else None
+    if a.resource_type == ResourceAssignment.RESOURCE_WORKER:
+        a.equipment = None
+        if not a.worker:
+            return _api_error("missing_worker", status=400)
+    else:
+        a.worker = None
+        if not a.equipment:
+            return _api_error("missing_equipment", status=400)
+    if data.get("startDate") is not None:
+        try:
+            a.start_date = _to_date(data.get("startDate"))
+        except Exception:
+            return _api_error("invalid_start_date", status=400)
+    if data.get("endDate") is not None:
+        try:
+            a.end_date = _to_date(data.get("endDate"))
+        except Exception:
+            return _api_error("invalid_end_date", status=400)
+    if data.get("hoursPerDay") is not None:
+        a.hours_per_day = _to_dec(data.get("hoursPerDay"), allow_none=True)
+    if data.get("costOverride") is not None:
+        a.cost_override = _to_dec(data.get("costOverride"), allow_none=True)
+    if data.get("notes") is not None:
+        a.notes = str(data.get("notes") or "").strip()
+    a.save()
+    return _api_ok()
+
+
+@require_POST
+def admin_ops_assignments_delete(
+    request: HttpRequest, assignment_id: int
+) -> JsonResponse:
+    forbidden = _require_ops_assignments_write(request)
+    if forbidden:
+        return forbidden
+    a = ResourceAssignment.objects.filter(pk=assignment_id).first()
+    if not a:
+        return _api_error("not_found", status=404)
+    a.delete()
+    _audit_ops(
+        request,
+        action="ops_assignment_delete",
+        entity_type="assignment",
+        entity_id=str(assignment_id),
+    )
+    return _api_ok()
+
+
+@require_GET
+def admin_ops_audit_logs(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request, "ops_audit_read", default_allowed_roles={"manager"}
+    )
+    if forbidden:
+        return forbidden
+    qs = OpsAuditLog.objects.select_related("actor")
+    action = str(request.GET.get("action") or "").strip()
+    if action:
+        qs = qs.filter(action=action)
+    entity_type = str(request.GET.get("entityType") or "").strip()
+    if entity_type:
+        qs = qs.filter(entity_type=entity_type)
+    entity_id = str(request.GET.get("entityId") or "").strip()
+    if entity_id:
+        qs = qs.filter(entity_id=entity_id)
+    actor_id = int(request.GET.get("actorId") or 0) or None
+    if actor_id:
+        qs = qs.filter(actor_id=actor_id)
+    since_id = int(request.GET.get("sinceId") or 0) or None
+    if since_id:
+        qs = qs.filter(id__gt=since_id)
+    limit = int(request.GET.get("limit") or 200) or 200
+    limit = max(1, min(limit, 500))
+    items: list[dict[str, Any]] = []
+    for r in qs.order_by("-id")[:limit]:
+        items.append(
+            {
+                "id": r.id,
+                "createdAt": r.created_at.isoformat() if r.created_at else "",
+                "actorId": r.actor_id or 0,
+                "actorUsername": getattr(r.actor, "username", "") if r.actor else "",
+                "role": r.role,
+                "action": r.action,
+                "entityType": r.entity_type,
+                "entityId": r.entity_id,
+                "before": r.before,
+                "after": r.after,
+                "meta": r.meta,
+                "ip": r.ip,
+                "userAgent": r.user_agent,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_GET
+def admin_ops_permission_rules(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request, "ops_permissions_read", default_allowed_roles={"manager"}
+    )
+    if forbidden:
+        return forbidden
+    codes = [
+        "ops_management",
+        "ops_crm_read",
+        "ops_workers_write",
+        "ops_attendance_write",
+        "ops_timeclock_import",
+        "ops_equipment_write",
+        "ops_assignments_write",
+        "accounting",
+        "registration",
+        "ops_audit_read",
+        "ops_permissions_read",
+        "ops_permissions_write",
+    ]
+    existing = {r.code: r for r in OpsPermissionRule.objects.filter(code__in=codes)}
+    items: list[dict[str, Any]] = []
+    for c in codes:
+        r = existing.get(c)
+        items.append(
+            {
+                "code": c,
+                "allowedRoles": r.allowed_roles if r else None,
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_POST
+def admin_ops_permission_rules_update(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_rule(
+        request, "ops_permissions_write", default_allowed_roles={"manager"}
+    )
+    if forbidden:
+        return forbidden
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_superuser", False):
+        return _api_error("forbidden", status=403)
+    data = _read_json(request)
+    code = str(data.get("code") or "").strip()
+    if not code:
+        return _api_error("missing_code", status=400)
+    allowed_roles = data.get("allowedRoles")
+    if allowed_roles is not None and not isinstance(allowed_roles, list):
+        return _api_error("invalid_allowedRoles", status=400)
+    cleaned: list[str] | None = None
+    if isinstance(allowed_roles, list):
+        cleaned = []
+        for x in allowed_roles:
+            v = str(x or "").strip()
+            if not v:
+                continue
+            cleaned.append(v)
+        cleaned = list(dict.fromkeys(cleaned))
+    rule, _ = OpsPermissionRule.objects.update_or_create(
+        code=code, defaults={"allowed_roles": cleaned}
+    )
+    cache.delete(f"ops_perm_rule:{code}")
+    _audit_ops(
+        request,
+        action="ops_permissions_update",
+        entity_type="permission_rule",
+        entity_id=code,
+        after={"allowedRoles": cleaned},
+    )
+    return _api_ok({"code": rule.code, "allowedRoles": rule.allowed_roles})
+
+
+@require_GET
+def admin_ops_timeclock_runs(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_ops_timeclock_import(request)
+    if forbidden:
+        return forbidden
+    limit = int(request.GET.get("limit") or 50) or 50
+    limit = max(1, min(limit, 200))
+    qs = OpsTimeclockImportRun.objects.select_related("actor", "default_project")
+    items: list[dict[str, Any]] = []
+    for r in qs.order_by("-id")[:limit]:
+        items.append(
+            {
+                "id": r.id,
+                "createdAt": r.created_at.isoformat() if r.created_at else "",
+                "actorId": r.actor_id or 0,
+                "actorUsername": getattr(r.actor, "username", "") if r.actor else "",
+                "role": r.role,
+                "source": r.source,
+                "dryRun": bool(r.dry_run),
+                "defaultProjectId": r.default_project_id or 0,
+                "defaultProjectTitle": getattr(r.default_project, "title", "") if r.default_project else "",
+                "itemsCount": int(r.items_count or 0),
+                "createdCount": int(r.created_count or 0),
+                "updatedCount": int(r.updated_count or 0),
+                "errorCount": int(r.error_count or 0),
+            }
+        )
+    return _api_ok({"items": items})
+
+
+@require_GET
+def admin_kpi_projects(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_projects_management(request)
+    if forbidden:
+        return forbidden
+    projects = ProjectPage.objects.all().specific()
+    contract_sums = {
+        int(r["project_id"]): r["total"] or Decimal("0")
+        for r in ProjectContract.objects.exclude(project_id=None)
+        .values("project_id")
+        .annotate(total=Sum("amount"))
+    }
+    po_sums = {
+        int(r["project_id"]): r["total"] or Decimal("0")
+        for r in PurchaseOrder.objects.exclude(project_id=None)
+        .values("project_id")
+        .annotate(total=Sum("total_amount"))
+    }
+    paid_sums: dict[int, Decimal] = {}
+    for r in ContractPayment.objects.values("contract__project_id").annotate(
+        total=Sum("paid_amount")
+    ):
+        pid = r.get("contract__project_id")
+        if not pid:
+            continue
+        paid_sums[int(pid)] = r["total"] or Decimal("0")
+    items: list[dict[str, Any]] = []
+    for p in projects:
+        budget = getattr(p, "budget_amount", None)
+        budget_val = Decimal(str(budget)) if budget is not None else Decimal("0")
+        contracts_total = contract_sums.get(p.id, Decimal("0"))
+        po_total = po_sums.get(p.id, Decimal("0"))
+        paid_total = paid_sums.get(p.id, Decimal("0"))
+        variance = budget_val - (po_total + paid_total)
+        items.append(
+            {
+                "projectId": p.id,
+                "title": p.title,
+                "status": getattr(p, "status", "") or "",
+                "progressPercent": int(getattr(p, "progress_percent", 0) or 0),
+                "budgetAmount": float(budget_val),
+                "contractsTotal": float(contracts_total),
+                "purchaseOrdersTotal": float(po_total),
+                "paidTotal": float(paid_total),
+                "variance": float(variance),
+            }
+        )
+    return _api_ok({"items": items})

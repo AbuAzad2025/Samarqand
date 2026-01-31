@@ -588,6 +588,15 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
               </div>
             </Link>
             <Link
+              to="/control/ops"
+              className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
+            >
+              <div className="font-semibold text-gray-900">إدارة العمليات</div>
+              <div className="text-sm text-gray-600 mt-1">
+                العملاء، العقود، المشتريات، الموارد، وتقارير KPI
+              </div>
+            </Link>
+            <Link
               to="/control/team"
               className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
             >

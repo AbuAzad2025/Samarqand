@@ -71,6 +71,11 @@ export default function ControlVisibilitySettings() {
     items: { label: string; key: keyof AdminVisibilitySettingsPayload }[];
   }[] = [
     {
+      title: "لوحة التحكم",
+      keys: ["showControlProjectsManagement"],
+      items: [{ label: "إدارة المشاريع داخل لوحة التحكم", key: "showControlProjectsManagement" }],
+    },
+    {
       title: "روابط الصفحات والتنقل",
       keys: [
         "showServices",

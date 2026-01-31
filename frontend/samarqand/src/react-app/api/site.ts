@@ -124,6 +124,18 @@ async function fetchJson<T>(url: string): Promise<T> {
   return payload.result;
 }
 
+async function readApiResponse<T>(res: Response): Promise<ApiResponse<T> | null> {
+  try {
+    return (await res.json()) as ApiResponse<T>;
+  } catch {
+    return null;
+  }
+}
+
+function readApiErrorCode(payload: ApiResponse<unknown> | null): string {
+  return payload && payload.ok === false ? payload.error.code : "error";
+}
+
 function getCookie(name: string): string | null {
   const cookies = document.cookie ? document.cookie.split(";") : [];
   for (const c of cookies) {
@@ -176,14 +188,18 @@ export async function fetchAuthMe(): Promise<{
   username: string;
   isStaff: boolean;
   isSuperuser: boolean;
+  role: string;
   groups: string[];
+  workerId: number;
 }> {
   return fetchJson<{
     authenticated: boolean;
     username: string;
     isStaff: boolean;
     isSuperuser: boolean;
+    role: string;
     groups: string[];
+    workerId: number;
   }>("/api/auth/me");
 }
 
@@ -208,13 +224,21 @@ export async function login(input: {
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function createOrUpdateUser(input: {
   username: string;
   password?: string;
-  role: "manager" | "superadmin";
+  role:
+    | "guest"
+    | "registered_guest"
+    | "employee"
+    | "registrar"
+    | "accountant"
+    | "manager"
+    | "superadmin";
 }): Promise<{ ok: boolean; created?: boolean; generatedPassword?: string; error?: string }> {
   const res = await apiFetch("/api/admin/users", {
     method: "POST",
@@ -225,10 +249,10 @@ export async function createOrUpdateUser(input: {
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = (await res.json().catch(() => null)) as ApiResponse<{
+  const data = await readApiResponse<{
     created: boolean;
     generatedPassword: string | null;
-  }> | null;
+  }>(res);
   if (!res.ok || !data || data.ok !== true) {
     const code = data && data.ok === false ? data.error.code : "forbidden";
     return { ok: false, error: code };
@@ -238,6 +262,22 @@ export async function createOrUpdateUser(input: {
     created: Boolean(data.result.created),
     generatedPassword: data.result.generatedPassword || undefined,
   };
+}
+
+export type AdminUserListItem = {
+  id: number;
+  username: string;
+  isSuperuser: boolean;
+  role: string;
+  groups: string[];
+  workerId: number;
+};
+
+export async function fetchAdminUsersList(input?: { limit?: number }): Promise<AdminUserListItem[]> {
+  const limit = Number(input?.limit) || 200;
+  const qs = `?limit=${encodeURIComponent(String(limit))}`;
+  const data = await fetchJson<{ items: AdminUserListItem[] }>(`/api/admin/users/list${qs}`);
+  return data.items;
 }
 
 export async function logout(): Promise<{ ok: boolean }> {
@@ -250,7 +290,8 @@ export async function logout(): Promise<{ ok: boolean }> {
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function changePassword(input: {
@@ -267,9 +308,8 @@ export async function changePassword(input: {
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -308,9 +348,8 @@ export async function updateAdminCompanySettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -346,9 +385,8 @@ export async function updateAdminHomeSettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -388,9 +426,8 @@ export async function updateAdminAISettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -448,9 +485,8 @@ export async function updateAdminCalculatorSettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -458,6 +494,7 @@ export async function updateAdminCalculatorSettings(
 export type AdminVisibilitySettingsPayload = {
   showServices: boolean;
   showProjects: boolean;
+  showControlProjectsManagement: boolean;
   showTools: boolean;
   showShowcase: boolean;
   showAbout: boolean;
@@ -494,9 +531,8 @@ export async function updateAdminVisibilitySettings(
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
-    const code = data && data.ok === false ? data.error.code : "error";
-    return { ok: false, error: code };
+    const data = await readApiResponse<unknown>(res);
+    return { ok: false, error: readApiErrorCode(data) };
   }
   return { ok: true };
 }
@@ -532,9 +568,9 @@ export async function createAdminTeamMember(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminTeamMember(
@@ -549,26 +585,26 @@ export async function updateAdminTeamMember(
     imageId: number | null;
   }>,
 ): Promise<{ ok: boolean; error?: string; imageId?: number | null; imageUrl?: string }> {
-  const res = await fetch(`/api/admin/team/${memberId}/update`, {
+  const res = await apiFetch(`/api/admin/team/${memberId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, imageId: data.imageId, imageUrl: data.imageUrl };
+  const data = await readApiResponse<{ imageUrl: string; imageId: number | null }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, imageId: data.result.imageId, imageUrl: data.result.imageUrl };
 }
 
 export async function deleteAdminTeamMember(memberId: number): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/team/${memberId}/delete`, {
+  const res = await apiFetch(`/api/admin/team/${memberId}/delete`, {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -579,8 +615,8 @@ export async function reorderAdminTeam(input: { ids: number[] }): Promise<{ ok: 
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -626,54 +662,57 @@ export async function createAdminService(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminService(
   serviceId: number,
   payload: Partial<Omit<AdminServiceDetail, "id" | "live" | "firstPublishedAt" | "coverUrl">> & { slug?: string },
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/services/${serviceId}/update`, {
+  const res = await apiFetch(`/api/admin/services/${serviceId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function publishAdminService(serviceId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/services/${serviceId}/publish`, {
+  const res = await apiFetch(`/api/admin/services/${serviceId}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function unpublishAdminService(serviceId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/services/${serviceId}/unpublish`, {
+  const res = await apiFetch(`/api/admin/services/${serviceId}/unpublish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function deleteAdminService(serviceId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/services/${serviceId}/delete`, {
+  const res = await apiFetch(`/api/admin/services/${serviceId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export type AdminTestimonial = {
@@ -702,34 +741,35 @@ export async function createAdminTestimonial(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminTestimonial(
   itemId: number,
   payload: Partial<Omit<AdminTestimonial, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/testimonials/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/testimonials/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminTestimonial(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/testimonials/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/testimonials/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminTestimonials(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -739,8 +779,8 @@ export async function reorderAdminTestimonials(input: { ids: number[] }): Promis
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -768,34 +808,35 @@ export async function createAdminHomeTrustBadge(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminHomeTrustBadge(
   itemId: number,
   payload: Partial<Omit<AdminHomeTrustBadge, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/home/trust-badges/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/home/trust-badges/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminHomeTrustBadge(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/home/trust-badges/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/home/trust-badges/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminHomeTrustBadges(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -805,8 +846,8 @@ export async function reorderAdminHomeTrustBadges(input: { ids: number[] }): Pro
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -834,34 +875,35 @@ export async function createAdminHomeStat(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminHomeStat(
   itemId: number,
   payload: Partial<Omit<AdminHomeStat, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/home/stats/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/home/stats/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminHomeStat(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/home/stats/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/home/stats/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminHomeStats(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -871,8 +913,8 @@ export async function reorderAdminHomeStats(input: { ids: number[] }): Promise<{
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -900,34 +942,35 @@ export async function createAdminHomeTimelineStep(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminHomeTimelineStep(
   itemId: number,
   payload: Partial<Omit<AdminHomeTimelineStep, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/home/timeline/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/home/timeline/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminHomeTimelineStep(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/home/timeline/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/home/timeline/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminHomeTimeline(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -937,8 +980,8 @@ export async function reorderAdminHomeTimeline(input: { ids: number[] }): Promis
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -966,34 +1009,35 @@ export async function createAdminHomeAIFeature(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminHomeAIFeature(
   itemId: number,
   payload: Partial<Omit<AdminHomeAIFeature, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/home/ai-features/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/home/ai-features/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminHomeAIFeature(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/home/ai-features/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/home/ai-features/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminHomeAIFeatures(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -1003,8 +1047,8 @@ export async function reorderAdminHomeAIFeatures(input: { ids: number[] }): Prom
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -1030,34 +1074,35 @@ export async function createAdminHomeAIMetric(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminHomeAIMetric(
   itemId: number,
   payload: Partial<Omit<AdminHomeAIMetric, "id">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/home/ai-metrics/${itemId}/update`, {
+  const res = await apiFetch(`/api/admin/home/ai-metrics/${itemId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminHomeAIMetric(itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/home/ai-metrics/${itemId}/delete`, {
+  const res = await apiFetch(`/api/admin/home/ai-metrics/${itemId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function reorderAdminHomeAIMetrics(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
@@ -1067,8 +1112,8 @@ export async function reorderAdminHomeAIMetrics(input: { ids: number[] }): Promi
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -1080,6 +1125,9 @@ export type AdminProjectListItem = {
   firstPublishedAt: string;
   coverUrl: string;
   shortDescription: string;
+  status: string;
+  pmpPhase: string;
+  progressPercent: number;
   clientName: string;
   projectLocation: string;
   completionYear: number | null;
@@ -1096,6 +1144,17 @@ export type AdminProjectDetail = {
   slug: string;
   live: boolean;
   shortDescription: string;
+  status: string;
+  pmpPhase: string;
+  progressPercent: number;
+  startDate: string;
+  targetEndDate: string;
+  budgetAmount: string;
+  scopeStatement: string;
+  keyDeliverables: string;
+  keyStakeholders: string;
+  keyRisks: string;
+  managementNotes: string;
   clientName: string;
   projectLocation: string;
   completionYear: number | null;
@@ -1112,6 +1171,18 @@ export async function fetchAdminProjectDetail(projectId: number): Promise<AdminP
   return fetchJson<AdminProjectDetail>(`/api/admin/projects/${projectId}`);
 }
 
+export async function reorderAdminProjects(input: { ids: number[] }): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch("/api/admin/projects/reorder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(input),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
 export async function createAdminProject(payload: {
   title: string;
   slug?: string;
@@ -1123,54 +1194,1155 @@ export async function createAdminProject(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminProject(
   projectId: number,
   payload: Partial<Omit<AdminProjectDetail, "id" | "gallery" | "live">> & { slug?: string },
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/update`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function publishAdminProject(projectId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/publish`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function unpublishAdminProject(projectId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/unpublish`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/unpublish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function deleteAdminProject(projectId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/delete`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
+}
+
+export type AdminOpsClient = {
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchAdminOpsClients(): Promise<AdminOpsClient[]> {
+  const data = await fetchJson<{ items: AdminOpsClient[] }>("/api/admin/ops/clients");
+  return data.items;
+}
+
+export async function createAdminOpsClient(payload: {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/clients/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsClient(
+  clientId: number,
+  payload: Partial<{
+    name: string;
+    phone: string;
+    email: string;
+    address: string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/clients/${clientId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsClient(clientId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/clients/${clientId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsSupplier = {
+  id: number;
+  name: string;
+  category: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+};
+
+export async function fetchAdminOpsSuppliers(): Promise<AdminOpsSupplier[]> {
+  const data = await fetchJson<{ items: AdminOpsSupplier[] }>("/api/admin/ops/suppliers");
+  return data.items;
+}
+
+export async function createAdminOpsSupplier(payload: {
+  name: string;
+  category?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/suppliers/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsSupplier(
+  supplierId: number,
+  payload: Partial<{
+    name: string;
+    category: string;
+    phone: string;
+    email: string;
+    address: string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/suppliers/${supplierId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsSupplier(supplierId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/suppliers/${supplierId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsContract = {
+  id: number;
+  projectId: number;
+  projectTitle: string;
+  clientId: number;
+  clientName: string;
+  title: string;
+  number: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  amount: number;
+  notes: string;
+};
+
+export async function fetchAdminOpsContracts(): Promise<AdminOpsContract[]> {
+  const data = await fetchJson<{ items: AdminOpsContract[] }>("/api/admin/ops/contracts");
+  return data.items;
+}
+
+export type AdminOpsContractAddendum = {
+  id: number;
+  title: string;
+  amountDelta: number;
+  startDate: string;
+  endDate: string;
+  notes: string;
+};
+
+export async function fetchAdminOpsContractAddendums(contractId: number): Promise<AdminOpsContractAddendum[]> {
+  const data = await fetchJson<{ items: AdminOpsContractAddendum[] }>(`/api/admin/ops/contracts/${contractId}/addendums`);
+  return data.items;
+}
+
+export async function createAdminOpsContractAddendum(
+  contractId: number,
+  payload: {
+    title?: string;
+    amountDelta?: number | string | null;
+    startDate?: string;
+    endDate?: string;
+    notes?: string;
+  },
+): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contracts/${contractId}/addendums/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export type AdminOpsContractPayment = {
+  id: number;
+  title: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  paidDate: string;
+  status: string;
+  notes: string;
+};
+
+export async function fetchAdminOpsContractPayments(contractId: number): Promise<AdminOpsContractPayment[]> {
+  const data = await fetchJson<{ items: AdminOpsContractPayment[] }>(`/api/admin/ops/contracts/${contractId}/payments`);
+  return data.items;
+}
+
+export async function createAdminOpsContractPayment(
+  contractId: number,
+  payload: {
+    title?: string;
+    dueDate?: string;
+    amount?: number | string | null;
+    paidAmount?: number | string | null;
+    paidDate?: string;
+    status?: string;
+    notes?: string;
+  },
+): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contracts/${contractId}/payments/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsContractPayment(
+  paymentId: number,
+  payload: Partial<{
+    title: string;
+    dueDate: string;
+    amount: number | string | null;
+    paidAmount: number | string | null;
+    paidDate: string;
+    status: string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contract-payments/${paymentId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsContractPayment(paymentId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contract-payments/${paymentId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function createAdminOpsContract(payload: {
+  projectId?: number | null;
+  clientId?: number | null;
+  title?: string;
+  number?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  amount?: number | string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/contracts/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsContract(
+  contractId: number,
+  payload: Partial<{
+    projectId: number | null;
+    clientId: number | null;
+    title: string;
+    number: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    amount: number | string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contracts/${contractId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsContract(contractId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/contracts/${contractId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsPurchaseOrder = {
+  id: number;
+  supplierId: number;
+  supplierName: string;
+  projectId: number;
+  projectTitle: string;
+  number: string;
+  date: string;
+  status: string;
+  totalAmount: number;
+  notes: string;
+};
+
+export async function fetchAdminOpsPurchaseOrders(): Promise<AdminOpsPurchaseOrder[]> {
+  const data = await fetchJson<{ items: AdminOpsPurchaseOrder[] }>("/api/admin/ops/purchase-orders");
+  return data.items;
+}
+
+export async function createAdminOpsPurchaseOrder(payload: {
+  supplierId?: number | null;
+  projectId?: number | null;
+  number?: string;
+  date?: string;
+  status?: string;
+  totalAmount?: number | string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/purchase-orders/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsPurchaseOrder(
+  purchaseOrderId: number,
+  payload: Partial<{
+    supplierId: number | null;
+    projectId: number | null;
+    number: string;
+    date: string;
+    status: string;
+    totalAmount: number | string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/purchase-orders/${purchaseOrderId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsPurchaseOrder(purchaseOrderId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/purchase-orders/${purchaseOrderId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsInventoryItem = {
+  id: number;
+  sku: string;
+  name: string;
+  unit: string;
+  currentQty: number;
+  reorderLevel: number | null;
+  notes: string;
+};
+
+export async function fetchAdminOpsInventoryItems(): Promise<AdminOpsInventoryItem[]> {
+  const data = await fetchJson<{ items: AdminOpsInventoryItem[] }>("/api/admin/ops/inventory/items");
+  return data.items;
+}
+
+export async function createAdminOpsInventoryItem(payload: {
+  sku?: string;
+  name: string;
+  unit?: string;
+  currentQty?: number | string;
+  reorderLevel?: number | string | null;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/inventory/items/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsInventoryItem(
+  itemId: number,
+  payload: Partial<{
+    sku: string;
+    name: string;
+    unit: string;
+    currentQty: number | string;
+    reorderLevel: number | string | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/inventory/items/${itemId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsInventoryItem(itemId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/inventory/items/${itemId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsInventoryTransaction = {
+  id: number;
+  itemId: number;
+  itemName: string;
+  projectId: number;
+  projectTitle: string;
+  kind: string;
+  quantity: number;
+  unitCost: number | null;
+  date: string;
+  reference: string;
+  notes: string;
+};
+
+export async function fetchAdminOpsInventoryTransactions(input?: {
+  itemId?: number;
+}): Promise<AdminOpsInventoryTransaction[]> {
+  const qs = input?.itemId ? `?itemId=${encodeURIComponent(String(input.itemId))}` : "";
+  const data = await fetchJson<{ items: AdminOpsInventoryTransaction[] }>(`/api/admin/ops/inventory/transactions${qs}`);
+  return data.items;
+}
+
+export async function createAdminOpsInventoryTransaction(payload: {
+  itemId: number;
+  projectId?: number | null;
+  kind: string;
+  quantity: number | string;
+  unitCost?: number | string | null;
+  date?: string;
+  reference?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/inventory/transactions/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export type AdminOpsWorker = {
+  id: number;
+  userId: number;
+  userUsername: string;
+  name: string;
+  role: string;
+  phone: string;
+  timeClockId: string;
+  kind: string;
+  active: boolean;
+  dailyCost: number | null;
+  monthlySalary: number | null;
+  notes: string;
+};
+
+export async function fetchAdminOpsWorkers(): Promise<AdminOpsWorker[]> {
+  const data = await fetchJson<{ items: AdminOpsWorker[] }>("/api/admin/ops/workers");
+  return data.items;
+}
+
+export async function createAdminOpsWorker(payload: {
+  userId?: number | null;
+  name: string;
+  role?: string;
+  phone?: string;
+  timeClockId?: string;
+  kind?: string;
+  active?: boolean;
+  dailyCost?: number | string | null;
+  monthlySalary?: number | string | null;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/workers/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsWorker(
+  workerId: number,
+  payload: Partial<{
+    userId: number | null;
+    name: string;
+    role: string;
+    phone: string;
+    timeClockId: string;
+    kind: string;
+    active: boolean;
+    dailyCost: number | string | null;
+    monthlySalary: number | string | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/workers/${workerId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsWorker(workerId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/workers/${workerId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsAttendance = {
+  id: number;
+  workerId: number;
+  workerName: string;
+  projectId: number;
+  projectTitle: string;
+  date: string;
+  status: string;
+  hours: number | null;
+  notes: string;
+};
+
+export async function fetchAdminOpsAttendance(input?: {
+  workerId?: number;
+  year?: number;
+  month?: number;
+}): Promise<AdminOpsAttendance[]> {
+  const qsParts: string[] = [];
+  if (input?.workerId) qsParts.push(`workerId=${encodeURIComponent(String(input.workerId))}`);
+  if (input?.year) qsParts.push(`year=${encodeURIComponent(String(input.year))}`);
+  if (input?.month) qsParts.push(`month=${encodeURIComponent(String(input.month))}`);
+  const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
+  const data = await fetchJson<{ items: AdminOpsAttendance[] }>(`/api/admin/ops/attendance${qs}`);
+  return data.items;
+}
+
+export async function createAdminOpsAttendance(payload: {
+  workerId: number;
+  date: string;
+  status?: string;
+  hours?: number | string | null;
+  projectId?: number | null;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; created?: boolean; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/attendance/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number; created: boolean }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id, created: data.result.created };
+}
+
+export type AdminOpsTimeclockImportItem = {
+  workerId?: number;
+  timeClockId?: string;
+  date: string;
+  projectId?: number | null;
+  hours?: number | string | null;
+  checkIn?: string;
+  checkOut?: string;
+  checkInAt?: string;
+  checkOutAt?: string;
+  status?: string;
+  notes?: string;
+};
+
+export async function importAdminOpsTimeclock(
+  items: AdminOpsTimeclockImportItem[],
+  input?: { dryRun?: boolean; defaultProjectId?: number | null },
+): Promise<{
+  ok: boolean;
+  dryRun?: boolean;
+  createdCount?: number;
+  updatedCount?: number;
+  errors?: unknown[];
+  results?: unknown[];
+  error?: string;
+}> {
+  const res = await apiFetch("/api/admin/ops/timeclock/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({ items, dryRun: Boolean(input?.dryRun), defaultProjectId: input?.defaultProjectId ?? null }),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{
+    dryRun: boolean;
+    createdCount: number;
+    updatedCount: number;
+    errors: unknown[];
+    results: unknown[];
+  }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, ...data.result };
+}
+
+export async function importAdminOpsTimeclockFromFolder(input?: {
+  dryRun?: boolean;
+  defaultProjectId?: number | null;
+  limitFiles?: number;
+}): Promise<{
+  ok: boolean;
+  dryRun?: boolean;
+  files?: string[];
+  createdCount?: number;
+  updatedCount?: number;
+  errors?: unknown[];
+  results?: unknown[];
+  error?: string;
+}> {
+  const res = await apiFetch("/api/admin/ops/timeclock/import-from-folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({
+      dryRun: Boolean(input?.dryRun),
+      defaultProjectId: input?.defaultProjectId ?? null,
+      limitFiles: input?.limitFiles ?? null,
+    }),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{
+    dryRun: boolean;
+    files: string[];
+    createdCount: number;
+    updatedCount: number;
+    errors: unknown[];
+    results: unknown[];
+  }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, ...data.result };
+}
+
+export type AdminOpsTimeclockImportRun = {
+  id: number;
+  createdAt: string;
+  actorId: number;
+  actorUsername: string;
+  role: string;
+  source: string;
+  dryRun: boolean;
+  defaultProjectId: number;
+  defaultProjectTitle: string;
+  itemsCount: number;
+  createdCount: number;
+  updatedCount: number;
+  errorCount: number;
+};
+
+export async function fetchAdminOpsTimeclockRuns(input?: {
+  limit?: number;
+}): Promise<AdminOpsTimeclockImportRun[]> {
+  const limit = Number(input?.limit) || 50;
+  const qs = `?limit=${encodeURIComponent(String(limit))}`;
+  const data = await fetchJson<{ items: AdminOpsTimeclockImportRun[] }>(`/api/admin/ops/timeclock/runs${qs}`);
+  return data.items;
+}
+
+export type AdminOpsAuditLog = {
+  id: number;
+  createdAt: string;
+  actorId: number;
+  actorUsername: string;
+  role: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+  meta: unknown;
+  ip: string;
+  userAgent: string;
+};
+
+export async function fetchAdminOpsAuditLogs(input?: {
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  actorId?: number;
+  sinceId?: number;
+  limit?: number;
+}): Promise<AdminOpsAuditLog[]> {
+  const qsParts: string[] = [];
+  const action = String(input?.action || "").trim();
+  const entityType = String(input?.entityType || "").trim();
+  const entityId = String(input?.entityId || "").trim();
+  if (action) qsParts.push(`action=${encodeURIComponent(action)}`);
+  if (entityType) qsParts.push(`entityType=${encodeURIComponent(entityType)}`);
+  if (entityId) qsParts.push(`entityId=${encodeURIComponent(entityId)}`);
+  if (input?.actorId) qsParts.push(`actorId=${encodeURIComponent(String(input.actorId))}`);
+  if (input?.sinceId) qsParts.push(`sinceId=${encodeURIComponent(String(input.sinceId))}`);
+  const limit = Number(input?.limit) || 200;
+  qsParts.push(`limit=${encodeURIComponent(String(limit))}`);
+  const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
+  const data = await fetchJson<{ items: AdminOpsAuditLog[] }>(`/api/admin/ops/audit-logs${qs}`);
+  return data.items;
+}
+
+export async function updateAdminOpsAttendance(
+  itemId: number,
+  payload: Partial<{
+    workerId: number;
+    date: string;
+    status: string;
+    hours: number | string | null;
+    projectId: number | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/attendance/${itemId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsAttendance(itemId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/attendance/${itemId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsPayrollEntry = {
+  id: number;
+  workerId: number;
+  workerName: string;
+  year: number;
+  month: number;
+  kind: string;
+  amount: number | null;
+  date: string;
+  notes: string;
+};
+
+export async function fetchAdminOpsPayroll(input?: {
+  workerId?: number;
+  year?: number;
+  month?: number;
+}): Promise<AdminOpsPayrollEntry[]> {
+  const qsParts: string[] = [];
+  if (input?.workerId) qsParts.push(`workerId=${encodeURIComponent(String(input.workerId))}`);
+  if (input?.year) qsParts.push(`year=${encodeURIComponent(String(input.year))}`);
+  if (input?.month) qsParts.push(`month=${encodeURIComponent(String(input.month))}`);
+  const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
+  const data = await fetchJson<{ items: AdminOpsPayrollEntry[] }>(`/api/admin/ops/payroll${qs}`);
+  return data.items;
+}
+
+export async function generateAdminOpsPayrollFromAttendance(input: {
+  year: number | string;
+  month: number | string;
+  workerId?: number | null;
+  dryRun?: boolean;
+}): Promise<{
+  ok: boolean;
+  dryRun?: boolean;
+  year?: number;
+  month?: number;
+  workerId?: number;
+  createdCount?: number;
+  updatedCount?: number;
+  skippedCount?: number;
+  errors?: unknown[];
+  results?: unknown[];
+  error?: string;
+}> {
+  const res = await apiFetch("/api/admin/ops/payroll/generate-from-attendance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({
+      year: Number(input.year) || 0,
+      month: Number(input.month) || 0,
+      workerId: input.workerId ?? null,
+      dryRun: Boolean(input.dryRun),
+    }),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{
+    dryRun: boolean;
+    year: number;
+    month: number;
+    workerId: number;
+    createdCount: number;
+    updatedCount: number;
+    skippedCount: number;
+    errors: unknown[];
+    results: unknown[];
+  }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, ...data.result };
+}
+
+export async function createAdminOpsPayrollEntry(payload: {
+  workerId: number;
+  year: number | string;
+  month: number | string;
+  kind?: string;
+  amount: number | string;
+  date?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/payroll/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsPayrollEntry(
+  entryId: number,
+  payload: Partial<{
+    workerId: number;
+    year: number | string;
+    month: number | string;
+    kind: string;
+    amount: number | string;
+    date: string;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/payroll/${entryId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsPayrollEntry(entryId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/payroll/${entryId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsEquipment = {
+  id: number;
+  name: string;
+  code: string;
+  status: string;
+  hourlyCost: number | null;
+  notes: string;
+};
+
+export async function fetchAdminOpsEquipment(): Promise<AdminOpsEquipment[]> {
+  const data = await fetchJson<{ items: AdminOpsEquipment[] }>("/api/admin/ops/equipment");
+  return data.items;
+}
+
+export async function createAdminOpsEquipment(payload: {
+  name: string;
+  code?: string;
+  status?: string;
+  hourlyCost?: number | string | null;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/equipment/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsEquipment(
+  equipmentId: number,
+  payload: Partial<{
+    name: string;
+    code: string;
+    status: string;
+    hourlyCost: number | string | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/equipment/${equipmentId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsEquipment(equipmentId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/equipment/${equipmentId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminOpsAssignment = {
+  id: number;
+  projectId: number;
+  projectTitle: string;
+  resourceType: string;
+  workerId: number;
+  workerName: string;
+  equipmentId: number;
+  equipmentName: string;
+  startDate: string;
+  endDate: string;
+  hoursPerDay: number | null;
+  costOverride: number | null;
+  notes: string;
+};
+
+export async function fetchAdminOpsAssignments(): Promise<AdminOpsAssignment[]> {
+  const data = await fetchJson<{ items: AdminOpsAssignment[] }>("/api/admin/ops/assignments");
+  return data.items;
+}
+
+export async function createAdminOpsAssignment(payload: {
+  projectId?: number | null;
+  resourceType: string;
+  workerId?: number | null;
+  equipmentId?: number | null;
+  startDate?: string;
+  endDate?: string;
+  hoursPerDay?: number | string | null;
+  costOverride?: number | string | null;
+  notes?: string;
+}): Promise<{ ok: boolean; id?: number; error?: string }> {
+  const res = await apiFetch("/api/admin/ops/assignments/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
+}
+
+export async function updateAdminOpsAssignment(
+  assignmentId: number,
+  payload: Partial<{
+    projectId: number | null;
+    resourceType: string;
+    workerId: number | null;
+    equipmentId: number | null;
+    startDate: string;
+    endDate: string;
+    hoursPerDay: number | string | null;
+    costOverride: number | string | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/assignments/${assignmentId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function deleteAdminOpsAssignment(assignmentId: number): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/assignments/${assignmentId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type AdminKpiProjectItem = {
+  projectId: number;
+  title: string;
+  status: string;
+  progressPercent: number;
+  budgetAmount: number;
+  contractsTotal: number;
+  purchaseOrdersTotal: number;
+  paidTotal: number;
+  variance: number;
+};
+
+export async function fetchAdminKpiProjects(): Promise<AdminKpiProjectItem[]> {
+  const data = await fetchJson<{ items: AdminKpiProjectItem[] }>("/api/admin/kpi/projects");
+  return data.items;
 }
 
 export type AdminArticleListItem = {
@@ -1214,9 +2386,9 @@ export async function createAdminArticle(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminArticle(
@@ -1225,45 +2397,48 @@ export async function updateAdminArticle(
     slug?: string;
   },
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/articles/${articleId}/update`, {
+  const res = await apiFetch(`/api/admin/articles/${articleId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function publishAdminArticle(articleId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/articles/${articleId}/publish`, {
+  const res = await apiFetch(`/api/admin/articles/${articleId}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function unpublishAdminArticle(articleId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/articles/${articleId}/unpublish`, {
+  const res = await apiFetch(`/api/admin/articles/${articleId}/unpublish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function deleteAdminArticle(articleId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/articles/${articleId}/delete`, {
+  const res = await apiFetch(`/api/admin/articles/${articleId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export type AdminRfqDocumentListItem = {
@@ -1301,34 +2476,35 @@ export async function createAdminRfqDocument(payload: {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminRfqDocument(
   docId: number,
   payload: Partial<Pick<AdminRfqDocumentDetail, "title" | "templateKey" | "currency" | "data">>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/rfq/documents/${docId}/update`, {
+  const res = await apiFetch(`/api/admin/rfq/documents/${docId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function deleteAdminRfqDocument(docId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/rfq/documents/${docId}/delete`, {
+  const res = await apiFetch(`/api/admin/rfq/documents/${docId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function downloadAdminRfqDocumentPdf(docId: number, filename?: string): Promise<void> {
@@ -1359,9 +2535,9 @@ export async function uploadAdminImage(file: File, title?: string): Promise<{ ok
     body: form,
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false };
-  return { ok: true, id: data.id, url: data.url };
+  const data = await readApiResponse<{ id: number; url: string }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false };
+  return { ok: true, id: data.result.id, url: data.result.url };
 }
 
 export type AdminMediaImage = {
@@ -1388,14 +2564,14 @@ export async function fetchAdminMediaImages(input?: {
 }
 
 export async function deleteAdminMediaImage(imageId: number): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/media/images/${imageId}/delete`, {
+  const res = await apiFetch(`/api/admin/media/images/${imageId}/delete`, {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -1431,20 +2607,20 @@ export async function uploadAdminDocument(file: File, title?: string): Promise<{
     body: form,
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false };
-  return { ok: true, id: data.id, url: data.url };
+  const data = await readApiResponse<{ id: number; url: string }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false };
+  return { ok: true, id: data.result.id, url: data.result.url };
 }
 
 export async function deleteAdminMediaDocument(docId: number): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/media/documents/${docId}/delete`, {
+  const res = await apiFetch(`/api/admin/media/documents/${docId}/delete`, {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
@@ -1527,73 +2703,260 @@ export async function createAdminPage(input: {
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
-  return { ok: true, id: data.id };
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true, id: data.result.id };
 }
 
 export async function updateAdminPage(pageId: number, payload: Partial<AdminPageDetail> & { slug?: string }): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`/api/admin/pages/${pageId}/update`, {
+  const res = await apiFetch(`/api/admin/pages/${pageId}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 
 export async function publishAdminPage(pageId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/pages/${pageId}/publish`, {
+  const res = await apiFetch(`/api/admin/pages/${pageId}/publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function unpublishAdminPage(pageId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/pages/${pageId}/unpublish`, {
+  const res = await apiFetch(`/api/admin/pages/${pageId}/unpublish`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function deleteAdminPage(pageId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/pages/${pageId}/delete`, {
+  const res = await apiFetch(`/api/admin/pages/${pageId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function addAdminProjectGalleryItem(projectId: number, input: { imageId: number; caption?: string }): Promise<{ ok: boolean; id?: number; url?: string }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/gallery/add`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/gallery/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify(input),
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false };
-  return { ok: true, id: data.id, url: data.url };
+  const data = await readApiResponse<{ id: number; url: string }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false };
+  return { ok: true, id: data.result.id, url: data.result.url };
 }
 
 export async function removeAdminProjectGalleryItem(projectId: number, itemId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(`/api/admin/projects/${projectId}/gallery/${itemId}/remove`, {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/gallery/${itemId}/remove`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),
     credentials: "same-origin",
   });
-  return { ok: res.ok };
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
+}
+
+export type AdminProjectDocument = {
+  id: number;
+  title: string;
+  documentId: number | null;
+  url: string;
+  downloadUrl: string;
+  fileSize: number;
+  createdAt: string;
+};
+
+export async function fetchAdminProjectDocuments(projectId: number): Promise<AdminProjectDocument[]> {
+  const data = await fetchJson<{ items: AdminProjectDocument[] }>(`/api/admin/projects/${projectId}/documents`);
+  return data.items;
+}
+
+export async function reorderAdminProjectDocuments(
+  projectId: number,
+  input: { ids: number[] },
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/documents/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(input),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function updateAdminProjectDocument(
+  projectId: number,
+  itemId: number,
+  payload: { title?: string; sortOrder?: number },
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/documents/${itemId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function uploadAdminProjectDocument(
+  projectId: number,
+  file: File,
+  title?: string,
+): Promise<{ ok: boolean; id?: number; documentId?: number; url?: string; title?: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  if (title) {
+    form.append("title", title);
+    form.append("rowTitle", title);
+  }
+  const res = await apiFetch(`/api/admin/projects/${projectId}/documents/upload`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: form,
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number; documentId: number; url: string; title: string }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false };
+  return {
+    ok: true,
+    id: data.result.id,
+    documentId: data.result.documentId,
+    url: data.result.url,
+    title: data.result.title,
+  };
+}
+
+export async function removeAdminProjectDocument(projectId: number, itemId: number): Promise<{ ok: boolean }> {
+  const res = await apiFetch(`/api/admin/projects/${projectId}/documents/${itemId}/remove`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
+}
+
+export type CompanyDocumentCategory =
+  | "template"
+  | "letterhead"
+  | "invoice"
+  | "receipt"
+  | "company_document"
+  | "company_certificate";
+
+export type AdminCompanyDocument = {
+  id: number;
+  category: CompanyDocumentCategory;
+  sortOrder: number;
+  title: string;
+  documentId: number | null;
+  url: string;
+  downloadUrl: string;
+  fileSize: number;
+  createdAt: string;
+};
+
+export async function fetchAdminCompanyDocuments(category: CompanyDocumentCategory): Promise<AdminCompanyDocument[]> {
+  const data = await fetchJson<{ items: AdminCompanyDocument[] }>(
+    `/api/admin/company-documents?category=${encodeURIComponent(category)}`,
+  );
+  return data.items;
+}
+
+export async function reorderAdminCompanyDocuments(input: {
+  category: CompanyDocumentCategory;
+  ids: number[];
+}): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/company-documents/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(input),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function updateAdminCompanyDocument(
+  itemId: number,
+  payload: { title?: string; sortOrder?: number },
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/company-documents/${itemId}/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function uploadAdminCompanyDocument(input: {
+  category: CompanyDocumentCategory;
+  file: File;
+  title?: string;
+}): Promise<{ ok: boolean; id?: number; documentId?: number; url?: string; title?: string; category?: string }> {
+  const form = new FormData();
+  form.append("category", input.category);
+  form.append("file", input.file);
+  if (input.title) {
+    form.append("title", input.title);
+    form.append("rowTitle", input.title);
+  }
+  const res = await apiFetch(`/api/admin/company-documents/upload`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: form,
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number; documentId: number; url: string; title: string; category: string }>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false };
+  return {
+    ok: true,
+    id: data.result.id,
+    documentId: data.result.documentId,
+    url: data.result.url,
+    title: data.result.title,
+    category: data.result.category,
+  };
+}
+
+export async function removeAdminCompanyDocument(itemId: number): Promise<{ ok: boolean }> {
+  const res = await apiFetch(`/api/admin/company-documents/${itemId}/remove`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
 export async function downloadAdminBackup(): Promise<void> {
@@ -1623,8 +2986,8 @@ export async function restoreAdminBackup(file: File): Promise<{ ok: boolean; err
     body: form,
     credentials: "same-origin",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: data?.error || "error" };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
 }
 

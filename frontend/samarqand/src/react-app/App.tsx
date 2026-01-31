@@ -23,9 +23,11 @@ import ControlHomeSections from "@/react-app/pages/control/HomeSections";
 import ControlPages from "@/react-app/pages/control/Pages";
 import ControlPageEdit from "@/react-app/pages/control/PageEdit";
 import ControlMedia from "@/react-app/pages/control/Media";
+import ControlCompanyDocuments from "@/react-app/pages/control/CompanyDocuments";
 import ControlRFQDocuments from "@/react-app/pages/control/RFQDocuments";
 import ControlRFQDocumentEdit from "@/react-app/pages/control/RFQDocumentEdit";
 import ControlBackup from "@/react-app/pages/control/Backup";
+import ControlOps from "@/react-app/pages/control/Ops";
 import ControlCompanySettings from "@/react-app/pages/control/settings/Company";
 import ControlHomeSettings from "@/react-app/pages/control/settings/Home";
 import ControlAISettings from "@/react-app/pages/control/settings/AI";
@@ -62,8 +64,10 @@ export default function App() {
           <Route path="pages" element={<ControlPages />} />
           <Route path="pages/:id" element={<ControlPageEdit />} />
           <Route path="media" element={<ControlMedia />} />
+          <Route path="company-documents" element={<ControlCompanyDocuments />} />
           <Route path="rfq" element={<ControlRFQDocuments />} />
           <Route path="rfq/:id" element={<ControlRFQDocumentEdit />} />
+          <Route path="ops" element={<ControlOps />} />
           <Route path="backup" element={<ControlBackup />} />
           <Route path="settings/company" element={<ControlCompanySettings />} />
           <Route path="settings/home" element={<ControlHomeSettings />} />
