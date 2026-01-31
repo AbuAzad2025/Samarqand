@@ -31,18 +31,22 @@ class Command(BaseCommand):
         npm = shutil.which("npm") or shutil.which("npm.cmd") or "npm.cmd"
         npx = shutil.which("npx") or shutil.which("npx.cmd") or "npx.cmd"
 
+        env = os.environ.copy()
+        env.setdefault("NODE_OPTIONS", "--max-old-space-size=4096")
+        env.setdefault("NODE_ENV", "development")
+        env.setdefault("NPM_CONFIG_PRODUCTION", "false")
+
         if not options["skip_install"]:
             self.stdout.write("Installing frontend dependencies...")
             subprocess.run(
-                [npm, "install", "--legacy-peer-deps"],
+                [npm, "install", "--include=dev", "--legacy-peer-deps"],
                 cwd=str(source),
                 check=True,
+                env=env,
             )
 
         target = project_root / "website" / "static" / "website" / "samarqand_spa"
         target.parent.mkdir(parents=True, exist_ok=True)
-        env = os.environ.copy()
-        env.setdefault("NODE_OPTIONS", "--max-old-space-size=4096")
 
         self.stdout.write("Building frontend...")
         subprocess.run(
