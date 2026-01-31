@@ -33,8 +33,9 @@ class Command(BaseCommand):
 
         env = os.environ.copy()
         env.setdefault("NODE_OPTIONS", "--max-old-space-size=4096")
-        env.setdefault("NODE_ENV", "development")
-        env.setdefault("NPM_CONFIG_PRODUCTION", "false")
+        env["NODE_ENV"] = "development"
+        env["NPM_CONFIG_PRODUCTION"] = "false"
+        env["npm_config_production"] = "false"
 
         if not options["skip_install"]:
             self.stdout.write("Installing frontend dependencies...")
