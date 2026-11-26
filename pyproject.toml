@@ -1,0 +1,39 @@
+[project]
+name = "contracting_site"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 80
+target-version = ["py312"]
+extend-exclude = "migrations"
+
+[tool.django-stubs]
+django_settings_module = "contracting_site.settings.dev"
+
+[tool.mypy]
+ignore_missing_imports = true
+plugins = ["mypy_django_plugin.main"]
+exclude = [
+    '^\..*',
+    'migrations',
+    'node_modules',
+    'venv',
+]
+
+
+[tool.ruff]
+extend-exclude = ["migrations"]
+line-length = 80
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.per-file-ignores]
+"website/api/*.py" = ["F403", "F405", "E402"]
+"website/models/__init__.py" = ["F403"]
+
+[tool.ruff.lint.isort]
+case-sensitive = false
+force-single-line = true
+lines-after-imports = -1

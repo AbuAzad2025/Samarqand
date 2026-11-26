@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: samarqand
+      POSTGRES_USER: samarqand
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your environment}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    environment:
+      DATABASE_URL: postgres://samarqand:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your environment}@db:5432/samarqand
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_SETTINGS_MODULE: contracting_site.settings.prod
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn -c contracting_site/gunicorn.conf.py contracting_site.wsgi:application"
+
+volumes:
+  postgres_data:

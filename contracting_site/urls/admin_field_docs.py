@@ -1,0 +1,45 @@
+"""URL routes: admin_field_docs."""
+
+from django.urls import path
+
+from website import api as api_views
+
+
+urlpatterns = [
+    path('api/admin/field-docs/projects', api_views.admin_field_docs_projects),
+    path('api/admin/field-docs/projects/<int:project_id>/correspondence', api_views.admin_field_docs_correspondence),
+    path('api/admin/field-docs/projects/<int:project_id>/correspondence/create', api_views.admin_field_docs_correspondence_create),
+    path('api/admin/field-docs/projects/<int:project_id>/correspondence/<int:correspondence_id>/update', api_views.admin_field_docs_correspondence_update),
+    path('api/admin/field-docs/projects/<int:project_id>/correspondence/<int:correspondence_id>/delete', api_views.admin_field_docs_correspondence_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings', api_views.admin_field_docs_meetings),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/create', api_views.admin_field_docs_meetings_create),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/update', api_views.admin_field_docs_meetings_update),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/delete', api_views.admin_field_docs_meetings_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/action-items', api_views.admin_field_docs_meetings_action_items),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/action-items/create', api_views.admin_field_docs_meetings_action_items_create),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/action-items/<int:item_id>/update', api_views.admin_field_docs_meetings_action_items_update),
+    path('api/admin/field-docs/projects/<int:project_id>/meetings/<int:meeting_id>/action-items/<int:item_id>/delete', api_views.admin_field_docs_meetings_action_items_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/daily-reports', api_views.admin_field_docs_daily_reports),
+    path('api/admin/field-docs/projects/<int:project_id>/daily-reports/create', api_views.admin_field_docs_daily_reports_create),
+    path('api/admin/field-docs/projects/<int:project_id>/daily-reports/<int:report_id>/update', api_views.admin_field_docs_daily_reports_update),
+    path('api/admin/field-docs/projects/<int:project_id>/daily-reports/<int:report_id>/delete', api_views.admin_field_docs_daily_reports_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes', api_views.admin_field_docs_delivery_notes),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/create', api_views.admin_field_docs_delivery_notes_create),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/<int:note_id>/update', api_views.admin_field_docs_delivery_notes_update),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/<int:note_id>/delete', api_views.admin_field_docs_delivery_notes_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/<int:note_id>/items/add', api_views.admin_field_docs_delivery_notes_add_item),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/<int:note_id>/items/<int:item_id>/update', api_views.admin_field_docs_delivery_notes_update_item),
+    path('api/admin/field-docs/projects/<int:project_id>/delivery-notes/<int:note_id>/items/<int:item_id>/delete', api_views.admin_field_docs_delivery_notes_remove_item),
+    path('api/admin/field-docs/projects/<int:project_id>/rfi', api_views.admin_field_docs_rfi),
+    path('api/admin/field-docs/projects/<int:project_id>/rfi/create', api_views.admin_field_docs_rfi_create),
+    path('api/admin/field-docs/projects/<int:project_id>/rfi/<int:rfi_id>/update', api_views.admin_field_docs_rfi_update),
+    path('api/admin/field-docs/projects/<int:project_id>/rfi/<int:rfi_id>/delete', api_views.admin_field_docs_rfi_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/ncr', api_views.admin_field_docs_ncr),
+    path('api/admin/field-docs/projects/<int:project_id>/ncr/create', api_views.admin_field_docs_ncr_create),
+    path('api/admin/field-docs/projects/<int:project_id>/ncr/<int:ncr_id>/update', api_views.admin_field_docs_ncr_update),
+    path('api/admin/field-docs/projects/<int:project_id>/ncr/<int:ncr_id>/delete', api_views.admin_field_docs_ncr_delete),
+    path('api/admin/field-docs/projects/<int:project_id>/submittals', api_views.admin_field_docs_submittals),
+    path('api/admin/field-docs/projects/<int:project_id>/submittals/create', api_views.admin_field_docs_submittals_create),
+    path('api/admin/field-docs/projects/<int:project_id>/submittals/<int:submittal_id>/update', api_views.admin_field_docs_submittals_update),
+    path('api/admin/field-docs/projects/<int:project_id>/submittals/<int:submittal_id>/delete', api_views.admin_field_docs_submittals_delete),
+]

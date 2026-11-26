@@ -1,0 +1,37 @@
+"""URL routes: admin_boq."""
+
+from django.urls import path
+
+from website import api as api_views
+
+
+urlpatterns = [
+    path('api/admin/boq/projects', api_views.admin_boq_projects),
+    path('api/admin/boq/projects/<int:project_id>/items', api_views.admin_boq_items),
+    path('api/admin/boq/projects/<int:project_id>/items/create', api_views.admin_boq_items_create),
+    path('api/admin/boq/projects/<int:project_id>/items/<int:item_id>/update', api_views.admin_boq_items_update),
+    path('api/admin/boq/projects/<int:project_id>/items/<int:item_id>/delete', api_views.admin_boq_items_delete),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications', api_views.admin_boq_payment_applications),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/create', api_views.admin_boq_payment_applications_create),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>', api_views.admin_boq_payment_applications_detail),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/update', api_views.admin_boq_payment_applications_update),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/delete', api_views.admin_boq_payment_applications_delete),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/add-item', api_views.admin_boq_payment_applications_add_item),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/items/<int:item_id>/update', api_views.admin_boq_payment_applications_update_item),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/items/<int:item_id>/delete', api_views.admin_boq_payment_applications_remove_item),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/submit', api_views.admin_boq_payment_applications_submit),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/approve', api_views.admin_boq_payment_applications_approve),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/reject', api_views.admin_boq_payment_applications_reject),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/pay', api_views.admin_boq_payment_applications_pay),
+    path('api/admin/boq/projects/<int:project_id>/payment-applications/<int:application_id>/generate-entry', api_views.admin_boq_payment_applications_generate_entry),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders', api_views.admin_boq_variation_orders),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/create', api_views.admin_boq_variation_orders_create),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/update', api_views.admin_boq_variation_orders_update),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/delete', api_views.admin_boq_variation_orders_delete),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/set-status', api_views.admin_boq_variation_orders_set_status),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/add-item', api_views.admin_boq_variation_orders_add_item),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/items/<int:item_id>/update', api_views.admin_boq_variation_orders_update_item),
+    path('api/admin/boq/projects/<int:project_id>/variation-orders/<int:variation_id>/items/<int:item_id>/delete', api_views.admin_boq_variation_orders_remove_item),
+    path('api/admin/boq/projects/<int:project_id>/final-account', api_views.admin_boq_final_account),
+    path('api/admin/boq/projects/<int:project_id>/final-account/update', api_views.admin_boq_final_account_create_or_update),
+]

@@ -1,0 +1,44 @@
+"""URL routes: admin_accounts."""
+
+from django.urls import path
+
+from website import api as api_views
+
+
+urlpatterns = [
+    path('api/admin/accounts/accounts', api_views.admin_accounts_accounts),
+    path('api/admin/accounts/accounts/create', api_views.admin_accounts_accounts_create),
+    path('api/admin/accounts/accounts/<int:account_id>/update', api_views.admin_accounts_accounts_update),
+    path('api/admin/accounts/accounts/<int:account_id>/delete', api_views.admin_accounts_accounts_delete),
+    path('api/admin/accounts/journal-entries', api_views.admin_accounts_journal_entries),
+    path('api/admin/accounts/journal-entries/create', api_views.admin_accounts_journal_entries_create),
+    path('api/admin/accounts/journal-entries/<int:entry_id>', api_views.admin_accounts_journal_entries_detail),
+    path('api/admin/accounts/journal-entries/<int:entry_id>/update', api_views.admin_accounts_journal_entries_update),
+    path('api/admin/accounts/journal-entries/<int:entry_id>/delete', api_views.admin_accounts_journal_entries_delete),
+    path('api/admin/accounts/journal-entries/<int:entry_id>/post', api_views.admin_accounts_journal_entries_post),
+    path('api/admin/accounts/journal-entries/<int:entry_id>/unpost', api_views.admin_accounts_journal_entries_unpost),
+    path('api/admin/accounts/bank-accounts', api_views.admin_accounts_bank_accounts),
+    path('api/admin/accounts/bank-accounts/create', api_views.admin_accounts_bank_accounts_create),
+    path('api/admin/accounts/bank-accounts/<int:bank_id>/update', api_views.admin_accounts_bank_accounts_update),
+    path('api/admin/accounts/bank-accounts/<int:bank_id>/delete', api_views.admin_accounts_bank_accounts_delete),
+    path('api/admin/accounts/checks', api_views.admin_accounts_checks),
+    path('api/admin/accounts/checks/create', api_views.admin_accounts_checks_create),
+    path('api/admin/accounts/checks/<int:check_id>/update', api_views.admin_accounts_checks_update),
+    path('api/admin/accounts/checks/<int:check_id>/delete', api_views.admin_accounts_checks_delete),
+    path('api/admin/accounts/checks/<int:check_id>/clear', api_views.admin_accounts_checks_clear),
+    path('api/admin/accounts/checks/<int:check_id>/bounce', api_views.admin_accounts_checks_bounce),
+    path('api/admin/accounts/checks/<int:check_id>/cancel', api_views.admin_accounts_checks_cancel),
+    path('api/admin/accounts/tax-records', api_views.admin_accounts_tax_records),
+    path('api/admin/accounts/tax-records/create', api_views.admin_accounts_tax_records_create),
+    path('api/admin/accounts/tax-records/<int:tax_id>/update', api_views.admin_accounts_tax_records_update),
+    path('api/admin/accounts/tax-records/<int:tax_id>/delete', api_views.admin_accounts_tax_records_delete),
+    path('api/admin/accounts/reports/trial-balance', api_views.admin_accounts_reports_trial_balance),
+    path('api/admin/accounts/reports/balance-sheet', api_views.admin_accounts_reports_balance_sheet),
+    path('api/admin/accounts/reports/income-statement', api_views.admin_accounts_reports_income_statement),
+    path('api/admin/accounts/reports/project-pl/<int:project_id>', api_views.admin_accounts_reports_project_pl),
+    path('api/admin/accounts/lookup', api_views.admin_accounts_lookup),
+    path('api/admin/accounts/generate-from/contract-payment/<int:payment_id>', api_views.admin_accounts_generate_from_contract_payment),
+    path('api/admin/accounts/generate-from/purchase-order/<int:order_id>', api_views.admin_accounts_generate_from_purchase_order),
+    path('api/admin/accounts/generate-from/payroll/<int:payroll_id>', api_views.admin_accounts_generate_from_payroll),
+    path('api/admin/accounts/pending-entries', api_views.admin_accounts_pending_entries),
+]

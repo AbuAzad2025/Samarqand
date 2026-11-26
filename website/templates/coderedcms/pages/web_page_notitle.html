@@ -1,0 +1,14 @@
+{% extends "coderedcms/pages/base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content_body %}
+  <section id="main-container" class="main-container pb-4">
+    <div class="container">
+      {% block content_body_inner %}
+        {% for block in page.body %}
+          {% include_block block with settings=settings %}
+        {% endfor %}
+      {% endblock %}
+    </div>
+  </section>
+{% endblock %}
