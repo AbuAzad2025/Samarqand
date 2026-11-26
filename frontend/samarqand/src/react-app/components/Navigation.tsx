@@ -11,6 +11,8 @@ export default function Navigation() {
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export default function Navigation() {
               type="button"
               aria-label="بحث"
               title="بحث"
+              onClick={() => setSearchOpen((open) => !open)}
               className="rounded-full border border-slate-200 p-2 text-slate-600 transition hover:border-sq-green hover:text-sq-green"
             >
               <Search size={19} />
@@ -108,6 +111,39 @@ export default function Navigation() {
             </button>
           </div>
         </div>
+
+        {searchOpen ? (
+          <div className="border-t border-slate-100 py-3" dir="rtl">
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ابحث في صفحات الموقع..."
+              aria-label="ابحث في صفحات الموقع"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-sq-green focus:outline-none"
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {items
+                .filter((item) => item.label.includes(query.trim()))
+                .map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => {
+                      setSearchOpen(false);
+                      setQuery("");
+                    }}
+                    className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-sq-green"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              {!items.some((item) => item.label.includes(query.trim())) ? (
+                <span className="text-sm text-slate-500">لا توجد نتائج.</span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {menuOpen ? (
           <div className="flex flex-wrap gap-2 border-t border-slate-100 py-3 md:hidden" dir="rtl">

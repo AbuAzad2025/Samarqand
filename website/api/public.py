@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import time
 from typing import Any
 from typing import Iterator
@@ -40,6 +41,16 @@ logger = logging.getLogger(__name__)
 from .common import *
 
 
+def _require_ai_key() -> JsonResponse | None:
+    if not (os.environ.get("GEMINI_API_KEY") or "").strip():
+        return _api_error(
+            "ai_not_configured",
+            status=503,
+            message="ميزات الذكاء الاصطناعي غير مُفعّلة؛ اضبط GEMINI_API_KEY.",
+        )
+    return None
+
+
 @require_POST
 def analyze_design(request: HttpRequest) -> JsonResponse:
     limited = _check_rate_limit(
@@ -50,6 +61,9 @@ def analyze_design(request: HttpRequest) -> JsonResponse:
     forbidden = _require_restricted_tools(request)
     if forbidden:
         return forbidden
+    unconfigured = _require_ai_key()
+    if unconfigured:
+        return unconfigured
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
     area_raw = str(data.get("area") or "").strip()
@@ -100,6 +114,9 @@ def generate_content(request: HttpRequest) -> JsonResponse:
     forbidden = _require_restricted_tools(request)
     if forbidden:
         return forbidden
+    unconfigured = _require_ai_key()
+    if unconfigured:
+        return unconfigured
     data = _read_json(request)
     kind = str(data.get("type") or "blog").strip()
     topic = str(data.get("topic") or "").strip()
@@ -172,6 +189,9 @@ def generate_visualization(request: HttpRequest) -> JsonResponse:
     forbidden = _require_restricted_tools(request)
     if forbidden:
         return forbidden
+    unconfigured = _require_ai_key()
+    if unconfigured:
+        return unconfigured
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
     description = str(data.get("description") or "").strip()
@@ -213,6 +233,9 @@ def chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
     )
     if limited:
         return limited
+    unconfigured = _require_ai_key()
+    if unconfigured:
+        return unconfigured
     data = _read_json(request)
     message = str(data.get("message") or "")
 

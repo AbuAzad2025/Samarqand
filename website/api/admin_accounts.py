@@ -1215,7 +1215,7 @@ def admin_accounts_lookup(request: HttpRequest) -> JsonResponse:
         for b in BankAccount.objects.filter(is_active=True)
     ]
     projects = [
-        {"id": p.id, "title": p.title}
+        {"id": p["id"], "title": p["title"]}
         for p in ProjectPage.objects.live().values("id", "title")
     ]
     return _api_ok(

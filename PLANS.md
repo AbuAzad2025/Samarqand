@@ -872,7 +872,7 @@ class VehicleMaintenance(models.Model):
 > **تم التنفيذ:**
 > - إنشاء `website/tests/` مع `test_models.py` و `test_api_fleet.py` — جميعها تمر عبر `python manage.py test`
 > - إنشاء `.github/workflows/ci.yml` يشغل ruff/black/mypy/django checks/makemigrations/tests و frontend lint/build
-> - إضافة `Dockerfile` و `docker-compose.yml` (PostgreSQL + Django + Redis)
+> - إضافة `Dockerfile` و `docker-compose.yml` (PostgreSQL + Django)
 > - تصحيح كل إنذارات `eslint` (ControlLayout/FieldDocs/HR/Fleet)
 > - جميع فحوصات CI خضراء محلياً
 
@@ -908,7 +908,7 @@ website/tests/
 - إزالة `canFieldDocs` من مصفوفة اعتماديات `useEffect` واستخدام `canBoq` المحسوب محلياً.
 - إضافة `CSRF_TRUSTED_ORIGINS` في `contracting_site/settings/dev.py` لـ `127.0.0.1:8000/5173` و `localhost:8000/5173`.
 - إعادة بناء أصول SPA وإزالة الملف المُحَزَّم القديم.
-- إضافة `run_local.ps1` لتشغيل backend + frontend معاً.
+- إضافة `run_local.ps1` لتشغيل migrate + backend فقط.
 
 **التحقق:**
 - Playwright: فتح `/control/login` ← تسجيل الدخول كـ `admin` ← التوجيه إلى `/control/dashboard` بنجاح.

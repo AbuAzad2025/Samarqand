@@ -19,7 +19,7 @@ python manage.py runserver
 - لوحة التحكم (Control SPA): http://127.0.0.1:8000/control/dashboard
 - إدارة Django: http://127.0.0.1:8000/django-admin/
 
-`.\run_local.ps1` يبدأ الخادم فقط على قاعدة بيانات مُعدّة مسبقاً؛ لا ينفّذ البذر.
+`.\run_local.ps1` ينفّذ `migrate` ثم يبدأ الخادم؛ لا ينفّذ البذر.
 
 > قاعدة البيانات `db.sqlite3` **محلية وغير متتبعة في Git**. يتم توليدها من الـ migrations + بيانات البذر. لا تحتوي على حسابات حقيقية أو جلسات.
 

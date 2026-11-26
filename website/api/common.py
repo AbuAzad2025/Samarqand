@@ -287,6 +287,7 @@ def _audit_ops(
             user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:255],
         )
     except Exception:
+        logger.exception("Failed to write audit log for %s", action)
         return None
 
 

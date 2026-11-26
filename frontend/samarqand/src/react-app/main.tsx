@@ -16,7 +16,11 @@ if ("serviceWorker" in navigator) {
     document
       .querySelector('meta[name="sq-static-base"]')
       ?.getAttribute("content") || "/";
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register(`${prefix}sw.js`, { scope: prefix }).catch(() => {});
-  });
+  // Under Django the SPA lives under /static/..., so a SW registered there
+  // cannot control site pages. Register only for root-served deployments.
+  if (prefix === "/") {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    });
+  }
 }

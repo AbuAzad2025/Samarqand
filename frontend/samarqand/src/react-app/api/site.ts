@@ -391,6 +391,7 @@ export async function updateAdminCompanySettings(
     const data = await readApiResponse<unknown>(res);
     return { ok: false, error: readApiErrorCode(data) };
   }
+  clearPublicCache();
   return { ok: true };
 }
 
@@ -428,6 +429,7 @@ export async function updateAdminHomeSettings(
     const data = await readApiResponse<unknown>(res);
     return { ok: false, error: readApiErrorCode(data) };
   }
+  clearPublicCache();
   return { ok: true };
 }
 
@@ -469,6 +471,7 @@ export async function updateAdminAISettings(
     const data = await readApiResponse<unknown>(res);
     return { ok: false, error: readApiErrorCode(data) };
   }
+  clearPublicCache();
   return { ok: true };
 }
 
@@ -574,6 +577,7 @@ export async function updateAdminVisibilitySettings(
     const data = await readApiResponse<unknown>(res);
     return { ok: false, error: readApiErrorCode(data) };
   }
+  clearPublicCache();
   return { ok: true };
 }
 

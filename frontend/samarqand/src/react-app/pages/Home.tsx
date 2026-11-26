@@ -60,7 +60,7 @@ export default function Home() {
       <TopBar />
       <Navigation />
       <div id="home"><ParallaxHero /></div>
-      <LandingQuickNav />
+      <LandingQuickNav visibility={v} />
       <div id="tools">{(v?.showHomeAIBanner ?? true) && <AIFeaturesBanner />}</div>
       {(v?.showHomeTrustBadges ?? true) && <TrustBadges />}
       {(v?.showHomeStats ?? true) && <AnimatedStats />}

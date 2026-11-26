@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react";
 import { ArrowUp, Phone } from "lucide-react";
 
-const LINKS = [
-  { href: "#home", label: "الرئيسية" },
-  { href: "#services", label: "خدماتنا" },
-  { href: "#projects", label: "مشاريعنا" },
-  { href: "#tools", label: "الأدوات الذكية" },
-  { href: "#rfq-templates", label: "نماذج الأسعار" },
-  { href: "#testimonials", label: "آراء العملاء" },
-  { href: "#contact", label: "تواصل معنا" },
-];
+import type { SiteConfigPayload } from "@/react-app/api/site";
 
-export default function LandingQuickNav() {
+const LINKS = [
+  { href: "#home", label: "الرئيسية", show: true },
+  { href: "#services", label: "خدماتنا", show: "showServices" },
+  { href: "#projects", label: "مشاريعنا", show: "showProjects" },
+  { href: "#tools", label: "الأدوات الذكية", show: "showTools" },
+  { href: "#rfq-templates", label: "نماذج الأسعار", show: "showRfqTemplates" },
+  { href: "#testimonials", label: "آراء العملاء", show: "showTestimonials" },
+  { href: "#contact", label: "تواصل معنا", show: "showNewsletter" },
+] as const;
+
+export default function LandingQuickNav({
+  visibility,
+}: {
+  visibility?: SiteConfigPayload["visibility"];
+}) {
+  const links = LINKS.filter(
+    (link) => link.show === true || visibility?.[link.show] !== false,
+  );
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -27,7 +36,7 @@ export default function LandingQuickNav() {
     <div className="sticky top-20 z-30 border-y border-slate-200 bg-white/95 backdrop-blur shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-4 py-2" dir="rtl">
         <nav aria-label="تنقل سريع" className="flex items-center gap-1">
-          {LINKS.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}

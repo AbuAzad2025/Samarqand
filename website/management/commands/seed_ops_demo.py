@@ -10,6 +10,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
 from django.db import transaction
@@ -395,6 +396,9 @@ class Command(BaseCommand):
     def _seed_contracts(self) -> None:
         clients = list(Client.objects.all())
         projects = list(ProjectPage.objects.filter(live=True)[:10])
+        if not projects:
+            call_command("seed_samarqand", verbosity=0)
+            projects = list(ProjectPage.objects.filter(live=True)[:10])
         statuses = [
             ProjectContract.STATUS_ACTIVE,
             ProjectContract.STATUS_ACTIVE,

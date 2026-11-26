@@ -1,3 +1,16 @@
+@keyframes nav-flash {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.nav-flash:hover .nav-flash-shine {
+  animation: nav-flash 0.7s ease-out;
+}
+
 /* Landing page is intentionally compact: the quick-nav bar handles discovery. */
 .home-compact section {
   padding-top: 3rem !important;
