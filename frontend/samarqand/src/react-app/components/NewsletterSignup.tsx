@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Mail, Send } from 'lucide-react';
-import { fetchCompany, type CompanyPayload } from '@/react-app/api/site';
+import { fetchCompany, fetchHomeSettings, type CompanyPayload } from '@/react-app/api/site';
 import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
 export default function NewsletterSignup() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
+  const [home, setHome] = useState<{
+    newsletterTitle?: string;
+    newsletterSubtitle?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
+    fetchHomeSettings().then(setHome).catch(() => {});
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -34,10 +39,10 @@ export default function NewsletterSignup() {
           </div>
           
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            اشترك في نشرتنا الإخبارية
+            {home?.newsletterTitle || "اشترك في نشرتنا الإخبارية"}
           </h2>
           <p className="text-white/90 text-lg mb-8">
-            احصل على آخر العروض والنصائح الهندسية مباشرة على بريدك
+            {home?.newsletterSubtitle || "احصل على آخر العروض والنصائح الهندسية مباشرة على بريدك"}
           </p>
 
           {isSubmitted ? (

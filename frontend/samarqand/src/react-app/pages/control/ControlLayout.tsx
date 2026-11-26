@@ -107,9 +107,9 @@ export default function ControlLayout() {
     const canCompanyDocs = canAccounting || canRegistration;
     const canMedia = canRegistration || canManageSite;
     const canUsers = me.isSuperuser;
-    const canHr = canOps;
-    const canFleet = canOps;
-    const canMail = true;
+    const canHr = me.isSuperuser || role === "manager" || role === "registrar" || role === "accountant";
+    const canFleet = me.isSuperuser || role === "manager" || role === "registrar";
+    const canMail = me.isSuperuser || role === "manager" || role === "registrar";
 
     const pathname = location.pathname || "";
     const isAllowedPath =
@@ -191,9 +191,9 @@ export default function ControlLayout() {
     canProjects || me?.isSuperuser || me?.role === "manager" || me?.role === "accountant" || me?.role === "registrar",
   );
   const canFieldDocs = canBoq;
-  const canHr = canOps;
-  const canFleet = canOps;
-  const canMail = true;
+  const canHr = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar" || me?.role === "accountant");
+  const canFleet = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar");
+  const canMail = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar");
   const canCompanyDocs = Boolean(canAccounting || canRegistration);
   const canMedia = Boolean(canRegistration || canManageSite);
   const canAudit = Boolean(me?.isSuperuser || me?.role === "manager");

@@ -21,6 +21,7 @@ import {
   fetchDailyReports,
   fetchDeliveryNotes,
   fetchDeliveryNoteItems,
+  uploadFieldDocFile,
   fetchFieldDocsProjects,
   fetchMeetings,
   fetchMeetingActionItems,
@@ -453,6 +454,22 @@ function CorrespondenceSection({
 }) {
   const [form, setForm] = useState<Partial<CorrespondenceItem>>({ date: todayInputValue() });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const res = await uploadFieldDocFile(file);
+      if (!res.ok || res.id == null) throw new Error(res.error || "upload");
+      setForm((s) => ({ ...s, documentFileId: res.id, documentFile: res.url }));
+      onShowSuccess("تم رفع الملف.");
+    } catch {
+      onShowError("تعذر رفع الملف.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSave() {
     const payload = { ...form };
@@ -536,6 +553,16 @@ function CorrespondenceSection({
             value={form.responseRef || ""}
             onChange={(e) => setForm({ ...form, responseRef: e.target.value })}
           />
+        </div>
+        <div className="flex items-center gap-3 text-sm text-white/80">
+          <input
+            type="file"
+            disabled={uploading}
+            onChange={(e) => handleFile(e.target.files?.[0])}
+            className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white"
+          />
+          {form.documentFile ? <a href={form.documentFile} target="_blank" rel="noreferrer" className="text-emerald-300 underline">ملف مرفق</a> : null}
+          {uploading ? <span>جارٍ الرفع…</span> : null}
         </div>
         <TextArea
           placeholder="الوصف"

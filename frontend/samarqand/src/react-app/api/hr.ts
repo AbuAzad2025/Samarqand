@@ -199,14 +199,22 @@ export async function rejectLeaveRequest(leaveId: number): Promise<{ ok: boolean
   return { ok: true };
 }
 
+export type LeaveBalance = {
+  year: number;
+  workerId: number;
+  annualEntitlement: number;
+  approvedAnnualDays: number;
+  remainingAnnualDays: number;
+};
+
 export async function fetchLeaveBalance(
   workerId: number,
   year?: number,
-): Promise<{ year: number; workerId: number; approvedAnnualDays: number }> {
+): Promise<LeaveBalance> {
   const query = new URLSearchParams();
   if (year) query.set("year", String(year));
   const qs = query.toString();
-  return fetchJson<{ year: number; workerId: number; approvedAnnualDays: number }>(
+  return fetchJson<LeaveBalance>(
     `/api/admin/hr/leave/balance/${workerId}${qs ? `?${qs}` : ""}`,
   );
 }

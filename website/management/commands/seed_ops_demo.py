@@ -653,13 +653,14 @@ class Command(BaseCommand):
         vehicles = list(Vehicle.objects.all())
         workers = list(Worker.objects.filter(active=True)[:6])
         for i, vehicle in enumerate(vehicles):
-            for _ in range(3):
+            base_odometer = random.randint(10000, 80000)
+            for step in range(3):
                 FuelLog.objects.create(
                     vehicle=vehicle,
-                    date=date.today() - timedelta(days=random.randint(1, 60)),
+                    date=date.today() - timedelta(days=(2 - step) * 20),
                     liters=Decimal(str(random.randint(20, 100))),
                     cost=Decimal(str(random.randint(150, 800))),
-                    odometer_km=random.randint(10000, 150000),
+                    odometer_km=base_odometer + step * random.randint(200, 900),
                     station=random.choice(
                         ["محطة النور", "محطة القدس", "محطة الأمل"]
                     ),

@@ -30,6 +30,48 @@ logger = logging.getLogger(__name__)
 from .common import *
 
 
+def _apply_document_file(instance: Any, data: dict[str, Any]) -> None:
+    """Attach an uploaded Wagtail document id to a field-docs record."""
+    if not hasattr(instance, "document_file_id"):
+        return
+    if data.get("documentFileId") is not None:
+        document_id = str(data.get("documentFileId") or "").strip()
+        instance.document_file_id = int(document_id) if document_id else None
+
+
+@require_POST
+def admin_field_docs_upload_file(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_manager(request)
+    if forbidden:
+        return forbidden
+    uploaded = request.FILES.get("file")
+    if not uploaded:
+        return _api_error("missing_file", status=400)
+    max_bytes = 20 * 1024 * 1024
+    if uploaded.size > max_bytes:
+        return _api_error("file_too_large", status=400)
+    try:
+        from wagtail.documents.models import Document
+        from wagtail.models import Collection
+
+        document = Document(
+            title=uploaded.name or "document",
+            file=uploaded,
+            collection=Collection.get_first_root_node(),
+        )
+        document.save()
+    except Exception:
+        logger.exception("Field-docs upload failed")
+        return _api_error("upload_failed", status=400)
+    return _api_ok(
+        {
+            "id": document.id,
+            "url": document.url,
+            "filename": uploaded.name,
+        }
+    )
+
+
 @require_GET
 def admin_field_docs_projects(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
@@ -61,6 +103,7 @@ def admin_field_docs_correspondence(
                 "toEntity": c.to_entity,
                 "subject": c.subject,
                 "description": c.description,
+                "documentFileId": c.document_file_id,
                 "documentFile": (
                     c.document_file.url if c.document_file else None
                 ),
@@ -104,6 +147,8 @@ def admin_field_docs_correspondence_create(
         response_ref=str(data.get("responseRef") or "").strip(),
         received_by=request.user if request.user.is_authenticated else None,
     )
+    _apply_document_file(c, data)
+    c.save()
     _audit_ops(
         request,
         action="correspondence_create",
@@ -144,6 +189,7 @@ def admin_field_docs_correspondence_update(
     c.response_ref = str(data.get("responseRef") or "").strip()
     if c.status == CorrespondenceRegister.STATUS_REPLIED and not c.responded_at:
         c.responded_at = timezone.now()
+    _apply_document_file(c, data)
     c.save()
     _audit_ops(
         request,
@@ -454,6 +500,10 @@ def admin_field_docs_daily_reports(
                 "delays": r.delays,
                 "safetyObservations": r.safety_observations,
                 "planForNextDay": r.plan_for_next_day,
+                "documentFileId": r.document_file_id,
+                "documentFile": (
+                    r.document_file.url if r.document_file else None
+                ),
                 "submittedBy": r.submitted_by_id,
                 "submittedAt": _to_iso(r.submitted_at),
             }
@@ -487,6 +537,8 @@ def admin_field_docs_daily_reports_create(
         plan_for_next_day=str(data.get("planForNextDay") or "").strip(),
         submitted_by=request.user if request.user.is_authenticated else None,
     )
+    _apply_document_file(r, data)
+    r.save()
     _audit_ops(
         request,
         action="daily_report_create",
@@ -517,15 +569,30 @@ def admin_field_docs_daily_reports_update(
     r.temperature = str(data.get("temperature") or "").strip()
     r.total_workers = int(data.get("totalWorkers") or r.total_workers)
     r.workers_breakdown = data.get("workersBreakdown") or r.workers_breakdown
-    r.equipment_used = str(data.get("equipmentUsed") or "").strip()
+    r.equipment_used = str(
+        data.get("equipmentUsed") or r.equipment_used or ""
+    ).strip()
     r.equipment_hours = data.get("equipmentHours") or r.equipment_hours
-    r.work_done_summary = str(data.get("workDoneSummary") or "").strip()
-    r.quantities_executed = str(data.get("quantitiesExecuted") or "").strip()
-    r.materials_received = str(data.get("materialsReceived") or "").strip()
-    r.issues_encountered = str(data.get("issuesEncountered") or "").strip()
-    r.delays = str(data.get("delays") or "").strip()
-    r.safety_observations = str(data.get("safetyObservations") or "").strip()
-    r.plan_for_next_day = str(data.get("planForNextDay") or "").strip()
+    r.work_done_summary = str(
+        data.get("workDoneSummary") or r.work_done_summary or ""
+    ).strip()
+    r.quantities_executed = str(
+        data.get("quantitiesExecuted") or r.quantities_executed or ""
+    ).strip()
+    r.materials_received = str(
+        data.get("materialsReceived") or r.materials_received or ""
+    ).strip()
+    r.issues_encountered = str(
+        data.get("issuesEncountered") or r.issues_encountered or ""
+    ).strip()
+    r.delays = str(data.get("delays") or r.delays or "").strip()
+    r.safety_observations = str(
+        data.get("safetyObservations") or r.safety_observations or ""
+    ).strip()
+    r.plan_for_next_day = str(
+        data.get("planForNextDay") or r.plan_for_next_day or ""
+    ).strip()
+    _apply_document_file(r, data)
     r.save()
     _audit_ops(
         request,

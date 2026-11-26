@@ -130,6 +130,12 @@ def _env_list(name: str, default: str = "") -> list[str]:
 # Only these proxies may supply X-Forwarded-For for rate limiting.
 TRUSTED_PROXY_IPS = _env_list("TRUSTED_PROXY_IPS", "")
 
+# Annual leave entitlement used by the HR leave-balance report.
+try:
+    ANNUAL_LEAVE_DAYS = int(_env("ANNUAL_LEAVE_DAYS", "21") or "21")
+except ValueError:
+    ANNUAL_LEAVE_DAYS = 21
+
 
 if _env("DB_ENGINE").lower() in {"postgres", "postgresql"}:
     DATABASES = {

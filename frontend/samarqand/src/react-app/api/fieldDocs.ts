@@ -1,5 +1,22 @@
 import { apiFetch, fetchJson, getCookie, readApiErrorCode, readApiResponse } from "@/react-app/api/site";
 
+export async function uploadFieldDocFile(
+  file: File,
+): Promise<{ ok: boolean; id?: number; url?: string; error?: string }> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await apiFetch("/api/admin/field-docs/upload", {
+    method: "POST",
+    body,
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number; url: string }>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
+  return { ok: true, id: data.result.id, url: data.result.url };
+}
+
 export type FieldDocsProjectItem = {
   id: number;
   title: string;
@@ -14,6 +31,7 @@ export type CorrespondenceItem = {
   toEntity: string;
   subject: string;
   description: string;
+  documentFileId?: number | null;
   documentFile: string | null;
   responseDueDate: string | null;
   status: "pending_reply" | "replied" | "closed";
@@ -32,6 +50,7 @@ export type MeetingItem = {
   minutesBy: string;
   summary: string;
   status: "draft" | "reviewed" | "approved";
+  documentFileId?: number | null;
   documentFile: string | null;
   actionItemsCount: number;
 };

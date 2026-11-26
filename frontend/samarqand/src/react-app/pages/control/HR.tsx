@@ -24,6 +24,7 @@ import {
   updateSocialSecurity,
   type ContractItem,
   type ContractType,
+  type LeaveBalance,
   type LeaveRequestItem,
   type LeaveStatus,
   type LeaveType,
@@ -105,7 +106,7 @@ export default function ControlHR() {
   const [contractItems, setContractItems] = useState<ContractItem[]>([]);
   const [overtimeItems, setOvertimeItems] = useState<OvertimeItem[]>([]);
   const [socialItems, setSocialItems] = useState<SocialSecurityItem[]>([]);
-  const [leaveBalance, setLeaveBalance] = useState<number | null>(null);
+  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
 
   const showError = useCallback((err: unknown) => {
     const code = typeof err === "string" ? err : humanizeErrorCode(String(err));
@@ -130,7 +131,7 @@ export default function ControlHR() {
         setLeaveItems(items);
         if (filterWorkerId) {
           const balance = await fetchLeaveBalance(filterWorkerId, filterYear);
-          setLeaveBalance(balance.approvedAnnualDays);
+          setLeaveBalance(balance);
         } else {
           setLeaveBalance(null);
         }
@@ -424,7 +425,7 @@ function LeaveSection({
 }: {
   workers: WorkerItem[];
   items: LeaveRequestItem[];
-  balance: number | null;
+  balance: LeaveBalance | null;
   onRefresh: () => void;
   onShowError: (err: unknown) => void;
   onShowSuccess: (msg: string) => void;
@@ -496,8 +497,9 @@ function LeaveSection({
     <div className="space-y-4">
       {balance !== null && (
         <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white">
-          <span className="text-white/60">رصيد الإجازات السنوية المعتمدة للموظف:</span>{" "}
-          <span className="font-extrabold text-emerald-300">{balance} يوم</span>
+          <span className="text-white/60">رصيد الإجازات السنوية المتبقي:</span>{" "}
+          <span className="font-extrabold text-emerald-300">{balance.remainingAnnualDays} يوم</span>
+          <span className="text-white/50 text-sm"> (الاستحقاق {balance.annualEntitlement} — مستهلك {balance.approvedAnnualDays})</span>
         </div>
       )}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">

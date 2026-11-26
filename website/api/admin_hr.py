@@ -10,8 +10,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.db import models
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpRequest
@@ -1503,6 +1505,8 @@ def admin_hr_leave_requests_delete(
     lr = LeaveRequest.objects.filter(pk=leave_id).first()
     if not lr:
         return _api_error("not_found", status=404)
+    if lr.status == LeaveRequest.STATUS_APPROVED:
+        return _api_error("approved_leave_cannot_delete", status=400)
     _audit_ops(
         request,
         action="hr_leave_delete",
@@ -1528,6 +1532,11 @@ def admin_hr_leave_requests_approve(
     lr = LeaveRequest.objects.filter(pk=leave_id).first()
     if not lr:
         return _api_error("not_found", status=404)
+    if lr.status in (
+        LeaveRequest.STATUS_REJECTED,
+        LeaveRequest.STATUS_CANCELLED,
+    ):
+        return _api_error("invalid_leave_status", status=400)
     user = getattr(request, "user", None)
     lr.status = LeaveRequest.STATUS_APPROVED
     lr.approved_by = (
@@ -1586,15 +1595,20 @@ def admin_hr_leave_balance(
             worker_id=worker_id,
             leave_type=LeaveRequest.LEAVE_ANNUAL,
             status=LeaveRequest.STATUS_APPROVED,
-            start_date__year=year,
-        ).aggregate(total=Sum("total_days"))["total"]
+        )
+        .filter(models.Q(start_date__year=year) | models.Q(end_date__year=year))
+        .aggregate(total=Sum("total_days"))["total"]
         or 0
     )
+    entitlement = int(getattr(settings, "ANNUAL_LEAVE_DAYS", 21) or 21)
+    used = int(approved_days)
     return _api_ok(
         {
             "year": year,
             "workerId": worker_id,
-            "approvedAnnualDays": int(approved_days),
+            "annualEntitlement": entitlement,
+            "approvedAnnualDays": used,
+            "remainingAnnualDays": max(0, entitlement - used),
         }
     )
 

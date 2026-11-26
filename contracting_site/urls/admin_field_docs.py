@@ -6,7 +6,8 @@ from website import api as api_views
 
 
 urlpatterns = [
-    path('api/admin/field-docs/projects', api_views.admin_field_docs_projects),
+    path('api/admin/field-docs/upload', api_views.admin_field_docs_upload_file),
+path('api/admin/field-docs/projects', api_views.admin_field_docs_projects),
     path('api/admin/field-docs/projects/<int:project_id>/correspondence', api_views.admin_field_docs_correspondence),
     path('api/admin/field-docs/projects/<int:project_id>/correspondence/create', api_views.admin_field_docs_correspondence_create),
     path('api/admin/field-docs/projects/<int:project_id>/correspondence/<int:correspondence_id>/update', api_views.admin_field_docs_correspondence_update),

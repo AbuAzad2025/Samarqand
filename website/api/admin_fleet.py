@@ -19,6 +19,44 @@ from website.models import Worker
 from .common import *
 
 
+def _sync_vehicle_expiry(maintenance: VehicleMaintenance) -> None:
+    next_due = maintenance.next_due_date
+    if not next_due:
+        return
+    field = None
+    if maintenance.maintenance_type == VehicleMaintenance.MAINTENANCE_INSURANCE:
+        field = "insurance_expiry"
+    elif (
+        maintenance.maintenance_type
+        == VehicleMaintenance.MAINTENANCE_REGISTRATION
+    ):
+        field = "registration_expiry"
+    if field:
+        Vehicle.objects.filter(pk=maintenance.vehicle_id).update(
+            **{field: next_due}
+        )
+
+
+def _validate_odometer(
+    vehicle: Vehicle,
+    odometer: int | None,
+    *,
+    exclude_pk: int | None = None,
+) -> JsonResponse | None:
+    """Reject odometer readings that go backwards for the same vehicle."""
+    if odometer is None:
+        return None
+    if odometer <= 0:
+        return _api_error("invalid_odometer", status=400)
+    qs = FuelLog.objects.filter(vehicle=vehicle)
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
+    last = qs.exclude(odometer_km__isnull=True).order_by("-date", "-id").first()
+    if last and last.odometer_km is not None and odometer < last.odometer_km:
+        return _api_error("odometer_decreasing", status=400)
+    return None
+
+
 def _vehicle_to_dict(v: Vehicle) -> dict[str, Any]:
     return {
         "id": v.id,
@@ -291,12 +329,16 @@ def admin_fleet_fuel_logs_create(request: HttpRequest) -> JsonResponse:
     if liters <= 0:
         return _api_error("invalid_liters", status=400)
     cost = _to_dec(data.get("cost"), allow_none=False) or Decimal("0")
+    odometer = int(data.get("odometerKm") or 0) or None
+    invalid = _validate_odometer(vehicle, odometer)
+    if invalid:
+        return invalid
     fl = FuelLog.objects.create(
         vehicle=vehicle,
         date=date,
         liters=liters,
         cost=cost,
-        odometer_km=int(data.get("odometerKm") or 0) or None,
+        odometer_km=odometer,
         station=str(data.get("station") or "").strip(),
         filled_by=_resolve_worker(data.get("filledById")),
         notes=str(data.get("notes") or "").strip(),
@@ -352,6 +394,11 @@ def admin_fleet_fuel_logs_update(
         fl.filled_by = _resolve_worker(data.get("filledById"))
     if data.get("notes") is not None:
         fl.notes = str(data.get("notes") or "").strip()
+    invalid = _validate_odometer(
+        fl.vehicle, fl.odometer_km, exclude_pk=fl.pk
+    )
+    if invalid:
+        return invalid
     fl.save()
     _audit_ops(
         request,
@@ -463,6 +510,7 @@ def admin_fleet_maintenance_create(request: HttpRequest) -> JsonResponse:
         garage=str(data.get("garage") or "").strip(),
         notes=str(data.get("notes") or "").strip(),
     )
+    _sync_vehicle_expiry(m)
     _audit_ops(
         request,
         action="fleet_maintenance_create",
@@ -517,6 +565,7 @@ def admin_fleet_maintenance_update(
     if data.get("notes") is not None:
         m.notes = str(data.get("notes") or "").strip()
     m.save()
+    _sync_vehicle_expiry(m)
     _audit_ops(
         request,
         action="fleet_maintenance_update",

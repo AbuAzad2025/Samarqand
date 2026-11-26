@@ -1,5 +1,7 @@
 import re
+from html import escape
 from pathlib import Path
+from typing import Any
 
 from django import template
 from django.conf import settings
@@ -49,9 +51,41 @@ def _rewrite_root_paths(html: str) -> str:
     return html
 
 
-@register.simple_tag
-def samarqand_spa_document() -> str:
+def _apply_page_seo(html: str, page: Any) -> str:
+    """Use the Wagtail page's SEO fields when the SPA shell is page-served."""
+    title = str(getattr(page, "seo_title", "") or getattr(page, "title", "") or "")
+    description = str(getattr(page, "search_description", "") or "")
+    if title:
+        html = re.sub(
+            r"<title>.*?</title>",
+            f"<title>{escape(title)}</title>",
+            html,
+            count=1,
+            flags=re.S | re.I,
+        )
+    if description:
+        safe = escape(description, quote=True)
+        html = re.sub(
+            r'(<meta name="description" content=")[^"]*(")',
+            lambda m: f"{m.group(1)}{safe}{m.group(2)}",
+            html,
+            flags=re.I,
+        )
+        html = re.sub(
+            r'(<meta property="og:description" content=")[^"]*(")',
+            lambda m: f"{m.group(1)}{safe}{m.group(2)}",
+            html,
+            flags=re.I,
+        )
+    return html
+
+
+@register.simple_tag(takes_context=True)
+def samarqand_spa_document(context: Any) -> str:
     html = _rewrite_root_paths(_load_index_html())
     if not html:
         return ""
+    page = context.get("page") if context else None
+    if page:
+        html = _apply_page_seo(html, page)
     return mark_safe(html)

@@ -235,6 +235,7 @@ export default function ControlOps() {
   const canKpi = Boolean(me?.isSuperuser || role === "manager");
   const canAudit = Boolean(me?.isSuperuser || role === "manager");
   const canWorkersWrite = Boolean(me?.isSuperuser || role === "manager" || role === "registrar");
+  const canOpsWrite = canWorkersWrite;
 
   useEffect(() => {
     if (meLoading) return;
@@ -4024,7 +4025,7 @@ export default function ControlOps() {
                   <div className="md:col-span-2 flex items-center gap-2">
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || !canOpsWrite}
                       className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {equipmentEditingId ? "حفظ" : "إضافة"}
@@ -4206,7 +4207,7 @@ export default function ControlOps() {
                   <div className="md:col-span-2 flex items-center gap-2">
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || !canOpsWrite}
                       className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {assignmentEditingId ? "حفظ" : "إضافة"}
