@@ -357,12 +357,12 @@ export async function changePassword(input: {
 export async function fetchAdminSummary(): Promise<{
   warnings: string[];
   counts: Record<string, number>;
-  links: { djangoAdmin: string; publicSite: string; tools: string };
+  links: { backup: string; publicSite: string; tools: string };
 }> {
   return fetchJson<{
     warnings: string[];
     counts: Record<string, number>;
-    links: { djangoAdmin: string; publicSite: string; tools: string };
+    links: { backup: string; publicSite: string; tools: string };
   }>("/api/admin/summary");
 }
 
@@ -3081,6 +3081,41 @@ export async function restoreAdminBackup(file: File): Promise<{ ok: boolean; err
   });
   const data = await readApiResponse<Record<string, never>>(res);
   if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export type SiteContentTexts = {
+  workingHours: string;
+  values: string[];
+  headings: Record<string, { title?: string; subtitle?: string }>;
+  projectTypes: string[];
+};
+
+export async function fetchSiteContent(): Promise<SiteContentTexts> {
+  return fetchJson<SiteContentTexts>("/api/site/content");
+}
+
+export async function fetchAdminContentSettings(): Promise<SiteContentTexts> {
+  return fetchJson<SiteContentTexts>("/api/admin/settings/content");
+}
+
+export async function updateAdminContentSettings(
+  payload: Partial<SiteContentTexts>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch("/api/admin/settings/content/update", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken") || "",
+    },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
+  clearPublicCache();
   return { ok: true };
 }
 

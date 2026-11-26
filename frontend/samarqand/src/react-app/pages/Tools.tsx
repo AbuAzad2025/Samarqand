@@ -1,3 +1,4 @@
+import { useSiteContent, heading } from "@/react-app/utils/content";
 import Footer from "@/react-app/components/Footer";
 import Navigation from "@/react-app/components/Navigation";
 import TopBar from "@/react-app/components/TopBar";
@@ -13,6 +14,7 @@ import { useEffect, useState } from "react";
 import { fetchAuthAccess, fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
 
 export default function ToolsPage() {
+  const content = useSiteContent();
   const [canUseRestrictedTools, setCanUseRestrictedTools] = useState(false);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
 
@@ -31,7 +33,7 @@ export default function ToolsPage() {
 
       <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">الأدوات الذكية</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "tools", "الأدوات الذكية")}</h1>
           <p className="text-xl max-w-3xl mx-auto">
             أدوات تساعدك على اتخاذ قرارات أسرع وأكثر دقة قبل التنفيذ
           </p>

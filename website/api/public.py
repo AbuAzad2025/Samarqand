@@ -31,6 +31,7 @@ from website.models import LocationIndexPage
 from website.models import LocationPage
 from website.models import ProjectPage
 from website.models import ServicePage
+from website.models import SiteContentSettings
 from website.models import SiteVisibilitySettings
 from website.models import TeamMember
 from website.models import Testimonial
@@ -356,6 +357,21 @@ def site_home(request: HttpRequest) -> JsonResponse:
             "heroBackgroundUrl": bg_url,
             "newsletterTitle": home.newsletter_title,
             "newsletterSubtitle": home.newsletter_subtitle,
+        }
+    )
+
+
+def site_content(request: HttpRequest) -> JsonResponse:
+    site = _get_site(request)
+    if not site:
+        return _api_error("site_not_found", status=400)
+    content = SiteContentSettings.for_site(site)
+    return _api_ok(
+        {
+            "workingHours": content.working_hours,
+            "values": content.values or [],
+            "headings": content.headings or {},
+            "projectTypes": content.project_types or [],
         }
     )
 

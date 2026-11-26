@@ -17,7 +17,6 @@ python manage.py runserver
 
 - الموقع: http://127.0.0.1:8000/
 - لوحة التحكم (Control SPA): http://127.0.0.1:8000/control/dashboard
-- إدارة Django: http://127.0.0.1:8000/django-admin/
 
 `.\run_local.ps1` ينفّذ `migrate` ثم يبدأ الخادم؛ لا ينفّذ البذر.
 
@@ -41,7 +40,7 @@ python manage.py seed_demo_users --password YOUR_NEW_PASSWORD --reset-passwords
 contracting_site/
   settings/           base.py + dev.py + prod.py
   urls/               مسارات API مقسّمة حسب المجال
-    system.py           django-admin، robots، sitemap، docs، search
+    system.py           robots، sitemap، docs، search
     ai.py               تحليل التصميم، توليد المحتوى، المحادثة
     auth.py             تسجيل الدخول/الخروج/كلمة المرور
     admin_content.py    المحتوى، الصفحات، الوسائط، النسخ الاحتياطي

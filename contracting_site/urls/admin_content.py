@@ -24,6 +24,11 @@ urlpatterns = [
         "api/admin/settings/calculator/update",
         api_views.admin_calculator_settings_update,
     ),
+    path("api/admin/settings/content", api_views.admin_content_settings),
+    path(
+        "api/admin/settings/content/update",
+        api_views.admin_content_settings_update,
+    ),
     path("api/admin/settings/visibility", api_views.admin_visibility_settings),
     path(
         "api/admin/settings/visibility/update",

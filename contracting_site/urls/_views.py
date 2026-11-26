@@ -21,7 +21,6 @@ def robots_txt(request, *args, **kwargs):
             "Allow: /",
             "Disallow: /control/",
             "Disallow: /api/",
-            "Disallow: /django-admin/",
             "Disallow: /cms/",
             f"Sitemap: {sitemap_url}",
             "",

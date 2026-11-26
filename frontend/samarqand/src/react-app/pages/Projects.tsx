@@ -1,3 +1,4 @@
+import { useSiteContent, heading } from "@/react-app/utils/content";
 import TopBar from "@/react-app/components/TopBar";
 import Navigation from "@/react-app/components/Navigation";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
@@ -17,6 +18,7 @@ import {
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function Projects() {
+  const content = useSiteContent();
   const [projects, setProjects] = useState<ProjectPayload[]>([]);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
@@ -36,7 +38,7 @@ export default function Projects() {
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">مشاريعنا</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "projects", "مشاريعنا")}</h1>
           <p className="text-xl max-w-3xl mx-auto">نفخر بإنجازاتنا ونلتزم بتقديم أفضل الخدمات</p>
         </div>
       </section>

@@ -9,8 +9,10 @@ import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayl
 import { useLocation } from "react-router";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES, RFQ_TEMPLATES_BY_KEY } from "@/react-app/rfqTemplates";
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
+import { useSiteContent, heading } from "@/react-app/utils/content";
 
 export default function Contact() {
+  const content = useSiteContent();
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const location = useLocation();
@@ -111,7 +113,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">تواصل معنا</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "contact", "تواصل معنا")}</h1>
           <p className="text-xl max-w-3xl mx-auto">نحن هنا لمساعدتك والإجابة على استفساراتك</p>
         </div>
       </section>
@@ -191,8 +193,9 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 <div className="mt-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white p-8 rounded-lg">
                   <h3 className="text-2xl font-bold mb-4">ساعات العمل</h3>
                   <div className="space-y-2">
-                    <p>السبت - الخميس: 8:00 صباحاً - 6:00 مساءً</p>
-                    <p>الجمعة: مغلق</p>
+                    {content.workingHours.split("|").map((part) => (
+                      <p key={part}>{part.trim()}</p>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -251,13 +254,9 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                   >
                     <option value="">اختر نوع المشروع</option>
                     {canUseRfq && <option value="طلب عرض سعر">طلب عرض سعر</option>}
-                    <option value="منزل سكني">منزل سكني</option>
-                    <option value="فيلا">فيلا</option>
-                    <option value="عمارة سكنية">عمارة سكنية</option>
-                    <option value="مبنى تجاري">مبنى تجاري</option>
-                    <option value="استشارة هندسية">استشارة هندسية</option>
-                    <option value="تصميم معماري">تصميم معماري</option>
-                    <option value="أخرى">أخرى</option>
+                    {content.projectTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
 

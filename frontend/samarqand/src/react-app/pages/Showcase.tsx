@@ -1,3 +1,4 @@
+import { useSiteContent, heading } from "@/react-app/utils/content";
 import Footer from "@/react-app/components/Footer";
 import Navigation from "@/react-app/components/Navigation";
 import TopBar from "@/react-app/components/TopBar";
@@ -13,6 +14,7 @@ import { useEffect, useState } from "react";
 import { fetchSiteConfig, fetchTestimonials, type SiteConfigPayload, type TestimonialPayload } from "@/react-app/api/site";
 
 export default function ShowcasePage() {
+  const content = useSiteContent();
   const [testimonials, setTestimonials] = useState<TestimonialPayload[]>([]);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
 
@@ -29,7 +31,7 @@ export default function ShowcasePage() {
 
       <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">معرض الأعمال</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "showcase", "معرض الأعمال")}</h1>
           <p className="text-xl max-w-3xl mx-auto">
             شاهد التحولات وآراء العملاء وفريق العمل
           </p>

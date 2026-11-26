@@ -85,7 +85,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
             "warnings": warnings,
             "counts": counts,
             "links": {
-                "djangoAdmin": "/django-admin/",
+                "backup": "/control/backup/",
                 "publicSite": "/",
                 "tools": "/tools",
             },
@@ -734,3 +734,52 @@ def admin_users_list(request: HttpRequest) -> JsonResponse:
             }
         )
     return _api_ok({"items": items})
+
+
+@require_GET
+def admin_content_settings(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_manager(request)
+    if forbidden:
+        return forbidden
+    site = _get_site(request)
+    if not site:
+        return _api_error("site_not_found", status=400)
+    from website.models import SiteContentSettings
+
+    content = SiteContentSettings.for_site(site)
+    return _api_ok(
+        {
+            "workingHours": content.working_hours,
+            "values": content.values or [],
+            "headings": content.headings or {},
+            "projectTypes": content.project_types or [],
+        }
+    )
+
+
+@require_POST
+def admin_content_settings_update(request: HttpRequest) -> JsonResponse:
+    forbidden = _require_manager(request)
+    if forbidden:
+        return forbidden
+    site = _get_site(request)
+    if not site:
+        return _api_error("site_not_found", status=400)
+    from website.models import SiteContentSettings
+
+    data = _read_json(request)
+    content = SiteContentSettings.for_site(site)
+    if "workingHours" in data:
+        content.working_hours = str(data["workingHours"] or "")[:255]
+    for field, key in (
+        ("values", "values"),
+        ("headings", "headings"),
+        ("projectTypes", "projectTypes"),
+    ):
+        if key in data:
+            value = data[key]
+            if not isinstance(value, (list, dict)):
+                return _api_error("invalid_value", status=400)
+            setattr(content, field, value)
+    content.save()
+    return _api_ok()

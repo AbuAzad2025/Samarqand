@@ -1095,7 +1095,7 @@ def admin_backup_portal(
       <div class="row">
         <a class="btn" href="/admin-backup/?export=1">تنزيل نسخة احتياطية (JSON)</a>
         <a class="btn" href="/admin-backup/?export_media=1">تنزيل ملفات media (ZIP)</a>
-        <a class="btn" href="/django-admin/">فتح Django Admin</a>
+        
       </div>
 
       <h2>استعادة قاعدة البيانات</h2>

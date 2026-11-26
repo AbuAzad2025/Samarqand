@@ -10,6 +10,7 @@ urlpatterns = [
     path("api/site/company", api_views.site_company),
     path("api/site/config", api_views.site_config),
     path("api/site/home", api_views.site_home),
+    path("api/site/content", api_views.site_content),
     path("api/site/services", api_views.site_services),
     path("api/site/projects", api_views.site_projects),
     path("api/site/team", api_views.site_team),

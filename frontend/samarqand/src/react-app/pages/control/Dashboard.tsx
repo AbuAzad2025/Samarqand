@@ -16,7 +16,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
   const [data, setData] = useState<{
     warnings: string[];
     counts: Record<string, number>;
-    links: { djangoAdmin: string; publicSite: string; tools: string };
+    links: { backup: string; publicSite: string; tools: string };
   } | null>(null);
 
   const [team, setTeam] = useState<AdminTeamMember[]>([]);
@@ -644,7 +644,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
               </div>
             </a>
             <a
-              href={data?.links.djangoAdmin || "/django-admin/"}
+              href={data?.links.backup || "/control/backup"}
               target="_blank"
               rel="noopener noreferrer"
               className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"

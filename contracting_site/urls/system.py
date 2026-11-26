@@ -1,6 +1,5 @@
 """System and CMS-facing URLs."""
 
-from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include
 from django.urls import path
@@ -15,7 +14,6 @@ from ._views import sitemap_xml
 from ._views import spa_shell
 
 urlpatterns = [
-    path("django-admin/", admin.site.urls),
     path("admin-backup/", api_views.admin_backup_portal),
     re_path("^cms/.*$", cms_redirect),
     path("robots.txt", robots_txt),

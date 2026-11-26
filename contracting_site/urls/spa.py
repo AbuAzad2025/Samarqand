@@ -19,7 +19,7 @@ urlpatterns = [
     re_path("^locations(/.*)?$", spa_shell),
     path("", include(crx_urls)),
     re_path(
-        "^(?!django-admin/|cms/|api/|docs/|search/|static/|media/).*$",
+        "^(?!cms/|api/|docs/|search/|static/|media/).*$",
         spa_shell,
     ),
 ]

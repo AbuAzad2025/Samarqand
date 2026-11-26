@@ -1,3 +1,4 @@
+import { useSiteContent, heading } from "@/react-app/utils/content";
 import TopBar from '@/react-app/components/TopBar';
 import Navigation from '@/react-app/components/Navigation';
 import ParallaxHero from '@/react-app/components/ParallaxHero';
@@ -24,6 +25,7 @@ import { Star } from "lucide-react";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES } from "@/react-app/rfqTemplates";
 
 export default function Home() {
+  const content = useSiteContent();
   const [projects, setProjects] = useState<ProjectPayload[]>([]);
   const [testimonials, setTestimonials] = useState<TestimonialPayload[]>([]);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
@@ -88,7 +90,7 @@ export default function Home() {
         <section id="rfq-templates" className="py-16 bg-gray-50">
           <div className="container mx-auto px-4" dir="rtl">
             <div className="text-center mb-10">
-              <h2 className="text-4xl font-bold text-gray-800 mb-4">نماذج عروض الأسعار</h2>
+              <h2 className="text-4xl font-bold text-gray-800 mb-4">{heading(content, "rfq", "نماذج عروض الأسعار")}</h2>
               <p className="text-gray-600 max-w-2xl mx-auto">
                 اختر قالبًا مناسبًا واطلب عرض سعر بسرعة عبر واتساب مع تفاصيل واضحة.
               </p>
@@ -144,7 +146,7 @@ export default function Home() {
       <section className="py-16 bg-gray-50" id="projects">
         <div className="container mx-auto px-4" dir="rtl">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">مشاريعنا المميزة</h2>
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">{heading(content, "projects", "مشاريعنا المميزة")}</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">نفخر بإنجازاتنا ونسعى دائماً لتقديم الأفضل</p>
           </div>
 
@@ -247,8 +249,8 @@ export default function Home() {
       <section className="py-16 bg-white" id="testimonials">
         <div className="container mx-auto px-4" dir="rtl">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">آراء عملائنا</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">ما يقوله عملاؤنا عن خدماتنا</p>
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">{heading(content, "testimonials", "آراء عملائنا")}</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">{content.headings.testimonials?.subtitle || "ما يقوله عملاؤنا عن خدماتنا"}</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">

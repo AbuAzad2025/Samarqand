@@ -385,3 +385,28 @@ class CalculatorSettings(BaseSiteSetting):
             heading="أسعار ومعاملات الحاسبة",
         )
     ]
+
+
+@register_setting
+class SiteContentSettings(BaseSiteSetting):
+    """Editable front-end copy that otherwise lives hard-coded in React."""
+
+    working_hours = models.CharField(
+        max_length=255,
+        default="السبت - الخميس: 8:00 صباحاً - 6:00 مساءً | الجمعة: مغلق",
+    )
+    values = models.JSONField(default=list, blank=True)
+    headings = models.JSONField(default=dict, blank=True)
+    project_types = models.JSONField(default=list, blank=True)
+
+    panels = [
+        MultiFieldPanel(
+            [
+                FieldPanel("working_hours"),
+                FieldPanel("values"),
+                FieldPanel("headings"),
+                FieldPanel("project_types"),
+            ],
+            heading="نصوص الواجهة",
+        )
+    ]

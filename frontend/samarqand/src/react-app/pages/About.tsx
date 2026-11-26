@@ -8,8 +8,10 @@ import { Target, Eye, Award } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
+import { useSiteContent } from "@/react-app/utils/content";
 
 export default function About() {
+  const content = useSiteContent();
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
 
@@ -19,14 +21,7 @@ export default function About() {
   }, []);
   const v = config?.visibility;
 
-  const values = [
-    "الجودة والإتقان",
-    "الالتزام بالمواعيد",
-    "الشفافية والمصداقية",
-    "السلامة المهنية",
-    "رضا العميل أولاً",
-    "دعم المنتج المحلي",
-  ];
+  const values = content.values;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white" dir="rtl">

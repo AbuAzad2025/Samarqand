@@ -242,7 +242,8 @@ export default function ControlLayout() {
           { to: "/control/settings/home", label: "الصفحة الرئيسية", icon: LayoutDashboard, show: canManageSite },
           { to: "/control/settings/ai", label: "الذكاء الاصطناعي", icon: Wrench, show: canManageSite },
           { to: "/control/settings/calculator", label: "الحاسبة", icon: BarChart3, show: canManageSite },
-          { to: "/control/settings/visibility", label: "إظهار الأقسام", icon: Settings, show: canManageSite },
+          { to: "/control/settings/content", label: "نصوص الواجهة", icon: FileText, show: canManageSite },
+{ to: "/control/settings/visibility", label: "إظهار الأقسام", icon: Settings, show: canManageSite },
         ],
       },
       {
@@ -451,7 +452,7 @@ export default function ControlLayout() {
                   {canManageSite && (
                     <div className="pt-2">
                       <a
-                        href="/django-admin/"
+                        href="/control/backup"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-white/10 bg-white/0 hover:bg-white/5 transition text-white/85"

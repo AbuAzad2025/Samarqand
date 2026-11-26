@@ -39,6 +39,7 @@ const ControlHomeSettings = lazy(() => import("@/react-app/pages/control/setting
 const ControlAISettings = lazy(() => import("@/react-app/pages/control/settings/AI"));
 const ControlCalculatorSettings = lazy(() => import("@/react-app/pages/control/settings/Calculator"));
 const ControlVisibilitySettings = lazy(() => import("@/react-app/pages/control/settings/Visibility"));
+const ControlContentSettings = lazy(() => import("@/react-app/pages/control/settings/Content"));
 import NotFound from "@/react-app/pages/NotFound";
 import ContentList from "@/react-app/pages/ContentList";
 import ContentDetail from "@/react-app/pages/ContentDetail";
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="settings/ai" element={<ControlAISettings />} />
           <Route path="settings/calculator" element={<ControlCalculatorSettings />} />
           <Route path="settings/visibility" element={<ControlVisibilitySettings />} />
+          <Route path="settings/content" element={<ControlContentSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
           </Routes>
