@@ -3080,6 +3080,52 @@ export async function restoreAdminBackup(file: File): Promise<{ ok: boolean; err
   return { ok: true };
 }
 
+export type SiteContentKind = "articles" | "events" | "locations";
+
+export type SiteContentItem = {
+  id: number;
+  title: string;
+  slug: string;
+  url: string;
+  excerpt: string;
+  imageUrl: string;
+  date: string;
+  author: string;
+};
+
+export type SiteContentDetail = SiteContentItem & {
+  seoTitle: string;
+  description: string;
+  bodyHtml: string;
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  mapTitle?: string;
+  phone?: string;
+  website?: string;
+  canonicalUrl?: string;
+  occurrences?: { start: string; end: string; repeat?: string }[];
+  nextOccurrence?: { start: string; end: string } | null;
+};
+
+export async function fetchSiteContentList(
+  kind: SiteContentKind,
+): Promise<SiteContentItem[]> {
+  const data = await fetchJson<{ items: SiteContentItem[] }>(
+    `/api/site/${kind}`,
+  );
+  return data.items;
+}
+
+export async function fetchSiteContentDetail(
+  kind: SiteContentKind,
+  slug: string,
+): Promise<SiteContentDetail> {
+  return fetchJson<SiteContentDetail>(
+    `/api/site/${kind}/${encodeURIComponent(slug)}`,
+  );
+}
+
 export type HomeSettingsPayload = {
   heroTitleLine1: string;
   heroTitleLine2: string;

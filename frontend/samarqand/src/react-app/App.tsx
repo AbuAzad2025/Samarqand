@@ -40,6 +40,8 @@ const ControlAISettings = lazy(() => import("@/react-app/pages/control/settings/
 const ControlCalculatorSettings = lazy(() => import("@/react-app/pages/control/settings/Calculator"));
 const ControlVisibilitySettings = lazy(() => import("@/react-app/pages/control/settings/Visibility"));
 import NotFound from "@/react-app/pages/NotFound";
+import ContentList from "@/react-app/pages/ContentList";
+import ContentDetail from "@/react-app/pages/ContentDetail";
 import ErrorBoundary from "@/react-app/components/ErrorBoundary";
 import ApiErrorBanner from "@/react-app/components/ApiErrorBanner";
 
@@ -64,6 +66,12 @@ export default function App() {
         <Route path="/showcase" element={<Showcase />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/request-quote" element={<Contact />} />
+        <Route path="/blog" element={<ContentList kind="articles" />} />
+        <Route path="/blog/:slug" element={<ContentDetail kind="articles" />} />
+        <Route path="/events" element={<ContentList kind="events" />} />
+        <Route path="/events/:slug" element={<ContentDetail kind="events" />} />
+        <Route path="/locations" element={<ContentList kind="locations" />} />
+        <Route path="/locations/:slug" element={<ContentDetail kind="locations" />} />
         <Route path="/admin/*" element={<AdminRedirect />} />
         <Route path="/control" element={<ControlLayout />}>
           <Route index element={<ControlDashboard />} />

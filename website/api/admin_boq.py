@@ -669,7 +669,9 @@ def admin_boq_payment_applications_generate_entry(
     except Exception:
         # Never expose internal exception text (SQL, model internals) to API
         # clients; keep the detail in the server log instead.
-        logger.exception("Failed to generate journal entry for payment %s", pa.id)
+        logger.exception(
+            "Failed to generate journal entry for payment %s", pa.id
+        )
         return _api_error(
             "journal_entry_generation_failed",
             status=400,

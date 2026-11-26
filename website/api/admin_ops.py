@@ -997,7 +997,9 @@ def admin_backup_portal(
         backup_file = request.FILES.get("backup_file")
         if backup_file:
             if backup_file.size > max_backup_bytes:
-                _add_msg("ملف النسخة الاحتياطية كبير جداً (الحد الأقصى 20 ميغابايت).")
+                _add_msg(
+                    "ملف النسخة الاحتياطية كبير جداً (الحد الأقصى 20 ميغابايت)."
+                )
             else:
                 tmp_path = ""
                 try:
@@ -1036,14 +1038,18 @@ def admin_backup_portal(
                             if not name or name.endswith("/"):
                                 continue
                             if extracted >= max_media_files:
-                                _add_msg("تم تجاوز الحد الأقصى لعدد الملفات (200).")
+                                _add_msg(
+                                    "تم تجاوز الحد الأقصى لعدد الملفات (200)."
+                                )
                                 break
                             if info.file_size > max_media_zip_bytes:
                                 _add_msg("أحد الملفات داخل الأرشيف كبير جداً.")
                                 break
                             total_bytes += info.file_size
                             if total_bytes > max_media_zip_bytes:
-                                _add_msg("حجم الملفات المستخرجة يتجاوز 50 ميغابايت.")
+                                _add_msg(
+                                    "حجم الملفات المستخرجة يتجاوز 50 ميغابايت."
+                                )
                                 break
                             dest = (media_root / name).resolve()
                             if (
@@ -1052,7 +1058,10 @@ def admin_backup_portal(
                             ):
                                 continue
                             dest.parent.mkdir(parents=True, exist_ok=True)
-                            with zf.open(info) as src, open(dest, "wb") as out_f:
+                            with (
+                                zf.open(info) as src,
+                                open(dest, "wb") as out_f,
+                            ):
                                 out_f.write(src.read())
                             extracted += 1
                     _add_msg(f"تم رفع ملفات media: {extracted} ملف.")

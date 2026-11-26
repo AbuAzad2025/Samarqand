@@ -73,10 +73,16 @@ class SecurityRegressionTests(TestCase):
             entry_type=JournalEntry.TYPE_JOURNAL,
         )
         JournalEntryLine.objects.create(
-            entry=entry, account=account, debit=Decimal("100"), credit=Decimal("0")
+            entry=entry,
+            account=account,
+            debit=Decimal("100"),
+            credit=Decimal("0"),
         )
         JournalEntryLine.objects.create(
-            entry=entry, account=account, debit=Decimal("0"), credit=Decimal("100")
+            entry=entry,
+            account=account,
+            debit=Decimal("0"),
+            credit=Decimal("100"),
         )
 
         payload = {

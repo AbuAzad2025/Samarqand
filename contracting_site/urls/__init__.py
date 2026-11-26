@@ -2,23 +2,23 @@
 
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import re_path
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.urls import re_path
 
-from . import system
-from . import ai
-from . import auth
-from . import admin_content
-from . import admin_ops
 from . import admin_accounts
 from . import admin_boq
+from . import admin_content
 from . import admin_field_docs
-from . import admin_hr
 from . import admin_fleet
+from . import admin_hr
 from . import admin_mail
+from . import admin_ops
+from . import ai
+from . import auth
 from . import site
-from . import vite
 from . import spa
+from . import system
+from . import vite
 
 urlpatterns = []
 urlpatterns += system.urlpatterns

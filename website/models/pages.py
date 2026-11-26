@@ -48,7 +48,7 @@ class ArticlePage(CoderedArticlePage):
 
     parent_page_types = ["website.ArticleIndexPage"]
 
-    template = "coderedcms/pages/article_page.html"
+    template = "coderedcms/pages/spa_shell.html"
     search_template = "coderedcms/pages/article_page.search.html"
 
 
@@ -64,7 +64,7 @@ class ArticleIndexPage(CoderedArticleIndexPage):
 
     subpage_types = ["website.ArticlePage"]
 
-    template = "coderedcms/pages/article_index_page.html"
+    template = "coderedcms/pages/spa_shell.html"
 
 
 class EventPage(CoderedEventPage):
@@ -72,7 +72,7 @@ class EventPage(CoderedEventPage):
         verbose_name = "Event Page"
 
     parent_page_types = ["website.EventIndexPage"]
-    template = "coderedcms/pages/event_page.html"
+    template = "coderedcms/pages/spa_shell.html"
 
 
 class EventIndexPage(CoderedEventIndexPage):
@@ -87,7 +87,7 @@ class EventIndexPage(CoderedEventIndexPage):
 
     subpage_types = ["website.EventPage"]
 
-    template = "coderedcms/pages/event_index_page.html"
+    template = "coderedcms/pages/spa_shell.html"
 
 
 class EventOccurrence(CoderedEventOccurrence):
@@ -148,7 +148,7 @@ class LocationPage(CoderedLocationPage):
     class Meta:
         verbose_name = "Location Page"
 
-    template = "coderedcms/pages/location_page.html"
+    template = "coderedcms/pages/spa_shell.html"
 
     parent_page_types = ["website.LocationIndexPage"]
 
@@ -166,7 +166,7 @@ class LocationIndexPage(CoderedLocationIndexPage):
 
     subpage_types = ["website.LocationPage"]
 
-    template = "coderedcms/pages/location_index_page.html"
+    template = "coderedcms/pages/spa_shell.html"
 
 
 class WebPage(CoderedWebPage):

@@ -15,13 +15,19 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.http import require_POST
 from wagtail.models import Page
 
+from website.models import ArticleIndexPage
+from website.models import ArticlePage
 from website.models import CompanySettings
+from website.models import EventIndexPage
+from website.models import EventPage
 from website.models import HomeAIFeature
 from website.models import HomeAIMetric
 from website.models import HomePageSettings
 from website.models import HomeStat
 from website.models import HomeTimelineStep
 from website.models import HomeTrustBadge
+from website.models import LocationIndexPage
+from website.models import LocationPage
 from website.models import ProjectPage
 from website.models import ServicePage
 from website.models import SiteVisibilitySettings
@@ -392,9 +398,9 @@ def site_projects(request: HttpRequest) -> JsonResponse:
     pages = pages.prefetch_related(
         Prefetch(
             "gallery_images",
-            queryset=ProjectGalleryImage.objects.select_related("image").order_by(
-                "sort_order", "id"
-            ),
+            queryset=ProjectGalleryImage.objects.select_related(
+                "image"
+            ).order_by("sort_order", "id"),
         )
     )
     items: list[dict[str, Any]] = []
@@ -416,6 +422,137 @@ def site_projects(request: HttpRequest) -> JsonResponse:
             }
         )
     return _api_ok({"items": items})
+
+
+_CONTENT_MODELS: dict[str, Any] = {
+    "articles": ArticlePage,
+    "events": EventPage,
+    "locations": LocationPage,
+}
+_INDEX_MODELS: dict[str, Any] = {
+    "articles": ArticleIndexPage,
+    "events": EventIndexPage,
+    "locations": LocationIndexPage,
+}
+_INDEX_SLUGS: dict[str, set[str]] = {
+    "articles": {"blog", "blogs", "articles", "news"},
+    "events": {"events", "event"},
+    "locations": {"locations", "location"},
+}
+
+
+def _content_index(request: HttpRequest, kind: str):
+    root = _site_root(request)
+    if not root:
+        return None
+    children = list(root.get_children().live().specific())
+    index_model = _INDEX_MODELS.get(kind)
+    if index_model:
+        for page in children:
+            if isinstance(page, index_model):
+                return page
+    slugs = _INDEX_SLUGS.get(kind, set())
+    return next((page for page in children if page.slug in slugs), None)
+
+
+def site_content_list(request: HttpRequest, kind: str) -> JsonResponse:
+    model = _CONTENT_MODELS.get(kind)
+    if not model:
+        return _api_error("invalid_content_type", status=400)
+    index = _content_index(request, kind)
+    if not index:
+        return _api_ok({"items": []})
+    pages = (
+        model.objects.child_of(index)
+        .live()
+        .specific()
+        .order_by("-first_published_at", "path")
+    )
+    items: list[dict[str, Any]] = []
+    for p in pages:
+        items.append(
+            {
+                "id": p.id,
+                "title": p.title,
+                "slug": p.slug,
+                "url": p.url,
+                "excerpt": str(
+                    getattr(p, "search_description", "")
+                    or getattr(p, "caption", "")
+                    or getattr(p, "map_description", "")
+                    or ""
+                )[:300],
+                "imageUrl": _image_url(request, getattr(p, "cover_image", None))
+                or "",
+                "date": _to_iso(getattr(p, "first_published_at", None)) or "",
+                "author": str(getattr(p, "author_display", "") or ""),
+            }
+        )
+    return _api_ok({"items": items})
+
+
+def site_content_detail(
+    request: HttpRequest, kind: str, slug: str
+) -> JsonResponse:
+    model = _CONTENT_MODELS.get(kind)
+    if not model:
+        return _api_error("invalid_content_type", status=400)
+    index = _content_index(request, kind)
+    if not index:
+        return _api_error("not_found", status=404)
+    page = (
+        model.objects.child_of(index)
+        .live()
+        .specific()
+        .filter(slug=slug)
+        .first()
+    )
+    if not page:
+        return _api_error("not_found", status=404)
+    result: dict[str, Any] = {
+        "id": page.id,
+        "title": page.title,
+        "slug": page.slug,
+        "url": page.url,
+        "seoTitle": getattr(page, "seo_title", "") or page.title,
+        "description": getattr(page, "search_description", "")
+        or str(
+            getattr(page, "caption", "")
+            or getattr(page, "map_description", "")
+            or ""
+        ),
+        "bodyHtml": _streamfield_to_html(getattr(page, "body", None)),
+        "canonicalUrl": str(getattr(page, "canonical_url", "") or ""),
+        "imageUrl": _image_url(request, getattr(page, "cover_image", None))
+        or "",
+        "date": _to_iso(getattr(page, "first_published_at", None)) or "",
+        "author": str(getattr(page, "author_display", "") or ""),
+    }
+    if kind == "locations":
+        result.update(
+            {
+                "address": str(getattr(page, "address", "") or ""),
+                "latitude": getattr(page, "latitude", None),
+                "longitude": getattr(page, "longitude", None),
+                "mapTitle": str(getattr(page, "map_title", "") or ""),
+                "phone": str(getattr(page, "phone_number", "") or ""),
+                "website": str(getattr(page, "website", "") or ""),
+            }
+        )
+    if kind == "events":
+        occurrences = []
+        for occ in page.occurrences.all().order_by("start"):
+            occurrences.append(
+                {
+                    "start": _to_iso(getattr(occ, "start", None)),
+                    "end": _to_iso(getattr(occ, "end", None)),
+                    "repeat": str(getattr(occ, "repeat", "") or ""),
+                }
+            )
+        result["occurrences"] = occurrences
+        result["nextOccurrence"] = occurrences[0] if occurrences else None
+        result["address"] = str(getattr(page, "address", "") or "")
+    return _api_ok(result)
 
 
 def site_team(request: HttpRequest) -> JsonResponse:

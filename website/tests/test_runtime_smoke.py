@@ -4,7 +4,6 @@ import re
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.urls import URLPattern
 from django.urls import URLResolver
 from django.urls import get_resolver
 
@@ -31,7 +30,9 @@ def build_paths(patterns, prefix=""):
         path = re.sub(r"<slug:(\w+)>", lambda m: "x", path)
         path = re.sub(r"<path:(\w+)>", lambda m: "x", path)
         path = re.sub(r"\(\?P<(\w+)>\\d\+\)", lambda m: "1", path)
-        path = re.sub(r"\(\?P<(\w+)>[^)]+\)", lambda m: sample_value(m.group(1)), path)
+        path = re.sub(
+            r"\(\?P<(\w+)>[^)]+\)", lambda m: sample_value(m.group(1)), path
+        )
         path = path.lstrip("^").rstrip("$")
         if "<" in path or "(?" in path:
             continue
@@ -51,15 +52,20 @@ class RuntimeSmokeTests(TestCase):
         self.client.force_login(user)
         results = {}
         for path, name in build_paths(get_resolver().url_patterns):
-            if path.startswith("/api/") or path.startswith("/control") or path in {
-                "/",
-                "/about/",
-                "/projects/",
-                "/services/",
-                "/contact/",
-                "/tools/",
-                "/showcase/",
-            }:
+            if (
+                path.startswith("/api/")
+                or path.startswith("/control")
+                or path
+                in {
+                    "/",
+                    "/about/",
+                    "/projects/",
+                    "/services/",
+                    "/contact/",
+                    "/tools/",
+                    "/showcase/",
+                }
+            ):
                 try:
                     response = self.client.get(path)
                     code = response.status_code
@@ -70,4 +76,6 @@ class RuntimeSmokeTests(TestCase):
         for code, paths in results.items():
             if str(code).startswith("5") or str(code).startswith("EXC"):
                 broken.extend(f"{code}: {p}" for p in paths)
-        self.assertEqual(broken, [], "GET endpoints must not raise server errors")
+        self.assertEqual(
+            broken, [], "GET endpoints must not raise server errors"
+        )

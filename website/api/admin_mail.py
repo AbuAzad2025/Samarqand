@@ -414,9 +414,7 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
     # If sending (not draft), create inbox copies for To and CC recipients.
     if not save_as_draft:
         inbox_recipient_ids = [
-            rid
-            for rid in [*valid_recipients, *valid_cc]
-            if rid != user.id
+            rid for rid in [*valid_recipients, *valid_cc] if rid != user.id
         ]
         for recipient_id in inbox_recipient_ids:
             EmailMessage.objects.create(

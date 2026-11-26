@@ -39,7 +39,9 @@ def _rewrite_root_paths(html: str) -> str:
         if path.startswith("//") or "://" in path:
             return match.group(0)
         if path.startswith("/static/"):
-            static_base = str(getattr(settings, "STATIC_URL", "/static/")).rstrip("/")
+            static_base = str(
+                getattr(settings, "STATIC_URL", "/static/")
+            ).rstrip("/")
             return f"{quote}{static_base}/{path[len('/static/'):]}{quote}"
         if path in {"/manifest.webmanifest", "/sw.js"}:
             return f"{quote}{base.rstrip('/')}{path}{quote}"
@@ -62,7 +64,9 @@ def _rewrite_root_paths(html: str) -> str:
 
 def _apply_page_seo(html: str, page: Any) -> str:
     """Use the Wagtail page's SEO fields when the SPA shell is page-served."""
-    title = str(getattr(page, "seo_title", "") or getattr(page, "title", "") or "")
+    title = str(
+        getattr(page, "seo_title", "") or getattr(page, "title", "") or ""
+    )
     description = str(getattr(page, "search_description", "") or "")
     if title:
         html = re.sub(

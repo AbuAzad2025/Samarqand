@@ -394,9 +394,7 @@ def admin_fleet_fuel_logs_update(
         fl.filled_by = _resolve_worker(data.get("filledById"))
     if data.get("notes") is not None:
         fl.notes = str(data.get("notes") or "").strip()
-    invalid = _validate_odometer(
-        fl.vehicle, fl.odometer_km, exclude_pk=fl.pk
-    )
+    invalid = _validate_odometer(fl.vehicle, fl.odometer_km, exclude_pk=fl.pk)
     if invalid:
         return invalid
     fl.save()

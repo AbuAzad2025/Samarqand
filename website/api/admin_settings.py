@@ -143,22 +143,38 @@ def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     company.name = _setting_str(data, "name", company.name)
     company.brand_title = _setting_str(data, "brandTitle", company.brand_title)
-    company.brand_subtitle = _setting_str(data, "brandSubtitle", company.brand_subtitle)
+    company.brand_subtitle = _setting_str(
+        data, "brandSubtitle", company.brand_subtitle
+    )
     company.slogan = _setting_str(data, "slogan", company.slogan)
     company.description = _setting_str(data, "description", company.description)
     company.mission = _setting_str(data, "mission", company.mission)
     company.vision = _setting_str(data, "vision", company.vision)
-    company.topbar_slogan = _setting_str(data, "topbarSlogan", company.topbar_slogan)
+    company.topbar_slogan = _setting_str(
+        data, "topbarSlogan", company.topbar_slogan
+    )
     company.address = _setting_str(data, "address", company.address)
-    company.registration_status = _setting_str(data, "registrationStatus", company.registration_status)
-    company.chamber_membership = _setting_str(data, "chamberMembership", company.chamber_membership)
-    company.classification = _setting_str(data, "classification", company.classification)
+    company.registration_status = _setting_str(
+        data, "registrationStatus", company.registration_status
+    )
+    company.chamber_membership = _setting_str(
+        data, "chamberMembership", company.chamber_membership
+    )
+    company.classification = _setting_str(
+        data, "classification", company.classification
+    )
     company.email = _setting_str(data, "email", company.email)
     company.phone_1 = _setting_str(data, "phone1", company.phone_1)
     company.phone_2 = _setting_str(data, "phone2", company.phone_2)
-    company.facebook_url = _setting_str(data, "facebookUrl", company.facebook_url)
-    company.instagram_url = _setting_str(data, "instagramUrl", company.instagram_url)
-    company.linkedin_url = _setting_str(data, "linkedinUrl", company.linkedin_url)
+    company.facebook_url = _setting_str(
+        data, "facebookUrl", company.facebook_url
+    )
+    company.instagram_url = _setting_str(
+        data, "instagramUrl", company.instagram_url
+    )
+    company.linkedin_url = _setting_str(
+        data, "linkedinUrl", company.linkedin_url
+    )
 
     if data.get("logoImageId") is not None:
         val = data.get("logoImageId")
@@ -222,15 +238,31 @@ def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
         return _api_error("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     data = _read_json(request)
-    home.hero_title_line_1 = _setting_str(data, "heroTitleLine1", home.hero_title_line_1)
-    home.hero_title_line_2 = _setting_str(data, "heroTitleLine2", home.hero_title_line_2)
+    home.hero_title_line_1 = _setting_str(
+        data, "heroTitleLine1", home.hero_title_line_1
+    )
+    home.hero_title_line_2 = _setting_str(
+        data, "heroTitleLine2", home.hero_title_line_2
+    )
     home.hero_lead = _setting_str(data, "heroLead", home.hero_lead)
-    home.hero_primary_cta_label = _setting_str(data, "heroPrimaryCtaLabel", home.hero_primary_cta_label)
-    home.hero_primary_cta_url = _setting_str(data, "heroPrimaryCtaUrl", home.hero_primary_cta_url)
-    home.hero_secondary_cta_label = _setting_str(data, "heroSecondaryCtaLabel", home.hero_secondary_cta_label)
-    home.hero_secondary_cta_url = _setting_str(data, "heroSecondaryCtaUrl", home.hero_secondary_cta_url)
-    home.newsletter_title = _setting_str(data, "newsletterTitle", home.newsletter_title)
-    home.newsletter_subtitle = _setting_str(data, "newsletterSubtitle", home.newsletter_subtitle)
+    home.hero_primary_cta_label = _setting_str(
+        data, "heroPrimaryCtaLabel", home.hero_primary_cta_label
+    )
+    home.hero_primary_cta_url = _setting_str(
+        data, "heroPrimaryCtaUrl", home.hero_primary_cta_url
+    )
+    home.hero_secondary_cta_label = _setting_str(
+        data, "heroSecondaryCtaLabel", home.hero_secondary_cta_label
+    )
+    home.hero_secondary_cta_url = _setting_str(
+        data, "heroSecondaryCtaUrl", home.hero_secondary_cta_url
+    )
+    home.newsletter_title = _setting_str(
+        data, "newsletterTitle", home.newsletter_title
+    )
+    home.newsletter_subtitle = _setting_str(
+        data, "newsletterSubtitle", home.newsletter_subtitle
+    )
 
     hero_bg_id = data.get("heroBackgroundImageId")
     if hero_bg_id is None:
@@ -293,7 +325,9 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         return _api_error("site_not_found", status=400)
     s = AISettings.for_site(site)
     data = _read_json(request)
-    requested_env_var = _setting_str(data, "geminiApiKeyEnvVar", s.gemini_api_key_env_var).strip()
+    requested_env_var = _setting_str(
+        data, "geminiApiKeyEnvVar", s.gemini_api_key_env_var
+    ).strip()
     if requested_env_var != s.gemini_api_key_env_var:
         # Changing the env-var name could be used to read arbitrary secrets
         # from the process environment. Restrict it to Gemini names and to
@@ -322,15 +356,37 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         except Exception:
             return _api_error("invalid_max_output_tokens", status=400)
     s.company_context = _setting_str(data, "companyContext", s.company_context)
-    s.design_analyzer_prompt = _setting_str(data, "designAnalyzerPrompt", s.design_analyzer_prompt)
-    s.content_generator_prompt = _setting_str(data, "contentGeneratorPrompt", s.content_generator_prompt)
+    s.design_analyzer_prompt = _setting_str(
+        data, "designAnalyzerPrompt", s.design_analyzer_prompt
+    )
+    s.content_generator_prompt = _setting_str(
+        data, "contentGeneratorPrompt", s.content_generator_prompt
+    )
     s.chat_prompt = _setting_str(data, "chatPrompt", s.chat_prompt)
-    s.visualizer_prompt = _setting_str(data, "visualizerPrompt", s.visualizer_prompt)
-    s.visualizer_default_style = _setting_str(data, "visualizerDefaultStyle", s.visualizer_default_style)
-    s.visualizer_default_aspect_ratio = _setting_str(data, "visualizerDefaultAspectRatio", s.visualizer_default_aspect_ratio)
-    s.visualizer_placeholder_primary_hex = _setting_str(data, "visualizerPlaceholderPrimaryHex", s.visualizer_placeholder_primary_hex)
-    s.visualizer_placeholder_secondary_hex = _setting_str(data, "visualizerPlaceholderSecondaryHex", s.visualizer_placeholder_secondary_hex)
-    s.visualizer_placeholder_footer_text = _setting_str(data, "visualizerPlaceholderFooterText", s.visualizer_placeholder_footer_text)
+    s.visualizer_prompt = _setting_str(
+        data, "visualizerPrompt", s.visualizer_prompt
+    )
+    s.visualizer_default_style = _setting_str(
+        data, "visualizerDefaultStyle", s.visualizer_default_style
+    )
+    s.visualizer_default_aspect_ratio = _setting_str(
+        data, "visualizerDefaultAspectRatio", s.visualizer_default_aspect_ratio
+    )
+    s.visualizer_placeholder_primary_hex = _setting_str(
+        data,
+        "visualizerPlaceholderPrimaryHex",
+        s.visualizer_placeholder_primary_hex,
+    )
+    s.visualizer_placeholder_secondary_hex = _setting_str(
+        data,
+        "visualizerPlaceholderSecondaryHex",
+        s.visualizer_placeholder_secondary_hex,
+    )
+    s.visualizer_placeholder_footer_text = _setting_str(
+        data,
+        "visualizerPlaceholderFooterText",
+        s.visualizer_placeholder_footer_text,
+    )
     s.save()
     return _api_ok()
 

@@ -15,7 +15,9 @@ class FinalAccountMathTests(TestCase):
     def setUp(self):
         home = Page.objects.filter(slug="home").first() or Page.objects.first()
         self.project = home.add_child(
-            instance=ProjectPage(title="Final Account Test", slug="final-account-test")
+            instance=ProjectPage(
+                title="Final Account Test", slug="final-account-test"
+            )
         )
         # Gross certified 1000, retention 50 and withholding tax 30 were
         # deducted, so the contractor was paid 920 in cash.

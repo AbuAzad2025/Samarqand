@@ -817,6 +817,28 @@ def _streamfield_first_html(body: Any) -> str:
     return ""
 
 
+def _streamfield_to_html(body: Any) -> str:
+    """Serialise all textual StreamField blocks, not just the first HTML one."""
+    try:
+        data = getattr(body, "raw_data", None)
+        if data is None:
+            data = getattr(body, "stream_data", None)
+    except Exception:
+        data = None
+    if not isinstance(data, list):
+        return ""
+    parts: list[str] = []
+    for block in data:
+        if not isinstance(block, dict):
+            continue
+        value = block.get("value")
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, dict) and isinstance(value.get("text"), str):
+            parts.append(value["text"])
+    return "\n".join(parts)
+
+
 def _replace_streamfield_html(body: Any, new_html: str) -> list[dict[str, Any]]:
     """Update only HTML blocks, preserving every other StreamField block.
 

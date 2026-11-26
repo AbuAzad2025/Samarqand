@@ -295,9 +295,7 @@ class PaymentApplication(models.Model):
         if self.retention_amount and not retention_account:
             raise ValidationError("حساب الاستقطاعات (2106) غير موجود.")
         if self.withholding_tax_amount and not tax_account:
-            raise ValidationError(
-                "حساب ضريبة الاستقطاع (2105) غير موجود."
-            )
+            raise ValidationError("حساب ضريبة الاستقطاع (2105) غير موجود.")
         # `net_amount` already subtracts retention, withholding tax AND
         # previous deductions.  Crediting the full `current_due` as revenue
         # therefore left the entry unbalanced whenever previous deductions

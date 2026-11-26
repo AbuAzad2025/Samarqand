@@ -9,8 +9,10 @@ from django.shortcuts import render
 def spa_shell(request, *args, **kwargs):
     return render(request, "coderedcms/pages/spa_shell.html")
 
+
 def cms_redirect(request, *args, **kwargs):
     return redirect("/control/dashboard", permanent=False)
+
 
 def robots_txt(request, *args, **kwargs):
     sitemap_url = request.build_absolute_uri("/sitemap.xml")
@@ -28,6 +30,7 @@ def robots_txt(request, *args, **kwargs):
     )
     return HttpResponse(body, content_type="text/plain; charset=utf-8")
 
+
 def sitemap_xml(request, *args, **kwargs):
     paths = [
         "/",
@@ -37,6 +40,9 @@ def sitemap_xml(request, *args, **kwargs):
         "/tools",
         "/showcase",
         "/contact",
+        "/blog",
+        "/events",
+        "/locations",
     ]
     urls = "".join(
         f"<url><loc>{request.build_absolute_uri(p)}</loc></url>" for p in paths

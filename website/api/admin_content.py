@@ -1529,9 +1529,7 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
 
     body_html = data.get("bodyHtml")
     if body_html is not None:
-        page.body = _replace_streamfield_html(
-            page.body, str(body_html or "")
-        )
+        page.body = _replace_streamfield_html(page.body, str(body_html or ""))
 
     cover_image_id = data.get("coverImageId")
     if cover_image_id not in {None, ""}:

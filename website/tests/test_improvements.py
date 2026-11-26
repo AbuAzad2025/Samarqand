@@ -5,7 +5,6 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory
 from django.test import TestCase
 
 from website.api.admin_mail import _msg_to_dict
@@ -35,9 +34,7 @@ class ImprovementTests(TestCase):
             total_days=3,
             status=LeaveRequest.STATUS_APPROVED,
         )
-        response = self.client.get(
-            f"/api/admin/hr/leave/balance/{worker.id}"
-        )
+        response = self.client.get(f"/api/admin/hr/leave/balance/{worker.id}")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)["result"]
         self.assertEqual(data["approvedAnnualDays"], 3)
