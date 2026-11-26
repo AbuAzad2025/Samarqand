@@ -102,8 +102,16 @@ export function apiUrl(input: string): string {
 }
 
 export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method || "GET").toUpperCase();
+  const isUnsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const headers = new Headers(init?.headers || {});
+  if (isUnsafe && !headers.has("X-CSRFToken")) {
+    const token = getCookie("csrftoken");
+    if (token) headers.set("X-CSRFToken", token);
+  }
   return fetch(apiUrl(input), {
     ...init,
+    headers,
     credentials: init?.credentials || "same-origin",
   });
 }

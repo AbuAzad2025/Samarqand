@@ -660,8 +660,15 @@ def admin_boq_payment_applications_generate_entry(
         return _api_error("not_found", status=404)
     try:
         entry = pa.generate_journal_entry()
-    except Exception as exc:
-        return _api_error(str(exc), status=400)
+    except Exception:
+        # Never expose internal exception text (SQL, model internals) to API
+        # clients; keep the detail in the server log instead.
+        logger.exception("Failed to generate journal entry for payment %s", pa.id)
+        return _api_error(
+            "journal_entry_generation_failed",
+            status=400,
+            message="تعذّر إنشاء القيد المحاسبي للمستخلص. راجع سجلات الخادم.",
+        )
     _audit_ops(
         request,
         action="payment_application_generate_entry",

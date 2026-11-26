@@ -80,6 +80,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "contracting_site.urls"
 
+# API clients expect JSON errors, not Django's default CSRF HTML page.
+CSRF_FAILURE_VIEW = "website.api.auth.csrf_failure"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

@@ -73,7 +73,7 @@ export default function ControlMail() {
   const [composeReplyTo, setComposeReplyTo] = useState<MailMessage | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showError = useCallback((msg: string) => {
     setErrorMsg(msg);

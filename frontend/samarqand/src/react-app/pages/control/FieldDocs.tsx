@@ -357,7 +357,7 @@ export default function ControlFieldDocs() {
         </>
       )}
 
-      {modal === "meetingActions" && activeMeeting && (
+      {selectedProjectId && modal === "meetingActions" && activeMeeting && (
         <MeetingActionItemsModal
           projectId={selectedProjectId}
           meeting={activeMeeting}
@@ -372,7 +372,7 @@ export default function ControlFieldDocs() {
         />
       )}
 
-      {modal === "deliveryItems" && activeDeliveryNote && (
+      {selectedProjectId && modal === "deliveryItems" && activeDeliveryNote && (
         <DeliveryItemsModal
           projectId={selectedProjectId}
           note={activeDeliveryNote}

@@ -29,7 +29,7 @@ export default function TopBar() {
               {phones.slice(0, 2).map((p) => (
                 <a
                   key={p}
-                  href={`tel:${p.replace(/\\s+/g, "")}`}
+                  href={`tel:${p.replace(/\s+/g, "")}`}
                   className="font-medium hover:text-gray-100 transition"
                 >
                   {p}

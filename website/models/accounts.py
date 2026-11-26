@@ -222,6 +222,12 @@ class JournalEntry(models.Model):
             )
 
     def recalculate_totals(self) -> None:
+        # A brand-new entry has no lines yet (and no pk to query them with).
+        # Totals are recomputed after the lines are saved by the caller.
+        if self.pk is None:
+            self.total_debit = Decimal("0")
+            self.total_credit = Decimal("0")
+            return
         lines = self.lines.all()
         self.total_debit = sum((line.debit for line in lines), Decimal("0"))
         self.total_credit = sum((line.credit for line in lines), Decimal("0"))
@@ -551,7 +557,11 @@ class Check(models.Model):
         ).first()
         bank_account = self.account.account if self.account else None
         if not cash_equivalent or not bank_account:
-            return None
+            # Failing silently left the check marked as cleared with no
+            # accounting entry at all.
+            raise ValidationError(
+                "حساب الشيكات أو حساب البنك غير موجود؛ لا يمكن صرف الشيك."
+            )
 
         entry = JournalEntry.objects.create(
             number=_next_entry_number(),

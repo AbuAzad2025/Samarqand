@@ -37,7 +37,9 @@ class Command(BaseCommand):
 
         env = os.environ.copy()
         env.setdefault("NODE_OPTIONS", "--max-old-space-size=4096")
-        env["NODE_ENV"] = "development"
+        # Production build: React dev mode produces a much larger bundle and
+        # ships development-only warnings to visitors.
+        env["NODE_ENV"] = "production"
         env["NPM_CONFIG_PRODUCTION"] = "false"
         env["npm_config_production"] = "false"
 

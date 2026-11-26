@@ -157,7 +157,7 @@ export default function InteractiveTeam() {
                   href={
                     company?.phone1
                       ? `https://wa.me/${encodeURIComponent(
-                          company.phone1.replace(/\\D/g, ""),
+                          company.phone1.replace(/\D/g, ""),
                         )}?text=${encodeURIComponent(
                           `مرحباً، أريد التحدث مع ${selectedMember.name}`,
                         )}`

@@ -2,6 +2,7 @@ import os
 
 import psycopg
 from django.core.management.base import BaseCommand
+from psycopg import sql
 
 
 def _env(name: str, default: str = "") -> str:
@@ -54,7 +55,11 @@ class Command(BaseCommand):
                     )
                     return
 
-                cur.execute(f'CREATE DATABASE "{db_name}"')
+                cur.execute(
+                    sql.SQL("CREATE DATABASE {}").format(
+                        sql.Identifier(db_name)
+                    )
+                )
                 self.stdout.write(
                     self.style.SUCCESS(f"Created database: {db_name}")
                 )

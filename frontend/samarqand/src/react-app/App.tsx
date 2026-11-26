@@ -50,6 +50,7 @@ export default function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/showcase" element={<Showcase />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/request-quote" element={<Contact />} />
         <Route path="/admin/*" element={<AdminRedirect />} />
         <Route path="/control" element={<ControlLayout />}>
           <Route index element={<ControlDashboard />} />
