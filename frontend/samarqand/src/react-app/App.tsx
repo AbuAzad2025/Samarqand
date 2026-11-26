@@ -38,11 +38,16 @@ import ControlHomeSettings from "@/react-app/pages/control/settings/Home";
 import ControlAISettings from "@/react-app/pages/control/settings/AI";
 import ControlCalculatorSettings from "@/react-app/pages/control/settings/Calculator";
 import ControlVisibilitySettings from "@/react-app/pages/control/settings/Visibility";
+import NotFound from "@/react-app/pages/NotFound";
+import ErrorBoundary from "@/react-app/components/ErrorBoundary";
+import ApiErrorBanner from "@/react-app/components/ApiErrorBanner";
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
+    <ErrorBoundary>
+      <Router>
+        <ApiErrorBanner />
+        <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<About />} />
         <Route path="/projects" element={<Projects />} />
@@ -85,8 +90,10 @@ export default function App() {
           <Route path="settings/ai" element={<ControlAISettings />} />
           <Route path="settings/calculator" element={<ControlCalculatorSettings />} />
           <Route path="settings/visibility" element={<ControlVisibilitySettings />} />
-        </Route>
-      </Routes>
-    </Router>
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }

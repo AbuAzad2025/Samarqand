@@ -122,6 +122,13 @@ type ApiResponse<T> = { ok: true; result: T } | { ok: false; error: ApiError };
 export async function fetchJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url);
   if (!res.ok) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("sq-api-error", {
+          detail: { url, status: res.status },
+        }),
+      );
+    }
     throw new Error(`${apiUrl(url)} ${res.status}`);
   }
   const payload = (await res.json()) as ApiResponse<T>;
@@ -155,8 +162,30 @@ export function getCookie(name: string): string | null {
   return null;
 }
 
+// Several layout components ask for the same public settings on every page.
+// Share one in-flight/resolved promise per endpoint for the lifetime of the
+// SPA; failed requests are removed so a retry is possible.
+const publicCache = new Map<string, Promise<unknown>>();
+
+function cachedPublic<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  const existing = publicCache.get(key);
+  if (existing) return existing as Promise<T>;
+  const pending = loader().catch((error: unknown) => {
+    publicCache.delete(key);
+    throw error;
+  });
+  publicCache.set(key, pending);
+  return pending;
+}
+
+export function clearPublicCache(): void {
+  publicCache.clear();
+}
+
 export async function fetchCompany(): Promise<CompanyPayload> {
-  return fetchJson<CompanyPayload>("/api/site/company");
+  return cachedPublic("company", () =>
+    fetchJson<CompanyPayload>("/api/site/company"),
+  );
 }
 
 export type SiteConfigPayload = {
@@ -184,7 +213,9 @@ export type SiteConfigPayload = {
 };
 
 export async function fetchSiteConfig(): Promise<SiteConfigPayload> {
-  return fetchJson<SiteConfigPayload>("/api/site/config");
+  return cachedPublic("config", () =>
+    fetchJson<SiteConfigPayload>("/api/site/config"),
+  );
 }
 
 export async function fetchAuthAccess(): Promise<{ canUseRestrictedTools: boolean }> {
@@ -299,6 +330,7 @@ export async function logout(): Promise<{ ok: boolean }> {
     credentials: "same-origin",
   });
   const data = await readApiResponse<Record<string, never>>(res);
+  clearPublicCache();
   return { ok: Boolean(res.ok && data && data.ok === true) };
 }
 
@@ -3062,7 +3094,9 @@ export type HomeSettingsPayload = {
 };
 
 export async function fetchHomeSettings(): Promise<HomeSettingsPayload> {
-  return fetchJson<HomeSettingsPayload>("/api/site/home");
+  return cachedPublic("home", () =>
+    fetchJson<HomeSettingsPayload>("/api/site/home"),
+  );
 }
 
 export async function fetchServices(): Promise<ServicePayload[]> {
@@ -3088,5 +3122,7 @@ export async function fetchTestimonials(): Promise<TestimonialPayload[]> {
 }
 
 export async function fetchHomeSections(): Promise<HomeSectionPayload> {
-  return fetchJson<HomeSectionPayload>("/api/site/home-sections");
+  return cachedPublic("home-sections", () =>
+    fetchJson<HomeSectionPayload>("/api/site/home-sections"),
+  );
 }

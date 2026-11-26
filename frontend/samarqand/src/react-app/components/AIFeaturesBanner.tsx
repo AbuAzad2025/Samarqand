@@ -92,7 +92,14 @@ export default function AIFeaturesBanner() {
               </div>
 
               {/* Content */}
-              <h3 className="text-white font-bold mb-2 text-sm">{feature.title}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-white font-bold text-sm">{feature.title}</h3>
+                {feature.badgeText ? (
+                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">
+                    {feature.badgeText}
+                  </span>
+                ) : null}
+              </div>
               <p className="text-white/70 text-xs">{feature.description}</p>
 
               {/* Shine Effect */}

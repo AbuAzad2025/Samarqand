@@ -1162,12 +1162,10 @@ def _project_cover_url(request: HttpRequest, project: Any) -> str:
     if cover_url:
         return cover_url
     try:
-        qs = (
-            project.gallery_images.all()
-            .select_related("image")
-            .order_by("sort_order", "id")
-        )
-        for gi in qs:
+        # Use the prefetched relation (already ordered by the caller). Calling
+        # .order_by() here would discard the prefetch and issue one query per
+        # project.
+        for gi in project.gallery_images.all():
             img = getattr(gi, "image", None)
             url = _image_url(request, img)
             if url:

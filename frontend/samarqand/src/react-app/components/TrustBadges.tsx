@@ -1,4 +1,4 @@
-import { Award, Shield, ThumbsUp, Users } from "lucide-react";
+import { Award, Building2, HardHat, Shield, type LucideIcon, ThumbsUp, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchHomeSections } from "@/react-app/api/site";
@@ -15,13 +15,27 @@ export default function TrustBadges() {
   }, []);
 
   const icons = useMemo(() => [Shield, Award, Users, ThumbsUp], []);
+  const iconMap: Record<string, LucideIcon> = useMemo(
+    () => ({
+      shield: Shield,
+      award: Award,
+      users: Users,
+      thumbsup: ThumbsUp,
+      building: Building2,
+      hardhat: HardHat,
+    }),
+    [],
+  );
 
   return (
     <section className="py-12 bg-gradient-to-r from-gray-50 to-white border-y border-gray-200">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="grid md:grid-cols-4 gap-6">
           {items.map((badge, index) => {
-            const Icon = icons[index % icons.length] ?? Shield;
+            const key = (badge.iconClass || "")
+              .toLowerCase()
+              .replace(/[^a-z]/g, "");
+            const Icon = iconMap[key] ?? icons[index % icons.length] ?? Shield;
             return (
             <div
               key={badge.id}

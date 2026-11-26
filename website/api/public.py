@@ -385,7 +385,18 @@ def site_projects(request: HttpRequest) -> JsonResponse:
     if status:
         pages = pages.filter(status=status)
     pages = pages.order_by("path")
-    pages = pages.prefetch_related("gallery_images__image")
+    from django.db.models import Prefetch
+
+    from website.models import ProjectGalleryImage
+
+    pages = pages.prefetch_related(
+        Prefetch(
+            "gallery_images",
+            queryset=ProjectGalleryImage.objects.select_related("image").order_by(
+                "sort_order", "id"
+            ),
+        )
+    )
     items: list[dict[str, Any]] = []
     for p in pages:
         cover_url = _project_cover_url(request, p)
