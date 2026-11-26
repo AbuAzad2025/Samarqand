@@ -58,7 +58,6 @@ export default function AIContentShowcase() {
 
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
           <div className="grid md:grid-cols-2">
-            {/* Input */}
             <div className="p-8 bg-gradient-to-br from-indigo-500 to-purple-500">
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                 <Sparkles size={24} />

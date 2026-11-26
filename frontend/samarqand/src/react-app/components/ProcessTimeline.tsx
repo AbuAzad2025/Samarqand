@@ -17,7 +17,7 @@ export default function ProcessTimeline() {
   const icons = useMemo(() => [FileSearch, PenTool, HardHat, CheckCircle], []);
   const colors = useMemo(
     () => [
-      "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
+      "from-sq-green via-sq-black to-sq-red",
       "from-purple-500 to-purple-600",
       "from-orange-500 to-orange-600",
       "from-green-500 to-green-600",
@@ -39,7 +39,7 @@ export default function ProcessTimeline() {
 
         <div className="relative">
           {/* Timeline Line */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] transform -translate-y-1/2" />
+          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-sq-green via-sq-black to-sq-red transform -translate-y-1/2" />
 
           <div className="grid md:grid-cols-4 gap-8 relative">
             {steps.map((step, index) => {
@@ -49,17 +49,15 @@ export default function ProcessTimeline() {
               <div key={index} className="relative">
                 {/* Step Card */}
                 <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-gray-100">
-                  {/* Icon */}
                   <div className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${color} flex items-center justify-center shadow-lg relative z-10`}>
                     <Icon className="text-white" size={36} />
                   </div>
 
                   {/* Number Badge */}
-                  <div className="absolute -top-4 -right-4 w-10 h-10 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+                  <div className="absolute -top-4 -right-4 w-10 h-10 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center text-white font-bold shadow-lg">
                     {index + 1}
                   </div>
 
-                  {/* Content */}
                   <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">
                     {step.title}
                   </h3>
@@ -71,7 +69,7 @@ export default function ProcessTimeline() {
                 {/* Connector Arrow (mobile only) */}
                 {index < steps.length - 1 && (
                   <div className="md:hidden flex justify-center my-4">
-                    <div className="w-1 h-8 bg-gradient-to-b from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
+                    <div className="w-1 h-8 bg-gradient-to-b from-sq-green via-sq-black to-sq-red" />
                   </div>
                 )}
               </div>

@@ -191,7 +191,7 @@ export default function ControlCompanyDocuments() {
               <input
                 value={uploadTitle}
                 onChange={(e) => setUploadTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
             </div>
           </div>
@@ -218,7 +218,7 @@ export default function ControlCompanyDocuments() {
                   <input
                     value={d.title || ""}
                     onChange={(e) => setItems((prev) => prev.map((x) => (x.id === d.id ? { ...x, title: e.target.value } : x)))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   />
                   <div className="text-sm text-gray-600 mt-1 flex items-center gap-3 flex-wrap">
                     <span dir="ltr">{formatBytes(d.fileSize)}</span>
@@ -271,7 +271,7 @@ export default function ControlCompanyDocuments() {
                   {d.downloadUrl ? (
                     <a
                       href={d.downloadUrl}
-                      className="text-[#007A3D] font-bold text-sm hover:underline"
+                      className="text-sq-green font-bold text-sm hover:underline"
                       target="_blank"
                       rel="noreferrer"
                     >

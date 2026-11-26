@@ -62,7 +62,7 @@ export default function ControlBackup() {
                 setTimeout(() => setStatus("idle"), 1500);
               }
             }}
-            className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition"
+            className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition"
           >
             تنزيل نسخة احتياطية
           </button>

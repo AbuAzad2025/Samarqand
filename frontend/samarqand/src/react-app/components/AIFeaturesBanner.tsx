@@ -26,7 +26,7 @@ export default function AIFeaturesBanner() {
   );
   const gradients = useMemo(
     () => [
-      "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
+      "from-sq-green via-sq-black to-sq-red",
       "from-purple-500 to-pink-500",
       "from-indigo-500 to-purple-500",
       "from-yellow-500 to-orange-500",
@@ -55,7 +55,6 @@ export default function AIFeaturesBanner() {
       </div>
 
       <div className="container mx-auto px-4 relative z-10" dir="rtl">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-6 py-2 rounded-full mb-6">
             <Brain className="text-purple-400" size={24} />
@@ -86,12 +85,10 @@ export default function AIFeaturesBanner() {
               {/* Gradient Border */}
               <div className={`absolute inset-0 bg-gradient-to-br ${gradient} rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity`} />
               
-              {/* Icon */}
               <div className={`w-12 h-12 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <Icon className="text-white" size={24} />
               </div>
 
-              {/* Content */}
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-white font-bold text-sm">{feature.title}</h3>
                 {feature.badgeText ? (
@@ -108,7 +105,6 @@ export default function AIFeaturesBanner() {
           )})}
         </div>
 
-        {/* Stats */}
         <div className="mt-16 grid md:grid-cols-4 gap-6">
           {metrics.slice(0, 4).map((stat) => (
             <div key={stat.id} className="text-center">

@@ -149,6 +149,12 @@ def _check_rate_limit(
     )
 
 
+def _fail(exc: Exception, code: str, log_message: str) -> JsonResponse:
+    """Log the internal error and return a stable, opaque API error code."""
+    logger.exception("%s: %s", log_message, exc)
+    return _api_error(code, status=400)
+
+
 def _safe_uploaded_filename(
     original_name: str, *, allowed_exts: set[str]
 ) -> str:
@@ -378,18 +384,6 @@ def _require_ops_timeclock_import(request: HttpRequest) -> Any | None:
         request,
         "ops_timeclock_import",
         default_allowed_roles={"manager", "registrar"},
-    )
-
-
-def _require_ops_payroll_read(request: HttpRequest) -> Any | None:
-    return _require_accounting(request)
-
-
-def _require_ops_payroll_write(request: HttpRequest) -> Any | None:
-    return _require_ops_rule(
-        request,
-        "ops_payroll_write",
-        default_allowed_roles={"manager", "accountant"},
     )
 
 
@@ -981,97 +975,6 @@ def _company_logo_as_jpeg(company: Any | None) -> tuple[bytes, int, int] | None:
         return jpg, img_rgb.width, img_rgb.height
     except Exception:
         return None
-
-
-def _simple_pdf_from_lines(
-    lines: list[str],
-    *,
-    logo_jpeg: bytes | None = None,
-    logo_px: tuple[int, int] | None = None,
-) -> bytes:
-    safe_lines = [
-        (_pdf_sanitize_text(line) or "-")[:160] for line in (lines or [])
-    ]
-    if not safe_lines:
-        safe_lines = ["-"]
-
-    content_lines: list[str] = []
-    if logo_jpeg and logo_px and logo_px[0] > 0 and logo_px[1] > 0:
-        px_w, px_h = logo_px
-        max_w = 130.0
-        max_h = 64.0
-        ratio = float(px_h) / float(px_w)
-        draw_w = max_w
-        draw_h = draw_w * ratio
-        if draw_h > max_h:
-            draw_h = max_h
-            draw_w = draw_h / ratio if ratio else max_w
-        x = 595.0 - 50.0 - draw_w
-        y = 842.0 - 50.0 - draw_h
-        content_lines.extend(
-            [
-                "q",
-                f"{draw_w:.2f} 0 0 {draw_h:.2f} {x:.2f} {y:.2f} cm",
-                "/Im1 Do",
-                "Q",
-            ]
-        )
-
-    content_lines.extend(["BT", "/F1 12 Tf", "50 800 Td"])
-    for i, line in enumerate(safe_lines[:45]):
-        if i == 0:
-            content_lines.append(f"({line}) Tj")
-        else:
-            content_lines.append("0 -16 Td")
-            content_lines.append(f"({line}) Tj")
-    content_lines.append("ET")
-    content = "\n".join(content_lines).encode("ascii", "ignore")
-
-    objects: list[bytes] = []
-    objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
-    objects.append(b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
-    if logo_jpeg and logo_px and logo_px[0] > 0 and logo_px[1] > 0:
-        objects.append(
-            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> /XObject << /Im1 6 0 R >> >> /Contents 5 0 R >>"
-        )
-    else:
-        objects.append(
-            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
-        )
-
-    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-    objects.append(
-        b"<< /Length %d >>\nstream\n%s\nendstream" % (len(content), content)
-    )
-
-    if logo_jpeg and logo_px and logo_px[0] > 0 and logo_px[1] > 0:
-        px_w, px_h = logo_px
-        img_obj = (
-            f"<< /Type /XObject /Subtype /Image /Width {int(px_w)} /Height {int(px_h)} "
-            f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {len(logo_jpeg)} >>\nstream\n"
-        ).encode("ascii")
-        img_obj += logo_jpeg + b"\nendstream"
-        objects.append(img_obj)
-
-    parts: list[bytes] = [b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"]
-    offsets = [0]
-    for i, obj in enumerate(objects, start=1):
-        offsets.append(sum(len(p) for p in parts))
-        parts.append(f"{i} 0 obj\n".encode("ascii"))
-        parts.append(obj)
-        parts.append(b"\nendobj\n")
-
-    xref_start = sum(len(p) for p in parts)
-    xref_lines = ["xref", f"0 {len(objects) + 1}", "0000000000 65535 f "]
-    for off in offsets[1:]:
-        xref_lines.append(f"{off:010d} 00000 n ")
-    parts.append(("\n".join(xref_lines) + "\n").encode("ascii"))
-    parts.append(
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF\n".encode(
-            "ascii"
-        )
-    )
-    return b"".join(parts)
 
 
 def _arabic_pdf_from_lines(
@@ -2066,6 +1969,7 @@ def _process_timeclock_items(
 
 
 __all__ = [
+    "_fail",
     "AIContentGeneratorPage",
     "AIDesignAnalyzerPage",
     "AISettings",
@@ -2150,8 +2054,6 @@ __all__ = [
     "_require_ops_equipment_read",
     "_require_ops_equipment_write",
     "_require_ops_management",
-    "_require_ops_payroll_read",
-    "_require_ops_payroll_write",
     "_require_ops_procurement_read",
     "_require_ops_procurement_write",
     "_require_ops_rule",
@@ -2169,7 +2071,6 @@ __all__ = [
     "_rfq_totals",
     "_safe_uploaded_filename",
     "_services_index",
-    "_simple_pdf_from_lines",
     "_site_root",
     "_streamfield_first_html",
     "_to_date",

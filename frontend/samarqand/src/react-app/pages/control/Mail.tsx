@@ -723,7 +723,7 @@ function ComposeModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
-      <div className="w-full max-w-2xl bg-[#0B0F19] border border-white/20 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-2xl bg-sq-black border border-white/20 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h3 className="font-extrabold text-white text-lg">
             {replyTo ? "رد على الرسالة" : "رسالة جديدة"}

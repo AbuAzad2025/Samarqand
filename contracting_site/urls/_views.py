@@ -1,6 +1,5 @@
 """Small view helpers shared by the URL modules."""
 
-from django.contrib import admin  # noqa: F401
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.shortcuts import render

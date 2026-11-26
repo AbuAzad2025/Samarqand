@@ -130,6 +130,11 @@ def _env_list(name: str, default: str = "") -> list[str]:
 # Only these proxies may supply X-Forwarded-For for rate limiting.
 TRUSTED_PROXY_IPS = _env_list("TRUSTED_PROXY_IPS", "")
 
+try:
+    ADMIN_API_RATE_LIMIT = int(_env("ADMIN_API_RATE_LIMIT", "600") or "600")
+except ValueError:
+    ADMIN_API_RATE_LIMIT = 600
+
 # Annual leave entitlement used by the HR leave-balance report.
 try:
     ANNUAL_LEAVE_DAYS = int(_env("ANNUAL_LEAVE_DAYS", "21") or "21")

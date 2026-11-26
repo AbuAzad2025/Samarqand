@@ -19,12 +19,8 @@ import {
   type VehicleStatus,
   type VehicleType,
 } from "@/react-app/api/fleet";
+import { todayInputValue, baseHumanizeErrorCode } from "@/react-app/utils/common";
 import { fetchWorkers, type WorkerItem } from "@/react-app/api/hr";
-
-function todayInputValue(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
 
 function currentYear(): number {
   return new Date().getFullYear();
@@ -35,10 +31,9 @@ function currentMonth(): number {
 }
 
 function humanizeErrorCode(code: string): string {
+  const shared = baseHumanizeErrorCode(code);
+  if (shared) return shared;
   const c = String(code || "").trim();
-  if (!c) return "تعذر تنفيذ العملية.";
-  if (c === "forbidden") return "ليس لديك صلاحية.";
-  if (c === "not_found") return "العنصر غير موجود.";
   if (c === "vehicle_not_found") return "المركبة غير موجودة.";
   if (c === "missing_name") return "الاسم مطلوب.";
   if (c === "missing_plate_number") return "رقم اللوحة مطلوب.";
@@ -159,9 +154,9 @@ export default function ControlFleet() {
   function vehicleOptions() {
     return (
       <>
-        <option value="" className="bg-[#0B0F19]">كل المركبات</option>
+        <option value="" className="bg-sq-black">كل المركبات</option>
         {vehicles.map((v) => (
-          <option key={v.id} value={v.id} className="bg-[#0B0F19]">
+          <option key={v.id} value={v.id} className="bg-sq-black">
             {v.name} ({v.plateNumber})
           </option>
         ))}
@@ -192,9 +187,9 @@ export default function ControlFleet() {
               onChange={(e) => setFilterStatus(e.target.value as VehicleStatus | "")}
               className="w-40"
             >
-              <option value="" className="bg-[#0B0F19]">كل الحالات</option>
+              <option value="" className="bg-sq-black">كل الحالات</option>
               {VEHICLE_STATUSES.map((s) => (
-                <option key={s.value} value={s.value} className="bg-[#0B0F19]">
+                <option key={s.value} value={s.value} className="bg-sq-black">
                   {s.label}
                 </option>
               ))}
@@ -215,7 +210,7 @@ export default function ControlFleet() {
                 className="w-32"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m} className="bg-[#0B0F19]">
+                  <option key={m} value={m} className="bg-sq-black">
                     {m}
                   </option>
                 ))}
@@ -252,7 +247,7 @@ export default function ControlFleet() {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-xl border text-sm font-bold transition whitespace-nowrap ${
               tab === t.key
-                ? "bg-gradient-to-r from-[#007A3D]/25 via-white/5 to-[#CE1126]/25 border-white/20 text-white"
+                ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white"
                 : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
             }`}
           >
@@ -303,7 +298,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -312,7 +307,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -321,7 +316,7 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -330,7 +325,7 @@ function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
-      className={`px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
+      className={`px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
     />
   );
 }
@@ -361,9 +356,9 @@ function WorkerSelect({
       onChange={(e) => onChange(Number(e.target.value) || null)}
       className={className}
     >
-      <option value="" className="bg-[#0B0F19]">اختر موظفاً</option>
+      <option value="" className="bg-sq-black">اختر موظفاً</option>
       {workers.map((w) => (
-        <option key={w.id} value={w.id} className="bg-[#0B0F19]">
+        <option key={w.id} value={w.id} className="bg-sq-black">
           {w.name}
         </option>
       ))}
@@ -455,7 +450,7 @@ function VehiclesSection({
             onChange={(e) => setForm({ ...form, vehicleType: e.target.value as VehicleType })}
           >
             {VEHICLE_TYPES.map((vt) => (
-              <option key={vt.value} value={vt.value} className="bg-[#0B0F19]">
+              <option key={vt.value} value={vt.value} className="bg-sq-black">
                 {vt.label}
               </option>
             ))}
@@ -465,7 +460,7 @@ function VehiclesSection({
             onChange={(e) => setForm({ ...form, status: e.target.value as VehicleStatus })}
           >
             {VEHICLE_STATUSES.map((s) => (
-              <option key={s.value} value={s.value} className="bg-[#0B0F19]">
+              <option key={s.value} value={s.value} className="bg-sq-black">
                 {s.label}
               </option>
             ))}
@@ -712,9 +707,9 @@ function FuelSection({
             value={form.vehicleId || ""}
             onChange={(e) => setForm({ ...form, vehicleId: Number(e.target.value) || undefined })}
           >
-            <option value="" className="bg-[#0B0F19]">اختر مركبة</option>
+            <option value="" className="bg-sq-black">اختر مركبة</option>
             {vehicles.map((v) => (
-              <option key={v.id} value={v.id} className="bg-[#0B0F19]">
+              <option key={v.id} value={v.id} className="bg-sq-black">
                 {v.name} ({v.plateNumber})
               </option>
             ))}
@@ -902,9 +897,9 @@ function MaintenanceSection({
             value={form.vehicleId || ""}
             onChange={(e) => setForm({ ...form, vehicleId: Number(e.target.value) || undefined })}
           >
-            <option value="" className="bg-[#0B0F19]">اختر مركبة</option>
+            <option value="" className="bg-sq-black">اختر مركبة</option>
             {vehicles.map((v) => (
-              <option key={v.id} value={v.id} className="bg-[#0B0F19]">
+              <option key={v.id} value={v.id} className="bg-sq-black">
                 {v.name} ({v.plateNumber})
               </option>
             ))}
@@ -919,7 +914,7 @@ function MaintenanceSection({
             onChange={(e) => setForm({ ...form, maintenanceType: e.target.value as MaintenanceType })}
           >
             {MAINTENANCE_TYPES.map((mt) => (
-              <option key={mt.value} value={mt.value} className="bg-[#0B0F19]">
+              <option key={mt.value} value={mt.value} className="bg-sq-black">
                 {mt.label}
               </option>
             ))}

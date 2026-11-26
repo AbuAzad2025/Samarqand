@@ -39,7 +39,7 @@ def _dispatch_smtp(msg: EmailMessage) -> None:
             u = User.objects.get(id=int(rid))
             if u.email:
                 to_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
     if not to_emails:
         return
@@ -49,7 +49,7 @@ def _dispatch_smtp(msg: EmailMessage) -> None:
             u = User.objects.get(id=int(rid))
             if u.email:
                 cc_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
     bcc_emails: list[str] = []
     for rid in msg.bcc or []:
@@ -57,7 +57,7 @@ def _dispatch_smtp(msg: EmailMessage) -> None:
             u = User.objects.get(id=int(rid))
             if u.email:
                 bcc_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
     try:
         html = render_to_string(
@@ -359,7 +359,7 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
             u = User.objects.get(id=int(rid))
             if u.id != user.id:
                 valid_recipients.append(u.id)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
 
     valid_cc = []
@@ -368,7 +368,7 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
             u = User.objects.get(id=int(rid))
             if u.id != user.id:
                 valid_cc.append(u.id)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
 
     valid_bcc = []
@@ -376,7 +376,7 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
         try:
             u = User.objects.get(id=int(rid))
             valid_bcc.append(u.id)
-        except (ValueError, User.DoesNotExist):
+        except ValueError, User.DoesNotExist:
             pass
 
     if not valid_recipients and not valid_cc and not save_as_draft:
@@ -386,7 +386,7 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
     if parent_id:
         try:
             parent = EmailMessage.objects.get(id=int(parent_id))
-        except (ValueError, EmailMessage.DoesNotExist):
+        except ValueError, EmailMessage.DoesNotExist:
             pass
 
     folder = (
@@ -466,7 +466,7 @@ def admin_mail_messages_update(
             try:
                 u = User.objects.get(id=int(rid))
                 valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
+            except ValueError, User.DoesNotExist:
                 pass
         msg.recipients = valid
     if "cc" in data:
@@ -475,7 +475,7 @@ def admin_mail_messages_update(
             try:
                 u = User.objects.get(id=int(rid))
                 valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
+            except ValueError, User.DoesNotExist:
                 pass
         msg.cc = valid
     if "bcc" in data:
@@ -484,7 +484,7 @@ def admin_mail_messages_update(
             try:
                 u = User.objects.get(id=int(rid))
                 valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
+            except ValueError, User.DoesNotExist:
                 pass
         msg.bcc = valid
     send_now = bool(data.get("sendNow"))
@@ -667,6 +667,9 @@ def admin_mail_attachments_upload(request: HttpRequest) -> JsonResponse:
     file = request.FILES.get("file")
     if not file:
         return _api_error("missing_file", status=400)
+    max_bytes = 20 * 1024 * 1024
+    if file.size > max_bytes:
+        return _api_error("file_too_large", status=400)
     from wagtail.documents import get_document_model
 
     Document = get_document_model()

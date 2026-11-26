@@ -249,6 +249,7 @@ def admin_field_docs_meetings(
                 "minutesBy": m.minutes_by,
                 "summary": m.summary,
                 "status": m.status,
+                "documentFileId": m.document_file_id,
                 "documentFile": (
                     m.document_file.url if m.document_file else None
                 ),
@@ -284,6 +285,8 @@ def admin_field_docs_meetings_create(
         summary=str(data.get("summary") or "").strip(),
         status=str(data.get("status") or MeetingMinutes.STATUS_DRAFT).strip(),
     )
+    _apply_document_file(m, data)
+    m.save()
     _audit_ops(
         request,
         action="meeting_create",
@@ -321,6 +324,7 @@ def admin_field_docs_meetings_update(
     m.minutes_by = str(data.get("minutesBy") or m.minutes_by).strip()
     m.summary = str(data.get("summary") or "").strip()
     m.status = str(data.get("status") or m.status).strip()
+    _apply_document_file(m, data)
     m.save()
     _audit_ops(
         request,

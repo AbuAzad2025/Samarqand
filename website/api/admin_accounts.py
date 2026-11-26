@@ -422,7 +422,7 @@ def admin_accounts_journal_entries_post(
     try:
         entry.post(user=request.user if request.user.is_authenticated else None)
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "journal_post_failed", "Operation failed")
     _audit_ops(
         request,
         action="journal_entry_post",
@@ -850,7 +850,7 @@ def admin_accounts_checks_clear(
     try:
         entry = ch.mark_cleared(cleared_date)
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "check_clear_failed", "Operation failed")
     _audit_ops(
         request,
         action="check_clear",
@@ -874,7 +874,7 @@ def admin_accounts_checks_bounce(
     try:
         ch.mark_bounced()
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "check_bounce_failed", "Operation failed")
     _audit_ops(
         request,
         action="check_bounce",
@@ -898,7 +898,7 @@ def admin_accounts_checks_cancel(
     try:
         ch.mark_cancelled()
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "check_cancel_failed", "Operation failed")
     _audit_ops(
         request,
         action="check_cancel",
@@ -1240,7 +1240,7 @@ def admin_accounts_generate_from_contract_payment(
     try:
         entry = payment.generate_journal_entry()
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "journal_generation_failed", "Operation failed")
     _audit_ops(
         request,
         action="journal_entry_generate_from_contract_payment",
@@ -1264,7 +1264,7 @@ def admin_accounts_generate_from_purchase_order(
     try:
         entry = order.generate_journal_entry()
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "payroll_journal_failed", "Operation failed")
     _audit_ops(
         request,
         action="journal_entry_generate_from_purchase_order",
@@ -1288,7 +1288,7 @@ def admin_accounts_generate_from_payroll(
     try:
         entry = payroll.generate_journal_entry()
     except Exception as exc:
-        return _api_error(str(exc), status=400)
+        return _fail(exc, "pending_entry_failed", "Operation failed")
     _audit_ops(
         request,
         action="journal_entry_generate_from_payroll",

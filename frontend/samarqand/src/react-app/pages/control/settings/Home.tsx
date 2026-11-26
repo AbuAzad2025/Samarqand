@@ -44,7 +44,7 @@ export default function ControlHomeSettings() {
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+          className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
         >
           {saving ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -71,7 +71,7 @@ export default function ControlHomeSettings() {
               <input
                 value={data.heroTitleLine1}
                 onChange={(e) => setData({ ...data, heroTitleLine1: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
             </div>
             <div>
@@ -79,7 +79,7 @@ export default function ControlHomeSettings() {
               <input
                 value={data.heroTitleLine2}
                 onChange={(e) => setData({ ...data, heroTitleLine2: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
             </div>
           </div>
@@ -89,7 +89,7 @@ export default function ControlHomeSettings() {
             <input
               value={data.heroLead}
               onChange={(e) => setData({ ...data, heroLead: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
             />
           </div>
 
@@ -99,7 +99,7 @@ export default function ControlHomeSettings() {
               <input
                 value={data.heroPrimaryCtaLabel}
                 onChange={(e) => setData({ ...data, heroPrimaryCtaLabel: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
             </div>
             <div>
@@ -107,7 +107,7 @@ export default function ControlHomeSettings() {
               <input
                 value={data.heroPrimaryCtaUrl}
                 onChange={(e) => setData({ ...data, heroPrimaryCtaUrl: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 dir="ltr"
               />
             </div>
@@ -121,7 +121,7 @@ export default function ControlHomeSettings() {
                 onChange={(e) =>
                   setData({ ...data, heroSecondaryCtaLabel: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
             </div>
             <div>
@@ -131,7 +131,7 @@ export default function ControlHomeSettings() {
                 onChange={(e) =>
                   setData({ ...data, heroSecondaryCtaUrl: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 dir="ltr"
               />
             </div>
@@ -151,7 +151,7 @@ export default function ControlHomeSettings() {
                     : null,
                 })
               }
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               dir="ltr"
               placeholder="مثال: 12"
             />
@@ -218,7 +218,7 @@ export default function ControlHomeSettings() {
             <input
               value={data.newsletterTitle}
               onChange={(e) => setData({ ...data, newsletterTitle: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
             />
           </div>
 
@@ -227,7 +227,7 @@ export default function ControlHomeSettings() {
             <textarea
               value={data.newsletterSubtitle}
               onChange={(e) => setData({ ...data, newsletterSubtitle: e.target.value })}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D] min-h-28"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green min-h-28"
             />
           </div>
         </div>

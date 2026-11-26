@@ -70,7 +70,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center" dir="rtl">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-4">المحتوى غير موجود</h1>
-          <Link to={PATHS[kind]} className="text-[#007A3D] font-bold underline">
+          <Link to={PATHS[kind]} className="text-sq-green font-bold underline">
             العودة للقائمة
           </Link>
         </div>
@@ -85,7 +85,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <Link
           to={PATHS[kind]}
-          className="inline-flex items-center gap-2 text-[#007A3D] font-bold mb-6 hover:underline"
+          className="inline-flex items-center gap-2 text-sq-green font-bold mb-6 hover:underline"
         >
           <ArrowLeft size={16} /> العودة
         </Link>
@@ -132,7 +132,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
               {item.website ? <p className="flex items-center gap-2"><Globe size={16} />{item.website}</p> : null}
               {item.latitude != null && item.longitude != null ? (
                 <a
-                  className="inline-flex items-center gap-2 text-[#007A3D] font-bold underline"
+                  className="inline-flex items-center gap-2 text-sq-green font-bold underline"
                   href={`https://www.google.com/maps?q=${item.latitude},${item.longitude}`}
                   target="_blank"
                   rel="noreferrer"

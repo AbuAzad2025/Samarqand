@@ -76,7 +76,7 @@ export default function ControlCalculatorSettings() {
         <input
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
           type="number"
           step={opts?.step || "0.01"}
           min={opts?.min}
@@ -133,7 +133,7 @@ export default function ControlCalculatorSettings() {
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+          className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
         >
           {saving ? "جارٍ الحفظ..." : "حفظ"}
         </button>
@@ -164,7 +164,7 @@ export default function ControlCalculatorSettings() {
                   currencyDefault: (e.target.value as "ILS" | "USD") || "ILS",
                 })
               }
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
             >
               <option value="ILS">₪ شيكل</option>
               <option value="USD">$ دولار</option>
@@ -225,7 +225,7 @@ export default function ControlCalculatorSettings() {
                   <button
                     type="button"
                     onClick={() => addItem(category)}
-                    className="text-sm font-semibold text-[#007A3D] hover:underline"
+                    className="text-sm font-semibold text-sq-green hover:underline"
                   >
                     إضافة بند
                   </button>

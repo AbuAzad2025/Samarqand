@@ -49,17 +49,12 @@ import {
   type RfiItem,
   type SubmittalItem,
 } from "@/react-app/api/fieldDocs";
-
-function todayInputValue(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
+import { todayInputValue, baseHumanizeErrorCode } from "@/react-app/utils/common";
 
 function humanizeErrorCode(code: string): string {
+  const shared = baseHumanizeErrorCode(code);
+  if (shared) return shared;
   const c = String(code || "").trim();
-  if (!c) return "تعذر تنفيذ العملية.";
-  if (c === "forbidden") return "ليس لديك صلاحية.";
-  if (c === "not_found") return "العنصر غير موجود.";
   if (c === "invalid_direction") return "الاتجاه غير صحيح.";
   if (c === "missing_reference_or_subject") return "الرقم والموضوع مطلوبان.";
   if (c === "missing_number") return "الرقم مطلوب.";
@@ -218,11 +213,11 @@ export default function ControlFieldDocs() {
           <select
             value={selectedProjectId || ""}
             onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white min-w-[220px] focus:outline-none focus:border-[#007A3D]/50"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white min-w-[220px] focus:outline-none focus:border-sq-green/50"
           >
-            <option value="" className="bg-[#0B0F19]">اختر مشروعاً</option>
+            <option value="" className="bg-sq-black">اختر مشروعاً</option>
             {projects.map((p) => (
-              <option key={p.id} value={p.id} className="bg-[#0B0F19]">
+              <option key={p.id} value={p.id} className="bg-sq-black">
                 {p.title}
               </option>
             ))}
@@ -266,7 +261,7 @@ export default function ControlFieldDocs() {
                 onClick={() => setTab(t.key)}
                 className={`px-4 py-2 rounded-xl border text-sm font-bold transition whitespace-nowrap ${
                   tab === t.key
-                    ? "bg-gradient-to-r from-[#007A3D]/25 via-white/5 to-[#CE1126]/25 border-white/20 text-white"
+                    ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                 }`}
               >
@@ -394,7 +389,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -403,7 +398,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -412,7 +407,7 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -421,7 +416,7 @@ function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
-      className={`px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
+      className={`px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
     />
   );
 }
@@ -505,8 +500,8 @@ function CorrespondenceSection({
             value={form.direction || "incoming"}
             onChange={(e) => setForm({ ...form, direction: e.target.value as CorrespondenceItem["direction"] })}
           >
-            <option value="incoming" className="bg-[#0B0F19]">وارد</option>
-            <option value="outgoing" className="bg-[#0B0F19]">صادر</option>
+            <option value="incoming" className="bg-sq-black">وارد</option>
+            <option value="outgoing" className="bg-sq-black">صادر</option>
           </Select>
           <Input
             placeholder="رقم المرجع"
@@ -544,9 +539,9 @@ function CorrespondenceSection({
             value={form.status || "pending_reply"}
             onChange={(e) => setForm({ ...form, status: e.target.value as CorrespondenceItem["status"] })}
           >
-            <option value="pending_reply" className="bg-[#0B0F19]">بانتظار الرد</option>
-            <option value="replied" className="bg-[#0B0F19]">تم الرد</option>
-            <option value="closed" className="bg-[#0B0F19]">مغلق</option>
+            <option value="pending_reply" className="bg-sq-black">بانتظار الرد</option>
+            <option value="replied" className="bg-sq-black">تم الرد</option>
+            <option value="closed" className="bg-sq-black">مغلق</option>
           </Select>
           <Input
             placeholder="رقم الرد"
@@ -712,11 +707,11 @@ function MeetingsSection({
             value={form.meetingType || "site"}
             onChange={(e) => setForm({ ...form, meetingType: e.target.value as MeetingItem["meetingType"] })}
           >
-            <option value="site" className="bg-[#0B0F19]">موقع</option>
-            <option value="progress" className="bg-[#0B0F19]">تقدم أعمال</option>
-            <option value="technical" className="bg-[#0B0F19]">فني</option>
-            <option value="coordination" className="bg-[#0B0F19]">تنسيق</option>
-            <option value="safety" className="bg-[#0B0F19]">سلامة</option>
+            <option value="site" className="bg-sq-black">موقع</option>
+            <option value="progress" className="bg-sq-black">تقدم أعمال</option>
+            <option value="technical" className="bg-sq-black">فني</option>
+            <option value="coordination" className="bg-sq-black">تنسيق</option>
+            <option value="safety" className="bg-sq-black">سلامة</option>
           </Select>
           <Input
             placeholder="المكان"
@@ -737,9 +732,9 @@ function MeetingsSection({
             value={form.status || "draft"}
             onChange={(e) => setForm({ ...form, status: e.target.value as MeetingItem["status"] })}
           >
-            <option value="draft" className="bg-[#0B0F19]">مسودة</option>
-            <option value="reviewed" className="bg-[#0B0F19]">مراجعة</option>
-            <option value="approved" className="bg-[#0B0F19]">معتمد</option>
+            <option value="draft" className="bg-sq-black">مسودة</option>
+            <option value="reviewed" className="bg-sq-black">مراجعة</option>
+            <option value="approved" className="bg-sq-black">معتمد</option>
           </Select>
         </div>
         <TextArea
@@ -893,7 +888,7 @@ function MeetingActionItemsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-extrabold text-white">بنود الإجراء — {meeting.meetingNumber}</h3>
           <button type="button" onClick={onClose} className="text-white/60 hover:text-white">
@@ -922,10 +917,10 @@ function MeetingActionItemsModal({
               value={form.status || "open"}
               onChange={(e) => setForm({ ...form, status: e.target.value as MeetingActionItem["status"] })}
             >
-              <option value="open" className="bg-[#0B0F19]">مفتوح</option>
-              <option value="in_progress" className="bg-[#0B0F19]">قيد التنفيذ</option>
-              <option value="completed" className="bg-[#0B0F19]">مكتمل</option>
-              <option value="closed" className="bg-[#0B0F19]">مغلق</option>
+              <option value="open" className="bg-sq-black">مفتوح</option>
+              <option value="in_progress" className="bg-sq-black">قيد التنفيذ</option>
+              <option value="completed" className="bg-sq-black">مكتمل</option>
+              <option value="closed" className="bg-sq-black">مغلق</option>
             </Select>
           </div>
           <TextArea
@@ -1393,7 +1388,7 @@ function DeliveryItemsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-extrabold text-white">بنود مذكرة الاستلام — {note.supplierName}</h3>
           <button type="button" onClick={onClose} className="text-white/60 hover:text-white">
@@ -1564,28 +1559,28 @@ function RfiSection({
             value={form.category || "other"}
             onChange={(e) => setForm({ ...form, category: e.target.value as RfiItem["category"] })}
           >
-            <option value="design" className="bg-[#0B0F19]">تصميم</option>
-            <option value="specification" className="bg-[#0B0F19]">مواصفات</option>
-            <option value="site_condition" className="bg-[#0B0F19]">ظروف الموقع</option>
-            <option value="material" className="bg-[#0B0F19]">مواد</option>
-            <option value="other" className="bg-[#0B0F19]">أخرى</option>
+            <option value="design" className="bg-sq-black">تصميم</option>
+            <option value="specification" className="bg-sq-black">مواصفات</option>
+            <option value="site_condition" className="bg-sq-black">ظروف الموقع</option>
+            <option value="material" className="bg-sq-black">مواد</option>
+            <option value="other" className="bg-sq-black">أخرى</option>
           </Select>
           <Select
             value={form.priority || "medium"}
             onChange={(e) => setForm({ ...form, priority: e.target.value as RfiItem["priority"] })}
           >
-            <option value="low" className="bg-[#0B0F19]">منخفض</option>
-            <option value="medium" className="bg-[#0B0F19]">متوسط</option>
-            <option value="high" className="bg-[#0B0F19]">عالي</option>
-            <option value="urgent" className="bg-[#0B0F19]">عاجل</option>
+            <option value="low" className="bg-sq-black">منخفض</option>
+            <option value="medium" className="bg-sq-black">متوسط</option>
+            <option value="high" className="bg-sq-black">عالي</option>
+            <option value="urgent" className="bg-sq-black">عاجل</option>
           </Select>
           <Select
             value={form.status || "open"}
             onChange={(e) => setForm({ ...form, status: e.target.value as RfiItem["status"] })}
           >
-            <option value="open" className="bg-[#0B0F19]">مفتوح</option>
-            <option value="answered" className="bg-[#0B0F19]">تم الرد</option>
-            <option value="closed" className="bg-[#0B0F19]">مغلق</option>
+            <option value="open" className="bg-sq-black">مفتوح</option>
+            <option value="answered" className="bg-sq-black">تم الرد</option>
+            <option value="closed" className="bg-sq-black">مغلق</option>
           </Select>
           <Input
             placeholder="مقدم إلى"
@@ -1756,17 +1751,17 @@ function NcrSection({
             value={form.severity || "minor"}
             onChange={(e) => setForm({ ...form, severity: e.target.value as NcrItem["severity"] })}
           >
-            <option value="minor" className="bg-[#0B0F19]">بسيط</option>
-            <option value="major" className="bg-[#0B0F19]">كبير</option>
-            <option value="critical" className="bg-[#0B0F19]">حرج</option>
+            <option value="minor" className="bg-sq-black">بسيط</option>
+            <option value="major" className="bg-sq-black">كبير</option>
+            <option value="critical" className="bg-sq-black">حرج</option>
           </Select>
           <Select
             value={form.status || "open"}
             onChange={(e) => setForm({ ...form, status: e.target.value as NcrItem["status"] })}
           >
-            <option value="open" className="bg-[#0B0F19]">مفتوح</option>
-            <option value="action_taken" className="bg-[#0B0F19]">تم اتخاذ إجراء</option>
-            <option value="closed" className="bg-[#0B0F19]">مغلق</option>
+            <option value="open" className="bg-sq-black">مفتوح</option>
+            <option value="action_taken" className="bg-sq-black">تم اتخاذ إجراء</option>
+            <option value="closed" className="bg-sq-black">مغلق</option>
           </Select>
           <Input
             type="date"
@@ -1932,21 +1927,21 @@ function SubmittalsSection({
             value={form.category || "material_sample"}
             onChange={(e) => setForm({ ...form, category: e.target.value as SubmittalItem["category"] })}
           >
-            <option value="material_sample" className="bg-[#0B0F19]">عينة مادة</option>
-            <option value="shop_drawing" className="bg-[#0B0F19]">رسم ورشة</option>
-            <option value="method_statement" className="bg-[#0B0F19]">ميثاق عمل</option>
-            <option value="test_report" className="bg-[#0B0F19]">تقرير اختبار</option>
-            <option value="certificate" className="bg-[#0B0F19]">شهادة</option>
+            <option value="material_sample" className="bg-sq-black">عينة مادة</option>
+            <option value="shop_drawing" className="bg-sq-black">رسم ورشة</option>
+            <option value="method_statement" className="bg-sq-black">ميثاق عمل</option>
+            <option value="test_report" className="bg-sq-black">تقرير اختبار</option>
+            <option value="certificate" className="bg-sq-black">شهادة</option>
           </Select>
           <Select
             value={form.status || "submitted"}
             onChange={(e) => setForm({ ...form, status: e.target.value as SubmittalItem["status"] })}
           >
-            <option value="submitted" className="bg-[#0B0F19]">مرسل</option>
-            <option value="under_review" className="bg-[#0B0F19]">قيد المراجعة</option>
-            <option value="approved" className="bg-[#0B0F19]">معتمد</option>
-            <option value="approved_with_comments" className="bg-[#0B0F19]">معتمد بملاحظات</option>
-            <option value="rejected" className="bg-[#0B0F19]">مرفوض</option>
+            <option value="submitted" className="bg-sq-black">مرسل</option>
+            <option value="under_review" className="bg-sq-black">قيد المراجعة</option>
+            <option value="approved" className="bg-sq-black">معتمد</option>
+            <option value="approved_with_comments" className="bg-sq-black">معتمد بملاحظات</option>
+            <option value="rejected" className="bg-sq-black">مرفوض</option>
           </Select>
           <Input
             placeholder="مقدم إلى"

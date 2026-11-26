@@ -49,7 +49,7 @@ export default function InteractiveTeam() {
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
+                    <div className="w-full h-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   
@@ -62,12 +62,12 @@ export default function InteractiveTeam() {
                 {/* Info */}
                 <div className="p-6">
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">{member.name}</h3>
-                  <p className="text-[#007A3D] font-semibold mb-1">{member.position}</p>
+                  <p className="text-sq-green font-semibold mb-1">{member.position}</p>
                   <p className="text-gray-600 text-sm">{member.specialization}</p>
                 </div>
 
                 {/* Corner Badge */}
-                <div className="absolute top-4 left-4 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                <div className="absolute top-4 left-4 bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
                   <Award size={16} className="inline mr-1" />
                   خبير
                 </div>
@@ -88,7 +88,6 @@ export default function InteractiveTeam() {
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
-            {/* Close Button */}
             <button
               onClick={() => setSelectedMember(null)}
               className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition shadow-lg z-10"
@@ -104,7 +103,7 @@ export default function InteractiveTeam() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
+                <div className="w-full h-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
               <div className="absolute bottom-6 right-6 text-white">
@@ -113,11 +112,10 @@ export default function InteractiveTeam() {
               </div>
             </div>
 
-            {/* Content */}
             <div className="p-8">
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center flex-shrink-0">
                     <GraduationCap className="text-white" size={24} />
                   </div>
                   <div>
@@ -161,7 +159,7 @@ export default function InteractiveTeam() {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                  className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
                 >
                   تواصل معنا
                 </a>

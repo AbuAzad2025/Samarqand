@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+RUN SECRET_KEY=build-placeholder python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

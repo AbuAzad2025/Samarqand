@@ -164,7 +164,6 @@ export default function ConstructionCalculator() {
   return (
     <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50" id="calculator">
       <div className="container mx-auto px-4" dir="rtl">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mb-6">
             <Calculator className="text-white" size={48} />
@@ -209,7 +208,7 @@ export default function ConstructionCalculator() {
                   <select
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
@@ -230,7 +229,7 @@ export default function ConstructionCalculator() {
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="مثال: 200"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
                     required
                     min="1"
                     step="0.01"
@@ -245,7 +244,7 @@ export default function ConstructionCalculator() {
                     type="number"
                     value={floors}
                     onChange={(e) => setFloors(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#007A3D] focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
                     required
                     min="1"
                     max="20"
@@ -317,7 +316,7 @@ export default function ConstructionCalculator() {
 
                   {/* Summary Cards */}
                   <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-4 rounded-lg">
+                    <div className="bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white p-4 rounded-lg">
                       <Package className="mb-2" size={24} />
                       <p className="text-sm opacity-90">المواد</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.materialsCost)}</p>
@@ -339,7 +338,7 @@ export default function ConstructionCalculator() {
                       {result.boq.sections.map((sec) => (
                         <div key={sec.label} className="bg-gray-50 rounded-lg p-4">
                           <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <Package className="text-[#007A3D]" size={20} />
+                            <Package className="text-sq-green" size={20} />
                             {sec.label}
                           </h4>
                           <div className="space-y-2">
@@ -361,7 +360,7 @@ export default function ConstructionCalculator() {
                     <>
                       <div className="bg-gray-50 rounded-lg p-4">
                         <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                          <Package className="text-[#007A3D]" size={20} />
+                          <Package className="text-sq-green" size={20} />
                           الأعمال الإنشائية
                         </h4>
                         <div className="space-y-2">
@@ -436,7 +435,7 @@ export default function ConstructionCalculator() {
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر نهائي
                   </a>

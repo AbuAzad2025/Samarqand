@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-xl bg-[#007A3D] text-white px-6 py-3 font-bold"
+            className="rounded-xl bg-sq-green text-white px-6 py-3 font-bold"
           >
             إعادة التحميل
           </button>

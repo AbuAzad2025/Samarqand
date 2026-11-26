@@ -66,7 +66,6 @@ export default function AIDesignAnalyzer() {
   return (
     <section className="py-20 bg-gradient-to-b from-gray-50 to-white" id="ai-analyzer">
       <div className="container mx-auto px-4" dir="rtl">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-6">
             <Brain className="text-white" size={48} />
@@ -210,7 +209,7 @@ export default function AIDesignAnalyzer() {
                   {/* Duration */}
                   <div className="bg-white rounded-lg p-4 shadow">
                     <div className="flex items-center gap-2 mb-2">
-                      <Clock className="text-[#007A3D]" />
+                      <Clock className="text-sq-green" />
                       <h4 className="font-bold text-gray-800">المدة الزمنية</h4>
                     </div>
                     <p className="text-gray-700 text-sm">{result.duration}</p>
@@ -246,7 +245,7 @@ export default function AIDesignAnalyzer() {
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر دقيق
                   </a>

@@ -82,18 +82,11 @@ import {
   type AdminOpsWorker,
   type AdminProjectListItem,
 } from "@/react-app/api/site";
+import { formatMoney, baseHumanizeErrorCode } from "@/react-app/utils/common";
 
 type Tab = "clients" | "contracts" | "procurement" | "resources" | "kpi" | "audit";
 type ProcurementTab = "suppliers" | "purchaseOrders" | "inventory";
 type ResourcesTab = "workers" | "attendance" | "timeclock" | "payroll" | "equipment" | "assignments";
-
-function formatMoney(n: number): string {
-  try {
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-  } catch {
-    return String(n);
-  }
-}
 
 function downloadJsonFile(filename: string, payload: unknown): void {
   const blob = new Blob([JSON.stringify(payload ?? {}, null, 2)], { type: "application/json; charset=utf-8" });
@@ -106,9 +99,9 @@ function downloadJsonFile(filename: string, payload: unknown): void {
 }
 
 function humanizeErrorCode(code: string): string {
+  const shared = baseHumanizeErrorCode(code);
+  if (shared) return shared;
   const c = String(code || "").trim();
-  if (!c) return "تعذر تنفيذ العملية.";
-  if (c === "forbidden") return "ليس لديك صلاحية لتنفيذ هذه العملية.";
   if (c === "unauthorized") return "يلزم تسجيل الدخول.";
   if (c === "not_found") return "العنصر غير موجود.";
   if (c === "missing_name") return "الاسم مطلوب.";
@@ -1488,7 +1481,7 @@ export default function ControlOps() {
       type="button"
       onClick={() => setTab(key)}
       className={`px-4 py-2 rounded-lg font-semibold border transition ${
-        tab === key ? "bg-[#007A3D] text-white border-[#007A3D]" : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
+        tab === key ? "bg-sq-green text-white border-sq-green" : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
       }`}
     >
       {label}
@@ -1532,7 +1525,7 @@ export default function ControlOps() {
                 <input
                   value={clientForm.name}
                   onChange={(e) => setClientForm((s) => ({ ...s, name: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   required
                 />
               </div>
@@ -1541,7 +1534,7 @@ export default function ControlOps() {
                 <input
                   value={clientForm.phone}
                   onChange={(e) => setClientForm((s) => ({ ...s, phone: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1550,7 +1543,7 @@ export default function ControlOps() {
                 <input
                   value={clientForm.email}
                   onChange={(e) => setClientForm((s) => ({ ...s, email: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1559,7 +1552,7 @@ export default function ControlOps() {
                 <input
                   value={clientForm.address}
                   onChange={(e) => setClientForm((s) => ({ ...s, address: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 />
               </div>
               <div className="md:col-span-2">
@@ -1567,7 +1560,7 @@ export default function ControlOps() {
                 <textarea
                   value={clientForm.notes}
                   onChange={(e) => setClientForm((s) => ({ ...s, notes: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   rows={3}
                 />
               </div>
@@ -1575,7 +1568,7 @@ export default function ControlOps() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                  className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                 >
                   {clientEditingId ? "حفظ" : "إضافة"}
                 </button>
@@ -1653,7 +1646,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.action}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, action: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="ops_contract_payment_update"
                   dir="ltr"
                 />
@@ -1663,7 +1656,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.entityType}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, entityType: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="contract_payment"
                   dir="ltr"
                 />
@@ -1673,7 +1666,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.entityId}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, entityId: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="123"
                   dir="ltr"
                 />
@@ -1683,7 +1676,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.actorId}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, actorId: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="1"
                   dir="ltr"
                 />
@@ -1693,7 +1686,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.sinceId}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, sinceId: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="0"
                   dir="ltr"
                 />
@@ -1703,7 +1696,7 @@ export default function ControlOps() {
                 <input
                   value={auditFilter.limit}
                   onChange={(e) => setAuditFilter((s) => ({ ...s, limit: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   placeholder="200"
                   dir="ltr"
                 />
@@ -1712,7 +1705,7 @@ export default function ControlOps() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                  className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                 >
                   {loading ? "جارٍ التحميل..." : "تحديث"}
                 </button>
@@ -1818,7 +1811,7 @@ export default function ControlOps() {
                 <select
                   value={contractForm.projectId}
                   onChange={(e) => setContractForm((s) => ({ ...s, projectId: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 >
                   {projectOptions.map((p) => (
                     <option key={p.id} value={String(p.id)}>
@@ -1832,7 +1825,7 @@ export default function ControlOps() {
                 <select
                   value={contractForm.clientId}
                   onChange={(e) => setContractForm((s) => ({ ...s, clientId: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 >
                   {clientOptions.map((c) => (
                     <option key={c.id} value={String(c.id)}>
@@ -1846,7 +1839,7 @@ export default function ControlOps() {
                 <input
                   value={contractForm.title}
                   onChange={(e) => setContractForm((s) => ({ ...s, title: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 />
               </div>
               <div>
@@ -1854,7 +1847,7 @@ export default function ControlOps() {
                 <input
                   value={contractForm.number}
                   onChange={(e) => setContractForm((s) => ({ ...s, number: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1863,7 +1856,7 @@ export default function ControlOps() {
                 <select
                   value={contractForm.status}
                   onChange={(e) => setContractForm((s) => ({ ...s, status: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 >
                   <option value="draft">مسودة</option>
                   <option value="active">ساري</option>
@@ -1876,7 +1869,7 @@ export default function ControlOps() {
                 <input
                   value={contractForm.amount}
                   onChange={(e) => setContractForm((s) => ({ ...s, amount: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1886,7 +1879,7 @@ export default function ControlOps() {
                   type="date"
                   value={contractForm.startDate}
                   onChange={(e) => setContractForm((s) => ({ ...s, startDate: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1896,7 +1889,7 @@ export default function ControlOps() {
                   type="date"
                   value={contractForm.endDate}
                   onChange={(e) => setContractForm((s) => ({ ...s, endDate: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   dir="ltr"
                 />
               </div>
@@ -1905,7 +1898,7 @@ export default function ControlOps() {
                 <textarea
                   value={contractForm.notes}
                   onChange={(e) => setContractForm((s) => ({ ...s, notes: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                   rows={3}
                 />
               </div>
@@ -1913,7 +1906,7 @@ export default function ControlOps() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                  className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                 >
                   {contractEditingId ? "حفظ" : "إضافة"}
                 </button>
@@ -2027,7 +2020,7 @@ export default function ControlOps() {
                     <input
                       value={addendumForm.title}
                       onChange={(e) => setAddendumForm((s) => ({ ...s, title: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     />
                   </div>
                   <div>
@@ -2035,7 +2028,7 @@ export default function ControlOps() {
                     <input
                       value={addendumForm.amountDelta}
                       onChange={(e) => setAddendumForm((s) => ({ ...s, amountDelta: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2045,7 +2038,7 @@ export default function ControlOps() {
                       type="date"
                       value={addendumForm.startDate}
                       onChange={(e) => setAddendumForm((s) => ({ ...s, startDate: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2055,7 +2048,7 @@ export default function ControlOps() {
                       type="date"
                       value={addendumForm.endDate}
                       onChange={(e) => setAddendumForm((s) => ({ ...s, endDate: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2064,7 +2057,7 @@ export default function ControlOps() {
                     <textarea
                       value={addendumForm.notes}
                       onChange={(e) => setAddendumForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -2123,7 +2116,7 @@ export default function ControlOps() {
                       <input
                         value={paymentForm.title}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, title: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       />
                     </div>
                     <div>
@@ -2131,7 +2124,7 @@ export default function ControlOps() {
                       <select
                         value={paymentForm.status}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, status: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       >
                         <option value="pending">معلق</option>
                         <option value="partial">جزئي</option>
@@ -2145,7 +2138,7 @@ export default function ControlOps() {
                         type="date"
                         value={paymentForm.dueDate}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, dueDate: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -2155,7 +2148,7 @@ export default function ControlOps() {
                         type="date"
                         value={paymentForm.paidDate}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, paidDate: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -2164,7 +2157,7 @@ export default function ControlOps() {
                       <input
                         value={paymentForm.amount}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, amount: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -2173,7 +2166,7 @@ export default function ControlOps() {
                       <input
                         value={paymentForm.paidAmount}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, paidAmount: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -2182,7 +2175,7 @@ export default function ControlOps() {
                       <textarea
                         value={paymentForm.notes}
                         onChange={(e) => setPaymentForm((s) => ({ ...s, notes: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         rows={3}
                       />
                     </div>
@@ -2284,7 +2277,7 @@ export default function ControlOps() {
               onClick={() => setProcTab("suppliers")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 procTab === "suppliers"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2296,7 +2289,7 @@ export default function ControlOps() {
                 onClick={() => setProcTab("purchaseOrders")}
                 className={`px-4 py-2 rounded-lg font-semibold border transition ${
                   procTab === "purchaseOrders"
-                    ? "bg-[#007A3D] text-white border-[#007A3D]"
+                    ? "bg-sq-green text-white border-sq-green"
                     : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
                 }`}
               >
@@ -2309,7 +2302,7 @@ export default function ControlOps() {
                 onClick={() => setProcTab("inventory")}
                 className={`px-4 py-2 rounded-lg font-semibold border transition ${
                   procTab === "inventory"
-                    ? "bg-[#007A3D] text-white border-[#007A3D]"
+                    ? "bg-sq-green text-white border-sq-green"
                     : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
                 }`}
               >
@@ -2330,7 +2323,7 @@ export default function ControlOps() {
                     <input
                       value={supplierForm.name}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, name: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     />
                   </div>
@@ -2339,7 +2332,7 @@ export default function ControlOps() {
                     <input
                       value={supplierForm.category}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, category: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     />
                   </div>
                   <div>
@@ -2347,7 +2340,7 @@ export default function ControlOps() {
                     <input
                       value={supplierForm.phone}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, phone: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2356,7 +2349,7 @@ export default function ControlOps() {
                     <input
                       value={supplierForm.email}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, email: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2365,7 +2358,7 @@ export default function ControlOps() {
                     <input
                       value={supplierForm.address}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, address: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -2373,7 +2366,7 @@ export default function ControlOps() {
                     <textarea
                       value={supplierForm.notes}
                       onChange={(e) => setSupplierForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -2381,7 +2374,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {supplierEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -2462,7 +2455,7 @@ export default function ControlOps() {
                     <select
                       value={poForm.supplierId}
                       onChange={(e) => setPoForm((s) => ({ ...s, supplierId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {supplierOptions.map((s) => (
                         <option key={s.id} value={String(s.id)}>
@@ -2476,7 +2469,7 @@ export default function ControlOps() {
                     <select
                       value={poForm.projectId}
                       onChange={(e) => setPoForm((s) => ({ ...s, projectId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {projectOptions.map((p) => (
                         <option key={p.id} value={String(p.id)}>
@@ -2490,7 +2483,7 @@ export default function ControlOps() {
                     <input
                       value={poForm.number}
                       onChange={(e) => setPoForm((s) => ({ ...s, number: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2500,7 +2493,7 @@ export default function ControlOps() {
                       type="date"
                       value={poForm.date}
                       onChange={(e) => setPoForm((s) => ({ ...s, date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2509,7 +2502,7 @@ export default function ControlOps() {
                     <select
                       value={poForm.status}
                       onChange={(e) => setPoForm((s) => ({ ...s, status: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="draft">مسودة</option>
                       <option value="sent">مرسل</option>
@@ -2522,7 +2515,7 @@ export default function ControlOps() {
                     <input
                       value={poForm.totalAmount}
                       onChange={(e) => setPoForm((s) => ({ ...s, totalAmount: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2531,7 +2524,7 @@ export default function ControlOps() {
                     <textarea
                       value={poForm.notes}
                       onChange={(e) => setPoForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -2539,7 +2532,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {poEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -2632,7 +2625,7 @@ export default function ControlOps() {
                     <input
                       value={invItemForm.name}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, name: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     />
                   </div>
@@ -2641,7 +2634,7 @@ export default function ControlOps() {
                     <input
                       value={invItemForm.sku}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, sku: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2650,7 +2643,7 @@ export default function ControlOps() {
                     <input
                       value={invItemForm.unit}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, unit: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     />
                   </div>
                   <div>
@@ -2658,7 +2651,7 @@ export default function ControlOps() {
                     <input
                       value={invItemForm.currentQty}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, currentQty: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2667,7 +2660,7 @@ export default function ControlOps() {
                     <input
                       value={invItemForm.reorderLevel}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, reorderLevel: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2676,7 +2669,7 @@ export default function ControlOps() {
                     <textarea
                       value={invItemForm.notes}
                       onChange={(e) => setInvItemForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -2684,7 +2677,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {invEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -2761,7 +2754,7 @@ export default function ControlOps() {
                     <select
                       value={txForm.itemId}
                       onChange={(e) => setTxForm((s) => ({ ...s, itemId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     >
                       {inventoryItemOptions.map((it) => (
@@ -2776,7 +2769,7 @@ export default function ControlOps() {
                     <select
                       value={txForm.projectId}
                       onChange={(e) => setTxForm((s) => ({ ...s, projectId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {projectOptions.map((p) => (
                         <option key={p.id} value={String(p.id)}>
@@ -2790,7 +2783,7 @@ export default function ControlOps() {
                     <select
                       value={txForm.kind}
                       onChange={(e) => setTxForm((s) => ({ ...s, kind: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="in">إدخال</option>
                       <option value="out">إخراج</option>
@@ -2802,7 +2795,7 @@ export default function ControlOps() {
                     <input
                       value={txForm.quantity}
                       onChange={(e) => setTxForm((s) => ({ ...s, quantity: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                       required
                     />
@@ -2812,7 +2805,7 @@ export default function ControlOps() {
                     <input
                       value={txForm.unitCost}
                       onChange={(e) => setTxForm((s) => ({ ...s, unitCost: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2822,7 +2815,7 @@ export default function ControlOps() {
                       type="date"
                       value={txForm.date}
                       onChange={(e) => setTxForm((s) => ({ ...s, date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2831,7 +2824,7 @@ export default function ControlOps() {
                     <input
                       value={txForm.reference}
                       onChange={(e) => setTxForm((s) => ({ ...s, reference: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -2840,7 +2833,7 @@ export default function ControlOps() {
                     <textarea
                       value={txForm.notes}
                       onChange={(e) => setTxForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -2848,7 +2841,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       إضافة
                     </button>
@@ -2895,7 +2888,7 @@ export default function ControlOps() {
               onClick={() => setResTab("workers")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 resTab === "workers"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2906,7 +2899,7 @@ export default function ControlOps() {
               onClick={() => setResTab("attendance")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 resTab === "attendance"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2917,7 +2910,7 @@ export default function ControlOps() {
               onClick={() => setResTab("timeclock")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 resTab === "timeclock"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2929,7 +2922,7 @@ export default function ControlOps() {
                 onClick={() => setResTab("payroll")}
                 className={`px-4 py-2 rounded-lg font-semibold border transition ${
                   resTab === "payroll"
-                    ? "bg-[#007A3D] text-white border-[#007A3D]"
+                    ? "bg-sq-green text-white border-sq-green"
                     : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
                 }`}
               >
@@ -2941,7 +2934,7 @@ export default function ControlOps() {
               onClick={() => setResTab("equipment")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 resTab === "equipment"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2952,7 +2945,7 @@ export default function ControlOps() {
               onClick={() => setResTab("assignments")}
               className={`px-4 py-2 rounded-lg font-semibold border transition ${
                 resTab === "assignments"
-                  ? "bg-[#007A3D] text-white border-[#007A3D]"
+                  ? "bg-sq-green text-white border-sq-green"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -2971,7 +2964,7 @@ export default function ControlOps() {
                       <select
                         value={workerForm.kind}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, kind: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       >
                         <option value="worker">عامل</option>
                         <option value="employee">موظف</option>
@@ -2994,7 +2987,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.name}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, name: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         required
                       />
                     </div>
@@ -3003,7 +2996,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.role}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, role: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       />
                     </div>
                     <div>
@@ -3011,7 +3004,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.phone}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, phone: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -3020,7 +3013,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.timeClockId}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, timeClockId: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -3031,7 +3024,7 @@ export default function ControlOps() {
                         <select
                           value={workerForm.userId}
                           onChange={(e) => setWorkerForm((s) => ({ ...s, userId: e.target.value }))}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         >
                           <option value="0">—</option>
                           {adminUsers
@@ -3050,7 +3043,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.dailyCost}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, dailyCost: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -3059,7 +3052,7 @@ export default function ControlOps() {
                       <input
                         value={workerForm.monthlySalary}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, monthlySalary: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                       />
                     </div>
@@ -3068,7 +3061,7 @@ export default function ControlOps() {
                       <textarea
                         value={workerForm.notes}
                         onChange={(e) => setWorkerForm((s) => ({ ...s, notes: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         rows={3}
                       />
                     </div>
@@ -3076,7 +3069,7 @@ export default function ControlOps() {
                       <button
                         type="submit"
                         disabled={loading}
-                        className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                        className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                       >
                         {workerEditingId ? "حفظ" : "إضافة"}
                       </button>
@@ -3191,7 +3184,7 @@ export default function ControlOps() {
                     <select
                       value={attendanceFilter.workerId}
                       onChange={(e) => setAttendanceFilter((s) => ({ ...s, workerId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       disabled={role === "employee" && Boolean(me?.workerId)}
                     >
                       {workerOptions.map((w) => (
@@ -3206,7 +3199,7 @@ export default function ControlOps() {
                     <input
                       value={attendanceFilter.year}
                       onChange={(e) => setAttendanceFilter((s) => ({ ...s, year: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3215,7 +3208,7 @@ export default function ControlOps() {
                     <input
                       value={attendanceFilter.month}
                       onChange={(e) => setAttendanceFilter((s) => ({ ...s, month: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3230,7 +3223,7 @@ export default function ControlOps() {
                     <select
                       value={attendanceForm.workerId}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, workerId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                       disabled={role === "employee" && Boolean(me?.workerId)}
                     >
@@ -3246,7 +3239,7 @@ export default function ControlOps() {
                     <select
                       value={attendanceForm.projectId}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, projectId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {projectOptions.map((p) => (
                         <option key={p.id} value={String(p.id)}>
@@ -3261,7 +3254,7 @@ export default function ControlOps() {
                       type="date"
                       value={attendanceForm.date}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                       required
                     />
@@ -3271,7 +3264,7 @@ export default function ControlOps() {
                     <select
                       value={attendanceForm.status}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, status: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="present">حاضر</option>
                       <option value="absent">غائب</option>
@@ -3284,7 +3277,7 @@ export default function ControlOps() {
                     <input
                       value={attendanceForm.hours}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, hours: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3293,7 +3286,7 @@ export default function ControlOps() {
                     <textarea
                       value={attendanceForm.notes}
                       onChange={(e) => setAttendanceForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -3301,7 +3294,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {attendanceEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -3398,7 +3391,7 @@ export default function ControlOps() {
                     <input
                       value={clockLinkQuery}
                       onChange={(e) => setClockLinkQuery(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       placeholder="بحث بالاسم أو رقم ساعة الدوام"
                     />
                   </div>
@@ -3439,7 +3432,7 @@ export default function ControlOps() {
                         <input
                           value={clockLinkEdits[w.id] ?? w.timeClockId ?? ""}
                           onChange={(e) => setClockLinkEdits((s) => ({ ...s, [w.id]: e.target.value }))}
-                          className="w-[220px] px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                          className="w-[220px] px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                           placeholder="TimeClock ID"
                         />
                         <button
@@ -3476,7 +3469,7 @@ export default function ControlOps() {
                     <select
                       value={timeclockDefaultProjectId}
                       onChange={(e) => setTimeclockDefaultProjectId(e.target.value)}
-                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {projectOptions.map((p) => (
                         <option key={p.id} value={String(p.id)}>
@@ -3487,7 +3480,7 @@ export default function ControlOps() {
                     <input
                       value={timeclockFolderLimitFiles}
                       onChange={(e) => setTimeclockFolderLimitFiles(e.target.value)}
-                      className="w-[140px] px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-[140px] px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                       placeholder="limitFiles"
                     />
@@ -3527,7 +3520,7 @@ export default function ControlOps() {
                       type="button"
                       onClick={() => importTimeclock()}
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       استيراد
                     </button>
@@ -3570,7 +3563,7 @@ export default function ControlOps() {
                   <textarea
                     value={timeclockImportText}
                     onChange={(e) => setTimeclockImportText(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     rows={10}
                     dir="ltr"
                     placeholder='JSON: [{ "timeClockId": "123", "date": "2026-01-30", "checkIn": "08:00", "checkOut": "16:00" }]'
@@ -3702,7 +3695,7 @@ export default function ControlOps() {
                     <select
                       value={payrollFilter.workerId}
                       onChange={(e) => setPayrollFilter((s) => ({ ...s, workerId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {workerOptions.map((w) => (
                         <option key={w.id} value={String(w.id)}>
@@ -3716,7 +3709,7 @@ export default function ControlOps() {
                     <input
                       value={payrollFilter.year}
                       onChange={(e) => setPayrollFilter((s) => ({ ...s, year: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3725,7 +3718,7 @@ export default function ControlOps() {
                     <input
                       value={payrollFilter.month}
                       onChange={(e) => setPayrollFilter((s) => ({ ...s, month: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3752,7 +3745,7 @@ export default function ControlOps() {
                       type="button"
                       onClick={() => generatePayrollFromAttendance()}
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       توليد
                     </button>
@@ -3812,7 +3805,7 @@ export default function ControlOps() {
                     <select
                       value={payrollForm.workerId}
                       onChange={(e) => setPayrollForm((s) => ({ ...s, workerId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     >
                       {workerOptions.map((w) => (
@@ -3828,7 +3821,7 @@ export default function ControlOps() {
                       <input
                         value={payrollForm.year}
                         onChange={(e) => setPayrollForm((s) => ({ ...s, year: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                         required
                       />
@@ -3838,7 +3831,7 @@ export default function ControlOps() {
                       <input
                         value={payrollForm.month}
                         onChange={(e) => setPayrollForm((s) => ({ ...s, month: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                         dir="ltr"
                         required
                       />
@@ -3849,7 +3842,7 @@ export default function ControlOps() {
                     <select
                       value={payrollForm.kind}
                       onChange={(e) => setPayrollForm((s) => ({ ...s, kind: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="salary">راتب</option>
                       <option value="advance">سلفة</option>
@@ -3862,7 +3855,7 @@ export default function ControlOps() {
                     <input
                       value={payrollForm.amount}
                       onChange={(e) => setPayrollForm((s) => ({ ...s, amount: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                       required
                     />
@@ -3873,7 +3866,7 @@ export default function ControlOps() {
                       type="date"
                       value={payrollForm.date}
                       onChange={(e) => setPayrollForm((s) => ({ ...s, date: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3882,7 +3875,7 @@ export default function ControlOps() {
                     <textarea
                       value={payrollForm.notes}
                       onChange={(e) => setPayrollForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -3890,7 +3883,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {payrollEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -3979,7 +3972,7 @@ export default function ControlOps() {
                     <input
                       value={equipmentForm.name}
                       onChange={(e) => setEquipmentForm((s) => ({ ...s, name: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     />
                   </div>
@@ -3988,7 +3981,7 @@ export default function ControlOps() {
                     <input
                       value={equipmentForm.code}
                       onChange={(e) => setEquipmentForm((s) => ({ ...s, code: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -3997,7 +3990,7 @@ export default function ControlOps() {
                     <select
                       value={equipmentForm.status}
                       onChange={(e) => setEquipmentForm((s) => ({ ...s, status: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="available">متاح</option>
                       <option value="on_site">على الموقع</option>
@@ -4009,7 +4002,7 @@ export default function ControlOps() {
                     <input
                       value={equipmentForm.hourlyCost}
                       onChange={(e) => setEquipmentForm((s) => ({ ...s, hourlyCost: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -4018,7 +4011,7 @@ export default function ControlOps() {
                     <textarea
                       value={equipmentForm.notes}
                       onChange={(e) => setEquipmentForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -4026,7 +4019,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading || !canOpsWrite}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {equipmentEditingId ? "حفظ" : "إضافة"}
                     </button>
@@ -4106,7 +4099,7 @@ export default function ControlOps() {
                     <select
                       value={assignmentForm.projectId}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, projectId: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       {projectOptions.map((p) => (
                         <option key={p.id} value={String(p.id)}>
@@ -4120,7 +4113,7 @@ export default function ControlOps() {
                     <select
                       value={assignmentForm.resourceType}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, resourceType: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     >
                       <option value="worker">عامل</option>
                       <option value="equipment">معدة</option>
@@ -4132,7 +4125,7 @@ export default function ControlOps() {
                       <select
                         value={assignmentForm.workerId}
                         onChange={(e) => setAssignmentForm((s) => ({ ...s, workerId: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       >
                         {workerOptions.map((w) => (
                           <option key={w.id} value={String(w.id)}>
@@ -4147,7 +4140,7 @@ export default function ControlOps() {
                       <select
                         value={assignmentForm.equipmentId}
                         onChange={(e) => setAssignmentForm((s) => ({ ...s, equipmentId: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       >
                         {equipmentOptions.map((w) => (
                           <option key={w.id} value={String(w.id)}>
@@ -4163,7 +4156,7 @@ export default function ControlOps() {
                       type="date"
                       value={assignmentForm.startDate}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, startDate: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -4173,7 +4166,7 @@ export default function ControlOps() {
                       type="date"
                       value={assignmentForm.endDate}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, endDate: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -4182,7 +4175,7 @@ export default function ControlOps() {
                     <input
                       value={assignmentForm.hoursPerDay}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, hoursPerDay: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -4191,7 +4184,7 @@ export default function ControlOps() {
                     <input
                       value={assignmentForm.costOverride}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, costOverride: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       dir="ltr"
                     />
                   </div>
@@ -4200,7 +4193,7 @@ export default function ControlOps() {
                     <textarea
                       value={assignmentForm.notes}
                       onChange={(e) => setAssignmentForm((s) => ({ ...s, notes: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
                       rows={3}
                     />
                   </div>
@@ -4208,7 +4201,7 @@ export default function ControlOps() {
                     <button
                       type="submit"
                       disabled={loading || !canOpsWrite}
-                      className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                      className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                     >
                       {assignmentEditingId ? "حفظ" : "إضافة"}
                     </button>

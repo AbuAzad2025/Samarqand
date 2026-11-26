@@ -31,7 +31,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
 
   return (
     <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-      <h3 className="text-2xl font-bold text-gray-800 p-6 text-center bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white">
+      <h3 className="text-2xl font-bold text-gray-800 p-6 text-center bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white">
         {title}
       </h3>
       
@@ -68,7 +68,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
           style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
         >
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center">
-            <MoveHorizontal className="text-[#007A3D]" size={24} />
+            <MoveHorizontal className="text-sq-green" size={24} />
           </div>
         </div>
 

@@ -19,7 +19,7 @@ python manage.py runserver
 - لوحة التحكم (Control SPA): http://127.0.0.1:8000/control/dashboard
 - إدارة Django: http://127.0.0.1:8000/django-admin/
 
-أو ببساطة: `.\run_local.ps1`
+`.\run_local.ps1` يبدأ الخادم فقط على قاعدة بيانات مُعدّة مسبقاً؛ لا ينفّذ البذر.
 
 > قاعدة البيانات `db.sqlite3` **محلية وغير متتبعة في Git**. يتم توليدها من الـ migrations + بيانات البذر. لا تحتوي على حسابات حقيقية أو جلسات.
 
@@ -71,10 +71,12 @@ frontend/samarqand/   مصدر واجهة React/Vite
 الواجهة المبنية موجودة مسبقاً في `website/static/website/samarqand_spa/`. إذا عدّلت المصدر:
 
 ```powershell
-python manage.py sync_samarqand_spa
+cd frontend/samarqand
+npm install
+npm run build
 ```
 
-هذا ينفّذ `npm install` ثم `vite build` وينسخ الناتج إلى مجلد الثابتات.
+يكتب Vite الناتج مباشرة في `website/static/website/samarqand_spa/` (لا حاجة لأمر Django منفصل).
 
 ## ملاحظات أمنية
 
@@ -85,7 +87,7 @@ python manage.py sync_samarqand_spa
 
 ## النشر
 
-هذا التطبيق يحتاج خادم Django ( راجع قسم Production deployment في الوثائق الأصلية أو استخدم `Dockerfile` + `docker-compose.yml`). **النشر الثابت على Vercel غير مدعوم**: الواجهة تعتمد على `/api/*` و`/media/*` التي يقدّمها Django، وأي إعادة توجيه شاملة إلى `index.html` ستبتلع طلبات API وتُفرغ الصفحات. لذلك أُزيل `vercel.json`.
+هذا التطبيق يحتاج خادم Django؛ راجع `Dockerfile` و`docker-compose.yml` لإعداد الإنتاج. **النشر الثابت على Vercel غير مدعوم**: الواجهة تعتمد على `/api/*` و`/media/*` التي يقدّمها Django.
 
 إذا احتجت نشراً تحت مسار فرعي (sub-path)، تأكد من ضبط `STATIC_URL` و`CSRF_TRUSTED_ORIGINS` و`VITE_API_BASE_URL` وفقاً للبادئة; قالب SPA يُعيد كتابة مسارات الأصول تلقائياً عبر `STATIC_URL`.
 

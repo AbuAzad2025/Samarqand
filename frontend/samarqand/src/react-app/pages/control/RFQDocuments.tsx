@@ -83,7 +83,7 @@ export default function ControlRFQDocuments() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="بحث: عنوان، رقم، قالب، عملة..."
-            className="w-[320px] max-w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+            className="w-[320px] max-w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
           />
           <button
             type="button"
@@ -143,7 +143,7 @@ export default function ControlRFQDocuments() {
                             type="button"
                             disabled={Boolean(creatingKey)}
                             onClick={() => createFromTemplate(t.key)}
-                            className="flex-1 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                            className="flex-1 bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
                           >
                             {busy ? "جارٍ الإنشاء..." : "استخدم القالب"}
                           </button>

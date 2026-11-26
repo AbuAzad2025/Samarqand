@@ -126,7 +126,7 @@ export default function AIChatbot() {
           onClick={() => setIsOpen(true)}
           aria-label="فتح المساعد الذكي"
           title="المساعد الذكي"
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-sq-green via-sq-black to-sq-red rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
         >
           <Bot className="text-white" size={28} />
           {hasNewMessage && (
@@ -146,8 +146,7 @@ export default function AIChatbot() {
           } flex flex-col`}
           dir="rtl"
         >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] p-4 rounded-t-2xl flex items-center justify-between">
+          <div className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red p-4 rounded-t-2xl flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <Bot className="text-white" size={20} />
@@ -188,7 +187,7 @@ export default function AIChatbot() {
                       className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         msg.role === 'user'
                           ? 'bg-gray-200'
-                          : 'bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126]'
+                          : 'bg-gradient-to-r from-sq-green via-sq-black to-sq-red'
                       }`}
                     >
                       {msg.role === 'user' ? (
@@ -200,7 +199,7 @@ export default function AIChatbot() {
                     <div
                       className={`rounded-2xl p-3 max-w-[75%] ${
                         msg.role === 'user'
-                          ? 'bg-[#007A3D] text-white'
+                          ? 'bg-sq-green text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
@@ -210,7 +209,7 @@ export default function AIChatbot() {
                 ))}
                 {isLoading && (
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red flex items-center justify-center">
                       <Bot className="text-white" size={16} />
                     </div>
                     <div className="bg-gray-100 rounded-2xl p-3">
@@ -243,7 +242,6 @@ export default function AIChatbot() {
                 </div>
               )}
 
-              {/* Input */}
               <form onSubmit={sendMessage} className="p-4 border-t">
                 <div className="flex gap-2">
                   <input
@@ -251,14 +249,14 @@ export default function AIChatbot() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="اكتب رسالتك هنا..."
-                    className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-sq-green"
                     disabled={isLoading}
                   />
                   <button
                     type="submit"
                     aria-label="إرسال الرسالة"
                     disabled={isLoading || !input.trim()}
-                    className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
+                    className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
                   >
                     <Send size={20} />
                   </button>

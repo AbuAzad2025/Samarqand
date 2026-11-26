@@ -284,10 +284,20 @@ class PaymentApplication(models.Model):
             raise ValidationError("المستخلص يجب أن يكون معتمداً أو مدفوعاً.")
         if self.net_amount <= 0:
             raise ValidationError("صافي المستخلص يجب أن يكون أكبر من صفر.")
-        ar_account = Account.objects.filter(code="1105").first()
-        revenue_account = Account.objects.filter(code="4101").first()
-        retention_account = Account.objects.filter(code="2106").first()
-        tax_account = Account.objects.filter(code="2105").first()
+        from website.constants import ACCOUNT_CODES
+
+        ar_account = Account.objects.filter(
+            code=ACCOUNT_CODES["receivable"]
+        ).first()
+        revenue_account = Account.objects.filter(
+            code=ACCOUNT_CODES["contract_revenue"]
+        ).first()
+        retention_account = Account.objects.filter(
+            code=ACCOUNT_CODES["retention"]
+        ).first()
+        tax_account = Account.objects.filter(
+            code=ACCOUNT_CODES["withholding_tax"]
+        ).first()
         if not ar_account or not revenue_account:
             raise ValidationError(
                 "حسابات الذمم المدينة أو الإيرادات غير موجودة."

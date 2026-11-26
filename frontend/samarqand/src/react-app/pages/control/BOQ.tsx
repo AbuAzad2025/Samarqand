@@ -37,25 +37,12 @@ import {
   type VariationOrder,
   type VariationOrderItem,
 } from "@/react-app/api/boq";
-
-function formatMoney(n: number): string {
-  try {
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-  } catch {
-    return String(n);
-  }
-}
-
-function todayInputValue(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
+import { formatMoney, todayInputValue, baseHumanizeErrorCode } from "@/react-app/utils/common";
 
 function humanizeErrorCode(code: string): string {
+  const shared = baseHumanizeErrorCode(code);
+  if (shared) return shared;
   const c = String(code || "").trim();
-  if (!c) return "تعذر تنفيذ العملية.";
-  if (c === "forbidden") return "ليس لديك صلاحية.";
-  if (c === "not_found") return "العنصر غير موجود.";
   if (c === "project_not_found") return "المشروع غير موجود.";
   if (c === "missing_description_or_unit") return "الوصف والوحدة مطلوبان.";
   if (c === "invalid_quantity_or_price") return "الكمية والسعر غير صحيحين.";
@@ -425,7 +412,7 @@ export default function ControlBOQ() {
       draft: "bg-white/10 text-white/80",
       submitted: "bg-blue-500/20 text-blue-300",
       approved: "bg-emerald-500/20 text-emerald-300",
-      paid: "bg-[#007A3D]/30 text-emerald-200",
+      paid: "bg-sq-green/30 text-emerald-200",
       rejected: "bg-red-500/20 text-red-300",
       implemented: "bg-purple-500/20 text-purple-300",
       agreed: "bg-emerald-500/20 text-emerald-300",
@@ -466,11 +453,11 @@ export default function ControlBOQ() {
           <select
             value={selectedProjectId || ""}
             onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white min-w-[220px] focus:outline-none focus:border-[#007A3D]/50"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white min-w-[220px] focus:outline-none focus:border-sq-green/50"
           >
-            <option value="" className="bg-[#0B0F19]">اختر مشروعاً</option>
+            <option value="" className="bg-sq-black">اختر مشروعاً</option>
             {projects.map((p) => (
-              <option key={p.id} value={p.id} className="bg-[#0B0F19]">
+              <option key={p.id} value={p.id} className="bg-sq-black">
                 {p.title}
               </option>
             ))}
@@ -514,7 +501,7 @@ export default function ControlBOQ() {
                 onClick={() => setTab(t.key)}
                 className={`px-4 py-2 rounded-xl border text-sm font-bold transition whitespace-nowrap ${
                   tab === t.key
-                    ? "bg-gradient-to-r from-[#007A3D]/25 via-white/5 to-[#CE1126]/25 border-white/20 text-white"
+                    ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                 }`}
               >
@@ -535,7 +522,7 @@ export default function ControlBOQ() {
                     setBoqForm({});
                     setEditingBoqId(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                  className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
                 >
                   + بند جديد
                 </button>
@@ -548,21 +535,21 @@ export default function ControlBOQ() {
                     placeholder="رقم البند"
                     value={boqForm.itemCode || ""}
                     onChange={(e) => setBoqForm({ ...boqForm, itemCode: e.target.value })}
-                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                   <input
                     type="text"
                     placeholder="وصف البند"
                     value={boqForm.description || ""}
                     onChange={(e) => setBoqForm({ ...boqForm, description: e.target.value })}
-                    className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                   <input
                     type="text"
                     placeholder="الوحدة"
                     value={boqForm.unit || ""}
                     onChange={(e) => setBoqForm({ ...boqForm, unit: e.target.value })}
-                    className="md:col-span-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                   <input
                     type="number"
@@ -570,7 +557,7 @@ export default function ControlBOQ() {
                     placeholder="الكمية"
                     value={boqForm.quantity ?? ""}
                     onChange={(e) => setBoqForm({ ...boqForm, quantity: Number(e.target.value) })}
-                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                   <input
                     type="number"
@@ -578,21 +565,21 @@ export default function ControlBOQ() {
                     placeholder="سعر الوحدة"
                     value={boqForm.unitPrice ?? ""}
                     onChange={(e) => setBoqForm({ ...boqForm, unitPrice: Number(e.target.value) })}
-                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                   <input
                     type="number"
                     placeholder="الترتيب"
                     value={boqForm.sortOrder ?? ""}
                     onChange={(e) => setBoqForm({ ...boqForm, sortOrder: Number(e.target.value) })}
-                    className="md:col-span-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                    className="md:col-span-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSaveBoqItem}
-                    className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                    className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
                   >
                     {editingBoqId ? "تحديث" : "حفظ"}
                   </button>
@@ -684,7 +671,7 @@ export default function ControlBOQ() {
                     setEditingPaymentId(null);
                     setPaymentModal("create");
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                  className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
                 >
                   + مستخلص جديد
                 </button>
@@ -764,7 +751,7 @@ export default function ControlBOQ() {
                                 <button
                                   type="button"
                                   onClick={() => handlePaymentAction("pay", p.id)}
-                                  className="px-2 py-1 rounded-lg bg-[#007A3D]/20 border border-[#007A3D]/30 text-xs text-emerald-300 hover:bg-[#007A3D]/30"
+                                  className="px-2 py-1 rounded-lg bg-sq-green/20 border border-sq-green/30 text-xs text-emerald-300 hover:bg-sq-green/30"
                                 >
                                   دفع
                                 </button>
@@ -815,7 +802,7 @@ export default function ControlBOQ() {
                     setEditingVariationId(null);
                     setVariationModal("create");
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                  className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
                 >
                   + أمر تغييري جديد
                 </button>
@@ -943,7 +930,7 @@ export default function ControlBOQ() {
                     step="0.01"
                     value={finalForm.contractAmount ?? 0}
                     onChange={(e) => setFinalForm({ ...finalForm, contractAmount: Number(e.target.value) })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
                 <div>
@@ -953,7 +940,7 @@ export default function ControlBOQ() {
                     step="0.01"
                     value={finalForm.totalVariations ?? 0}
                     onChange={(e) => setFinalForm({ ...finalForm, totalVariations: Number(e.target.value) })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
                 <div>
@@ -965,7 +952,7 @@ export default function ControlBOQ() {
                     onChange={(e) =>
                       setFinalForm({ ...finalForm, totalRetentionReleased: Number(e.target.value) })
                     }
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
                 <div>
@@ -977,7 +964,7 @@ export default function ControlBOQ() {
                     onChange={(e) =>
                       setFinalForm({ ...finalForm, totalWithholdingTax: Number(e.target.value) })
                     }
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
                 <div>
@@ -987,12 +974,12 @@ export default function ControlBOQ() {
                     onChange={(e) =>
                       setFinalForm({ ...finalForm, status: e.target.value as FinalAccount["status"] })
                     }
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   >
-                    <option value="draft" className="bg-[#0B0F19]">مسودة</option>
-                    <option value="submitted" className="bg-[#0B0F19]">مرسل</option>
-                    <option value="agreed" className="bg-[#0B0F19]">متفق عليه</option>
-                    <option value="closed" className="bg-[#0B0F19]">مغلق</option>
+                    <option value="draft" className="bg-sq-black">مسودة</option>
+                    <option value="submitted" className="bg-sq-black">مرسل</option>
+                    <option value="agreed" className="bg-sq-black">متفق عليه</option>
+                    <option value="closed" className="bg-sq-black">مغلق</option>
                   </select>
                 </div>
                 <div>
@@ -1007,14 +994,14 @@ export default function ControlBOQ() {
                     value={finalForm.notes || ""}
                     onChange={(e) => setFinalForm({ ...finalForm, notes: e.target.value })}
                     rows={3}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
                   />
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleSaveFinalAccount}
-                className="px-6 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                className="px-6 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
               >
                 حفظ الحساب الختامي
               </button>
@@ -1025,7 +1012,7 @@ export default function ControlBOQ() {
 
       {paymentModal === "create" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-extrabold text-white">
                 {editingPaymentId ? "تعديل مستخلص" : "مستخلص جديد"}
@@ -1044,25 +1031,25 @@ export default function ControlBOQ() {
                 placeholder="رقم المستخلص"
                 value={paymentForm.applicationNumber || ""}
                 onChange={(e) => setPaymentForm({ ...paymentForm, applicationNumber: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="date"
                 value={paymentForm.applicationDate || ""}
                 onChange={(e) => setPaymentForm({ ...paymentForm, applicationDate: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="date"
                 value={paymentForm.periodFrom || ""}
                 onChange={(e) => setPaymentForm({ ...paymentForm, periodFrom: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="date"
                 value={paymentForm.periodTo || ""}
                 onChange={(e) => setPaymentForm({ ...paymentForm, periodTo: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1072,7 +1059,7 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentForm({ ...paymentForm, previousApplicationsTotal: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1080,7 +1067,7 @@ export default function ControlBOQ() {
                 placeholder="% حبس ضمان"
                 value={paymentForm.retentionPercent ?? ""}
                 onChange={(e) => setPaymentForm({ ...paymentForm, retentionPercent: Number(e.target.value) })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1090,7 +1077,7 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentForm({ ...paymentForm, withholdingTaxPercent: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1100,14 +1087,14 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentForm({ ...paymentForm, previousDeductions: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
             </div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleSavePayment}
-                className="px-6 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                className="px-6 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
               >
                 حفظ
               </button>
@@ -1125,7 +1112,7 @@ export default function ControlBOQ() {
 
       {paymentModal === "items" && activePayment && paymentDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-extrabold text-white">
                 بنود المستخلص: {activePayment.applicationNumber}
@@ -1143,11 +1130,11 @@ export default function ControlBOQ() {
               <select
                 value={paymentItemForm.boqItemId || ""}
                 onChange={(e) => setPaymentItemForm({ ...paymentItemForm, boqItemId: Number(e.target.value) })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
               >
-                <option value="" className="bg-[#0B0F19]">اختر بند كميات</option>
+                <option value="" className="bg-sq-black">اختر بند كميات</option>
                 {boqItems.map((it) => (
-                  <option key={it.id} value={it.id} className="bg-[#0B0F19]">
+                  <option key={it.id} value={it.id} className="bg-sq-black">
                     {it.itemCode || it.id} — {it.description}
                   </option>
                 ))}
@@ -1160,7 +1147,7 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentItemForm({ ...paymentItemForm, currentQuantity: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1170,7 +1157,7 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentItemForm({ ...paymentItemForm, previouslyDoneQuantity: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1180,14 +1167,14 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setPaymentItemForm({ ...paymentItemForm, previouslyCertified: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <div className="md:col-span-3 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleSavePaymentItem}
                   disabled={activePayment.status === "paid"}
-                  className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold disabled:opacity-40"
+                  className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold disabled:opacity-40"
                 >
                   {editingPaymentItemId ? "تحديث بند" : "إضافة بند"}
                 </button>
@@ -1273,7 +1260,7 @@ export default function ControlBOQ() {
 
       {variationModal === "create" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-xl shadow-2xl">
+          <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-xl shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-extrabold text-white">
                 {editingVariationId ? "تعديل أمر تغييري" : "أمر تغييري جديد"}
@@ -1292,32 +1279,32 @@ export default function ControlBOQ() {
                 placeholder="رقم أمر التغيير"
                 value={variationForm.variationNumber || ""}
                 onChange={(e) => setVariationForm({ ...variationForm, variationNumber: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="text"
                 placeholder="العنوان"
                 value={variationForm.title || ""}
                 onChange={(e) => setVariationForm({ ...variationForm, title: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <select
                 value={variationForm.reason || "other"}
                 onChange={(e) => setVariationForm({ ...variationForm, reason: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
               >
-                <option value="client_request" className="bg-[#0B0F19]">طلب العميل</option>
-                <option value="design_change" className="bg-[#0B0F19]">تغيير تصميم</option>
-                <option value="site_condition" className="bg-[#0B0F19]">ظروف الموقع</option>
-                <option value="error" className="bg-[#0B0F19]">خطأ</option>
-                <option value="other" className="bg-[#0B0F19]">أخرى</option>
+                <option value="client_request" className="bg-sq-black">طلب العميل</option>
+                <option value="design_change" className="bg-sq-black">تغيير تصميم</option>
+                <option value="site_condition" className="bg-sq-black">ظروف الموقع</option>
+                <option value="error" className="bg-sq-black">خطأ</option>
+                <option value="other" className="bg-sq-black">أخرى</option>
               </select>
               <textarea
                 placeholder="الوصف"
                 value={variationForm.description || ""}
                 onChange={(e) => setVariationForm({ ...variationForm, description: e.target.value })}
                 rows={3}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
@@ -1326,7 +1313,7 @@ export default function ControlBOQ() {
                   placeholder="الأثر المالي"
                   value={variationForm.costImpact ?? ""}
                   onChange={(e) => setVariationForm({ ...variationForm, costImpact: Number(e.target.value) })}
-                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                 />
                 <input
                   type="number"
@@ -1335,7 +1322,7 @@ export default function ControlBOQ() {
                   onChange={(e) =>
                     setVariationForm({ ...variationForm, scheduleImpactDays: Number(e.target.value) })
                   }
-                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
                 />
               </div>
             </div>
@@ -1343,7 +1330,7 @@ export default function ControlBOQ() {
               <button
                 type="button"
                 onClick={handleSaveVariation}
-                className="px-6 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold"
+                className="px-6 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold"
               >
                 حفظ
               </button>
@@ -1361,7 +1348,7 @@ export default function ControlBOQ() {
 
       {variationModal === "items" && activeVariation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0B0F19] border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-extrabold text-white">بنود: {activeVariation.title}</h3>
               <button
@@ -1379,11 +1366,11 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setVariationItemForm({ ...variationItemForm, boqItemId: Number(e.target.value) || undefined })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50"
               >
-                <option value="" className="bg-[#0B0F19]">اختياري: بند كميات</option>
+                <option value="" className="bg-sq-black">اختياري: بند كميات</option>
                 {boqItems.map((it) => (
-                  <option key={it.id} value={it.id} className="bg-[#0B0F19]">
+                  <option key={it.id} value={it.id} className="bg-sq-black">
                     {it.itemCode || it.id} — {it.description}
                   </option>
                 ))}
@@ -1393,14 +1380,14 @@ export default function ControlBOQ() {
                 placeholder="الوصف"
                 value={variationItemForm.description || ""}
                 onChange={(e) => setVariationItemForm({ ...variationItemForm, description: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="text"
                 placeholder="الوحدة"
                 value={variationItemForm.unit || ""}
                 onChange={(e) => setVariationItemForm({ ...variationItemForm, unit: e.target.value })}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1410,7 +1397,7 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setVariationItemForm({ ...variationItemForm, quantityChange: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <input
                 type="number"
@@ -1420,14 +1407,14 @@ export default function ControlBOQ() {
                 onChange={(e) =>
                   setVariationItemForm({ ...variationItemForm, unitPrice: Number(e.target.value) })
                 }
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50"
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50"
               />
               <div className="md:col-span-4 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleSaveVariationItem}
                   disabled={activeVariation.status === "implemented"}
-                  className="px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold disabled:opacity-40"
+                  className="px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold disabled:opacity-40"
                 >
                   {editingVariationItemId ? "تحديث" : "إضافة"}
                 </button>

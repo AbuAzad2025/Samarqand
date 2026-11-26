@@ -64,7 +64,6 @@ export default function ParallaxHero() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,122,61,0.22),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(206,17,38,0.18),transparent_48%)]" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 h-full flex items-center justify-center text-center px-4" dir="rtl">
         <div className="max-w-4xl">
           {/* Logo */}
@@ -79,9 +78,8 @@ export default function ParallaxHero() {
             </div>
           </div>
 
-          {/* Text */}
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 animate-fade-in-up">
-            <span className="bg-gradient-to-r from-[#007A3D] via-white to-[#CE1126] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-sq-green via-white to-sq-red bg-clip-text text-transparent">
               {hero.title1}
             </span>
             <br />
@@ -96,7 +94,7 @@ export default function ParallaxHero() {
           <div className="flex flex-wrap gap-4 justify-center animate-fade-in-up animation-delay-400">
             <a
               href={hero.primaryUrl}
-              className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
+              className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
             >
               {hero.primaryLabel}
             </a>

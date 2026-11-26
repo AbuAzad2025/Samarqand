@@ -109,7 +109,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-20">
+      <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">تواصل معنا</h1>
           <p className="text-xl max-w-3xl mx-auto">نحن هنا لمساعدتك والإجابة على استفساراتك</p>
@@ -139,7 +139,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 
                 <div className="space-y-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center flex-shrink-0">
                       <Phone className="text-white" size={20} />
                     </div>
                     <div>
@@ -147,7 +147,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                       {primaryPhone ? (
                         <a
                           href={`tel:${primaryPhone}`}
-                          className="text-gray-600 hover:text-[#007A3D] transition"
+                          className="text-gray-600 hover:text-sq-green transition"
                           dir="ltr"
                         >
                           {primaryPhone}
@@ -159,7 +159,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                   </div>
 
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center flex-shrink-0">
                       <Mail className="text-white" size={20} />
                     </div>
                     <div>
@@ -167,7 +167,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                       {email ? (
                         <a
                           href={`mailto:${email}`}
-                          className="text-gray-600 hover:text-[#007A3D] transition"
+                          className="text-gray-600 hover:text-sq-green transition"
                         >
                           {email}
                         </a>
@@ -178,7 +178,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                   </div>
 
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center flex-shrink-0">
                       <MapPin className="text-white" size={20} />
                     </div>
                     <div>
@@ -188,7 +188,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                   </div>
                 </div>
 
-                <div className="mt-12 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-8 rounded-lg">
+                <div className="mt-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white p-8 rounded-lg">
                   <h3 className="text-2xl font-bold mb-4">ساعات العمل</h3>
                   <div className="space-y-2">
                     <p>السبت - الخميس: 8:00 صباحاً - 6:00 مساءً</p>
@@ -210,7 +210,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                     placeholder="اسمك الكامل"
                   />
                 </div>
@@ -223,7 +223,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     required
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                     placeholder="05xxxxxxxx"
                   />
                 </div>
@@ -235,7 +235,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                     placeholder="email@example.com"
                   />
                 </div>
@@ -247,7 +247,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     required
                     value={formData.projectType}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                   >
                     <option value="">اختر نوع المشروع</option>
                     {canUseRfq && <option value="طلب عرض سعر">طلب عرض سعر</option>}
@@ -267,7 +267,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     <select
                       value={rfqTemplate}
                       onChange={(e) => setRfqTemplate(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D]"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                       required
                     >
                       <option value="">اختر النموذج</option>
@@ -292,14 +292,14 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     value={formData.message}
                     onChange={handleChange}
                     rows={5}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#007A3D] resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green resize-none"
                     placeholder="أخبرنا عن مشروعك..."
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                 >
                   <Send size={20} />
                   <span>إرسال عبر واتساب</span>

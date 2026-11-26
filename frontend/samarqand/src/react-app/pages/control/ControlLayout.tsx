@@ -282,17 +282,17 @@ export default function ControlLayout() {
   const isLogin = pathname.startsWith("/control/login");
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white" dir="rtl">
+    <div className="min-h-screen bg-sq-black text-white" dir="rtl">
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[520px] h-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="absolute top-64 -left-52 w-[620px] h-[620px] rounded-full bg-red-500/20 blur-3xl" />
         <div className="absolute bottom-0 right-20 w-[520px] h-[520px] rounded-full bg-slate-500/20 blur-3xl" />
       </div>
 
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B0F19]/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-sq-black/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <Link to="/control/dashboard" className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126] flex items-center justify-center shadow-lg shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sq-green via-sq-black to-sq-red flex items-center justify-center shadow-lg shrink-0">
               <Activity size={18} />
             </div>
             <div className="min-w-0 hidden sm:block">
@@ -313,7 +313,7 @@ export default function ControlLayout() {
             {me?.authenticated ? (
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-2xl bg-white/5 border border-white/10">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#007A3D] to-[#CE1126] flex items-center justify-center text-sm font-extrabold shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sq-green to-sq-red flex items-center justify-center text-sm font-extrabold shrink-0">
                     {String(me.username || "U").slice(0, 1).toUpperCase()}
                   </div>
                   <div className="leading-tight">
@@ -334,7 +334,7 @@ export default function ControlLayout() {
                   type="button"
                   onClick={onLogout}
                   aria-label="تسجيل الخروج"
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-sm font-extrabold shadow-lg hover:shadow-xl transition"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-sm font-extrabold shadow-lg hover:shadow-xl transition"
                 >
                   <LogOut size={16} />
                   <span className="hidden sm:inline">خروج</span>
@@ -406,7 +406,7 @@ export default function ControlLayout() {
                       <div className="text-sm font-extrabold text-white">التنقل</div>
                       <div className="text-xs text-white/60 mt-1">حسب صلاحياتك</div>
                     </div>
-                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#007A3D]/40 via-white/5 to-[#CE1126]/40 flex items-center justify-center border border-white/10">
+                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-sq-green/40 via-white/5 to-sq-red/40 flex items-center justify-center border border-white/10">
                       <Activity size={16} />
                     </div>
                   </div>
@@ -429,7 +429,7 @@ export default function ControlLayout() {
                               onClick={() => setMobileMenuOpen(false)}
                               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
                                 active
-                                  ? "bg-gradient-to-r from-[#007A3D]/25 via-white/5 to-[#CE1126]/25 border-white/20 text-white shadow-sm"
+                                  ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
                                   : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
                               }`}
                             >
@@ -482,7 +482,7 @@ export default function ControlLayout() {
         )}
       </div>
 
-      <footer className="relative border-t border-white/10 bg-[#0B0F19]/70 backdrop-blur-xl mt-auto">
+      <footer className="relative border-t border-white/10 bg-sq-black/70 backdrop-blur-xl mt-auto">
         <div className="max-w-7xl mx-auto px-4 py-5 text-sm text-white/60 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Activity size={16} />

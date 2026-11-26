@@ -23,7 +23,7 @@ export default function WhatsAppButton() {
       href={waLink}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-8 left-8 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:bg-[#20BA5A] transition-all hover:scale-110 z-50"
+      className="fixed bottom-8 left-8 bg-sq-whatsapp text-white p-4 rounded-full shadow-lg hover:bg-sq-whatsapp-hover transition-all hover:scale-110 z-50"
       aria-label="Contact us on WhatsApp"
     >
       <MessageCircle size={28} />

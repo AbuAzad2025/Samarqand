@@ -10,6 +10,8 @@ from typing import Any
 from django.conf import settings
 from django.db import models
 
+from website.constants import ACCOUNT_CODES
+
 from .accounts import Account
 from .accounts import BankAccount
 from .accounts import JournalEntry
@@ -348,7 +350,9 @@ class ContractPayment(models.Model):
             bank_account = BankAccount.objects.filter(is_active=True).first()
         if not bank_account:
             raise ValueError("لا يوجد حساب بنكي نشط لإنشاء القيد.")
-        revenue_account = Account.objects.filter(code="4101").first()
+        revenue_account = Account.objects.filter(
+            code=ACCOUNT_CODES["contract_revenue"]
+        ).first()
         if not revenue_account:
             raise ValueError("حساب إيرادات العقود (4101) غير موجود.")
         entry = create_journal_entry_from_source(

@@ -45,11 +45,6 @@ RENDER_EXTERNAL_HOSTNAME = _env("RENDER_EXTERNAL_HOSTNAME", "")
 # Opt in explicitly; prefer a signed/CDN-backed media setup in production.
 SERVE_MEDIA = _env_bool("SERVE_MEDIA", "false")
 
-# To send email from the server, we recommend django_sendmail_backend
-# Or specify your own email backend such as an SMTP server.
-# https://docs.djangoproject.com/en/5.2/ref/settings/#email-backend
-# EMAIL_BACKEND = "django_sendmail_backend.backends.EmailBackend"
-
 # Default email address used to send messages from the website.
 DEFAULT_FROM_EMAIL = "Contracting Co <info@localhost>"
 

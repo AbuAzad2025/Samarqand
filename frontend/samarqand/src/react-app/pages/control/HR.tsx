@@ -32,11 +32,7 @@ import {
   type SocialSecurityItem,
   type WorkerItem,
 } from "@/react-app/api/hr";
-
-function todayInputValue(): string {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
-}
+import { todayInputValue, baseHumanizeErrorCode } from "@/react-app/utils/common";
 
 function currentYear(): number {
   return new Date().getFullYear();
@@ -47,10 +43,9 @@ function currentMonth(): number {
 }
 
 function humanizeErrorCode(code: string): string {
+  const shared = baseHumanizeErrorCode(code);
+  if (shared) return shared;
   const c = String(code || "").trim();
-  if (!c) return "تعذر تنفيذ العملية.";
-  if (c === "forbidden") return "ليس لديك صلاحية.";
-  if (c === "not_found") return "العنصر غير موجود.";
   if (c === "worker_not_found") return "الموظف غير موجود.";
   if (c === "missing_dates") return "التواريخ مطلوبة.";
   if (c === "invalid_date_range") return "نطاق التاريخ غير صحيح.";
@@ -173,9 +168,9 @@ export default function ControlHR() {
   function workerOptions() {
     return (
       <>
-        <option value="" className="bg-[#0B0F19]">كل الموظفين</option>
+        <option value="" className="bg-sq-black">كل الموظفين</option>
         {workers.map((w) => (
-          <option key={w.id} value={w.id} className="bg-[#0B0F19]">
+          <option key={w.id} value={w.id} className="bg-sq-black">
             {w.name}
           </option>
         ))}
@@ -213,7 +208,7 @@ export default function ControlHR() {
                 className="w-32"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m} className="bg-[#0B0F19]">
+                  <option key={m} value={m} className="bg-sq-black">
                     {m}
                   </option>
                 ))}
@@ -226,10 +221,10 @@ export default function ControlHR() {
               onChange={(e) => setFilterStatus(e.target.value as LeaveStatus | "")}
               className="w-36"
             >
-              <option value="" className="bg-[#0B0F19]">كل الحالات</option>
-              <option value="pending" className="bg-[#0B0F19]">معلقة</option>
-              <option value="approved" className="bg-[#0B0F19]">معتمدة</option>
-              <option value="rejected" className="bg-[#0B0F19]">مرفوضة</option>
+              <option value="" className="bg-sq-black">كل الحالات</option>
+              <option value="pending" className="bg-sq-black">معلقة</option>
+              <option value="approved" className="bg-sq-black">معتمدة</option>
+              <option value="rejected" className="bg-sq-black">مرفوضة</option>
             </Select>
           )}
           <button
@@ -262,7 +257,7 @@ export default function ControlHR() {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-xl border text-sm font-bold transition whitespace-nowrap ${
               tab === t.key
-                ? "bg-gradient-to-r from-[#007A3D]/25 via-white/5 to-[#CE1126]/25 border-white/20 text-white"
+                ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white"
                 : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
             }`}
           >
@@ -322,7 +317,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -331,7 +326,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -340,7 +335,7 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-[#007A3D]/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -349,7 +344,7 @@ function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
-      className={`px-4 py-2 rounded-xl bg-[#007A3D]/20 border border-[#007A3D]/30 text-emerald-200 hover:bg-[#007A3D]/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
+      className={`px-4 py-2 rounded-xl bg-sq-green/20 border border-sq-green/30 text-emerald-200 hover:bg-sq-green/30 transition font-bold disabled:opacity-50 ${props.className || ""}`}
     />
   );
 }
@@ -405,9 +400,9 @@ function WorkerSelect({
       onChange={(e) => onChange(Number(e.target.value) || null)}
       className={className}
     >
-      <option value="" className="bg-[#0B0F19]">اختر موظفاً</option>
+      <option value="" className="bg-sq-black">اختر موظفاً</option>
       {workers.map((w) => (
-        <option key={w.id} value={w.id} className="bg-[#0B0F19]">
+        <option key={w.id} value={w.id} className="bg-sq-black">
           {w.name}
         </option>
       ))}
@@ -515,7 +510,7 @@ function LeaveSection({
             onChange={(e) => setForm({ ...form, leaveType: e.target.value as LeaveType })}
           >
             {LEAVE_TYPES.map((lt) => (
-              <option key={lt.value} value={lt.value} className="bg-[#0B0F19]">
+              <option key={lt.value} value={lt.value} className="bg-sq-black">
                 {lt.label}
               </option>
             ))}
@@ -710,7 +705,7 @@ function ContractsSection({
             onChange={(e) => setForm({ ...form, contractType: e.target.value as ContractType })}
           >
             {CONTRACT_TYPES.map((ct) => (
-              <option key={ct.value} value={ct.value} className="bg-[#0B0F19]">
+              <option key={ct.value} value={ct.value} className="bg-sq-black">
                 {ct.label}
               </option>
             ))}
@@ -764,7 +759,7 @@ function ContractsSection({
               type="checkbox"
               checked={form.isActive ?? true}
               onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="w-4 h-4 accent-[#007A3D]"
+              className="w-4 h-4 accent-sq-green"
             />
             نشط
           </label>
@@ -1162,7 +1157,7 @@ function SocialSection({
             onChange={(e) => setForm({ ...form, month: Number(e.target.value) || currentMonth() })}
           >
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m} className="bg-[#0B0F19]">
+              <option key={m} value={m} className="bg-sq-black">
                 {m}
               </option>
             ))}
@@ -1198,7 +1193,7 @@ function SocialSection({
               type="checkbox"
               checked={form.paid ?? false}
               onChange={(e) => setForm({ ...form, paid: e.target.checked })}
-              className="w-4 h-4 accent-[#007A3D]"
+              className="w-4 h-4 accent-sq-green"
             />
             مسدد
           </label>

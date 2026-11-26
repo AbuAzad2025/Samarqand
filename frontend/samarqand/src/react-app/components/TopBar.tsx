@@ -14,37 +14,41 @@ export default function TopBar() {
     const list = [company?.phone1, company?.phone2].filter(
       (p): p is string => Boolean(p && String(p).trim()),
     );
-    return list.length ? list : ["00970 000 0000"];
+    return list;
   }, [company?.phone1, company?.phone2]);
 
   return (
     <div className="text-white">
-      <div className="h-1 bg-gradient-to-r from-[#CE1126] via-[#0B0F19] to-[#007A3D]" />
-      <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] py-3">
+      <div className="h-1 bg-gradient-to-r from-sq-red via-sq-black to-sq-green" />
+      <div className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red py-3">
       <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-sm">
         <div className="flex gap-6">
-          <div className="flex items-center gap-4">
-            <Phone size={16} />
-            <div className="flex items-center gap-3" dir="ltr">
-              {phones.slice(0, 2).map((p) => (
-                <a
-                  key={p}
-                  href={`tel:${p.replace(/\s+/g, "")}`}
-                  className="font-medium hover:text-gray-100 transition"
-                >
-                  {p}
-                </a>
-              ))}
+          {phones.length ? (
+            <div className="flex items-center gap-4">
+              <Phone size={16} />
+              <div className="flex items-center gap-3" dir="ltr">
+                {phones.slice(0, 2).map((p) => (
+                  <a
+                    key={p}
+                    href={`tel:${p.replace(/\s+/g, "")}`}
+                    className="font-medium hover:text-gray-100 transition"
+                  >
+                    {p}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span className="font-medium">{company?.address || "فلسطين"}</span>
-          </div>
+          ) : null}
+          {company?.address ? (
+            <div className="flex items-center gap-2">
+              <MapPin size={16} />
+              <span className="font-medium">{company.address}</span>
+            </div>
+          ) : null}
         </div>
-        <div className="text-sm font-medium">
-          {company?.topbarSlogan || "نحن نؤمن بجودة العمل والإلتزام بالمواعيد الإنشائية"}
-        </div>
+        {company?.topbarSlogan ? (
+          <div className="text-sm font-medium">{company.topbarSlogan}</div>
+        ) : null}
       </div>
     </div>
     </div>

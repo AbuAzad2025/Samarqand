@@ -34,7 +34,7 @@ export default function Projects() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-20">
+      <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">مشاريعنا</h1>
           <p className="text-xl max-w-3xl mx-auto">نفخر بإنجازاتنا ونلتزم بتقديم أفضل الخدمات</p>
@@ -71,16 +71,16 @@ export default function Projects() {
                     <div
                       className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${
                         [
-                          "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
-                          "from-[#CE1126] via-[#0B0F19] to-[#007A3D]",
-                          "from-[#0B0F19] via-[#007A3D] to-[#CE1126]",
+                          "from-sq-green via-sq-black to-sq-red",
+                          "from-sq-red via-sq-black to-sq-green",
+                          "from-sq-black via-sq-green to-sq-red",
                         ][index % 3]
                       }`}
                     >
                       <Building2 size={64} className="text-white/25" aria-hidden="true" />
                     </div>
                   )}
-                  <div className="absolute top-4 right-4 bg-[#007A3D] text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  <div className="absolute top-4 right-4 bg-sq-green text-white px-4 py-2 rounded-full text-sm font-semibold">
                     {project.category}
                   </div>
                 </div>
@@ -91,11 +91,11 @@ export default function Projects() {
                   
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
-                      <MapPin size={16} className="text-[#007A3D]" />
+                      <MapPin size={16} className="text-sq-green" />
                       <span>{project.location}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-[#007A3D]" />
+                      <Calendar size={16} className="text-sq-green" />
                       <span>{project.year}</span>
                     </div>
                   </div>
@@ -116,7 +116,7 @@ export default function Projects() {
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+              className="inline-block bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
             >
               تواصل معنا
             </a>

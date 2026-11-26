@@ -122,7 +122,6 @@ export default function ArchitecturalVisualizer() {
   return (
     <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
       <div className="container mx-auto px-4" dir="rtl">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-6">
             <Image className="text-white" size={48} />
@@ -317,7 +316,7 @@ export default function ArchitecturalVisualizer() {
                     </button>
                     <button
                       onClick={shareImage}
-                      className="flex-1 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                      className="flex-1 bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
                       <Share2 size={20} />
                       مشاركة
@@ -339,7 +338,7 @@ export default function ArchitecturalVisualizer() {
                       href={contactLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"
+                      className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"
                     >
                       احجز استشارة مجانية
                     </a>

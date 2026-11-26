@@ -81,7 +81,7 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
                     className="w-full h-52 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-52 bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
+                  <div className="w-full h-52 bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
                 )}
                 <div className="p-6">
                   <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
@@ -94,7 +94,7 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
                   ) : null}
                   <Link
                     to={`${label.path}/${item.slug}`}
-                    className="inline-flex items-center gap-2 text-[#007A3D] font-bold hover:underline"
+                    className="inline-flex items-center gap-2 text-sq-green font-bold hover:underline"
                   >
                     عرض التفاصيل <ArrowLeft size={16} />
                   </Link>

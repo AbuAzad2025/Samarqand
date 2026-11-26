@@ -21,6 +21,8 @@ from django.db import models
 from django.db import transaction
 from django.utils import timezone
 
+from website.constants import ACCOUNT_CODES
+
 from .pages import ProjectPage
 
 
@@ -552,7 +554,9 @@ class Check(models.Model):
 
         cash_equivalent = Account.objects.filter(
             code=(
-                "1104" if self.direction == Check.DIRECTION_RECEIVED else "2103"
+                ACCOUNT_CODES["cash"]
+                if self.direction == Check.DIRECTION_RECEIVED
+                else ACCOUNT_CODES["checks_issued"]
             )
         ).first()
         bank_account = self.account.account if self.account else None

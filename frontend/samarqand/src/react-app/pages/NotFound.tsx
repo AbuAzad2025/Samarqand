@@ -18,7 +18,7 @@ export default function NotFound() {
         <div className="flex flex-wrap gap-3 justify-center">
           <Link
             to="/"
-            className="rounded-xl bg-[#007A3D] text-white px-6 py-3 font-bold hover:shadow-lg transition"
+            className="rounded-xl bg-sq-green text-white px-6 py-3 font-bold hover:shadow-lg transition"
           >
             العودة للرئيسية
           </Link>
