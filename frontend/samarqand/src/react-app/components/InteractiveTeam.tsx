@@ -7,6 +7,7 @@ import {
   type CompanyPayload,
   type TeamMemberPayload,
 } from "@/react-app/api/site";
+import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function InteractiveTeam() {
   const [team, setTeam] = useState<TeamMemberPayload[]>([]);
@@ -155,13 +156,10 @@ export default function InteractiveTeam() {
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <a
                   href={
-                    company?.phone1
-                      ? `https://wa.me/${encodeURIComponent(
-                          company.phone1.replace(/\D/g, ""),
-                        )}?text=${encodeURIComponent(
-                          `مرحباً، أريد التحدث مع ${selectedMember.name}`,
-                        )}`
-                      : "/contact"
+                    whatsappUrl(
+                      company?.phone1,
+                      `مرحباً، أريد التحدث مع ${selectedMember.name}`,
+                    ) || "/contact"
                   }
                   target="_blank"
                   rel="noopener noreferrer"

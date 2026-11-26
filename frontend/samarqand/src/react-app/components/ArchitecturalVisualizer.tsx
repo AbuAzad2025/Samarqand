@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Sparkles, Download, Share2, Loader } from 'lucide-react';
-import { apiFetch } from '@/react-app/api/site';
+import { apiFetch, fetchCompany, type CompanyPayload } from '@/react-app/api/site';
+import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
 export default function ArchitecturalVisualizer() {
   const [projectType, setProjectType] = useState('');
@@ -9,6 +10,14 @@ export default function ArchitecturalVisualizer() {
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [company, setCompany] = useState<CompanyPayload | null>(null);
+
+  useEffect(() => {
+    fetchCompany().then(setCompany).catch(() => {});
+  }, []);
+
+  const contactLink =
+    whatsappUrl(company?.phone1, 'لدي استفسار عن تصميم مشروعي') || '/contact';
 
   const projectTypes = [
     'واجهة منزل',
@@ -328,7 +337,7 @@ export default function ArchitecturalVisualizer() {
                       ⭐ راضٍ عن التصميم؟
                     </p>
                     <a
-                      href="https://wa.me/970569953362?text=شاهدت التصميم وأريد تنفيذه على أرض الواقع"
+                      href={contactLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"

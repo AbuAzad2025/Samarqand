@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Brain, Sparkles, DollarSign, Clock, Package, Lightbulb } from 'lucide-react';
-import { apiFetch } from '@/react-app/api/site';
+import { apiFetch, fetchCompany, type CompanyPayload } from '@/react-app/api/site';
+import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
 interface AnalysisResult {
   design: string;
@@ -16,6 +17,14 @@ export default function AIDesignAnalyzer() {
   const [description, setDescription] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [company, setCompany] = useState<CompanyPayload | null>(null);
+
+  useEffect(() => {
+    fetchCompany().then(setCompany).catch(() => {});
+  }, []);
+
+  const quoteLink =
+    whatsappUrl(company?.phone1, 'أريد الحصول على عرض سعر دقيق لمشروعي') || '/contact';
 
   const projectTypes = [
     'منزل سكني',
@@ -234,7 +243,7 @@ export default function AIDesignAnalyzer() {
                   </div>
 
                   <a
-                    href="https://wa.me/970569953362?text=أريد الحصول على عرض سعر دقيق لمشروعي"
+                    href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"

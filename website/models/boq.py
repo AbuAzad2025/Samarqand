@@ -236,6 +236,15 @@ class PaymentApplication(models.Model):
         return f"{self.application_number} — {self.project.title}"
 
     def recalculate(self) -> None:
+        # A new application has no pk and therefore no related items yet.
+        # Initialise totals here; the caller re-saves after adding items.
+        if self.pk is None:
+            self.total_works_done = Decimal("0")
+            self.current_due = Decimal("0")
+            self.retention_amount = Decimal("0")
+            self.withholding_tax_amount = Decimal("0")
+            self.net_amount = Decimal("0")
+            return
         total_done = Decimal("0")
         current_due = Decimal("0")
         for item in self.items.select_related("boq_item"):
@@ -625,6 +634,12 @@ class FinalAccount(models.Model):
             status=PaymentApplication.STATUS_PAID,
         ).aggregate(models.Sum("net_amount"))["net_amount__sum"] or Decimal("0")
         self.total_previous_applications = paid
+        # `paid` is the sum of net_amount, i.e. cash already received AFTER
+        # retention and withholding tax were deducted.  Subtracting the tax
+        # here is therefore NOT a double deduction: it accounts for the part
+        # of the gross contract that went to the tax authorities, while
+        # retention still held remains payable to the contractor.  See
+        # website/tests/test_final_account.py for the worked example.
         self.net_due = (
             self.revised_contract_amount
             - paid

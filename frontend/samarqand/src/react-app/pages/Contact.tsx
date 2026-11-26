@@ -8,6 +8,7 @@ import { Phone, Mail, MapPin, Send } from "lucide-react";
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
 import { useLocation } from "react-router";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES, RFQ_TEMPLATES_BY_KEY } from "@/react-app/rfqTemplates";
+import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function Contact() {
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
@@ -46,9 +47,11 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
 التفاصيل: ${formData.message}
     `.trim();
 
-    const digits = ((company?.phone1 || company?.phone2 || "970569953362") as string).replace(/[^\d]/g, "") || "970569953362";
-    const whatsappUrl = `https://wa.me/${digits}?text=${encodeURIComponent(whatsappMessage)}`;
-    window.open(whatsappUrl, "_blank");
+    const link = whatsappUrl(
+      company?.phone1 || company?.phone2,
+      whatsappMessage,
+    );
+    if (link) window.open(link, "_blank");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

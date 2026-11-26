@@ -14,6 +14,7 @@ import {
   type ProjectPayload,
   type SiteConfigPayload,
 } from "@/react-app/api/site";
+import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function Projects() {
   const [projects, setProjects] = useState<ProjectPayload[]>([]);
@@ -99,11 +100,10 @@ export default function Projects() {
             <p className="text-gray-600 mb-4">هل تريد رؤية المزيد من مشاريعنا؟</p>
             <a
               href={
-                company?.phone1
-                  ? `https://wa.me/${encodeURIComponent(
-                      company.phone1.replace(/\D/g, ""),
-                    )}?text=${encodeURIComponent("مرحباً، أريد الاستفسار عن مشاريعكم")}`
-                  : "/contact"
+                whatsappUrl(
+                  company?.phone1,
+                  "مرحباً، أريد الاستفسار عن مشاريعكم",
+                ) || "/contact"
               }
               target="_blank"
               rel="noopener noreferrer"

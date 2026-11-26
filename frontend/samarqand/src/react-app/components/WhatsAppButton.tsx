@@ -2,6 +2,7 @@ import { MessageCircle } from 'lucide-react';
 import { useEffect, useState } from "react";
 
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
+import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function WhatsAppButton() {
   const [company, setCompany] = useState<CompanyPayload | null>(null);
@@ -15,11 +16,11 @@ export default function WhatsAppButton() {
   const v = config?.visibility;
   if (!(v?.showWhatsAppButton ?? true)) return null;
 
-  const phone = (company?.phone1 || "").replace(/\D/g, "");
+  const waLink = whatsappUrl(company?.phone1) || "/contact";
 
   return (
     <a
-      href={phone ? `https://wa.me/${phone}` : "/contact"}
+      href={waLink}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-8 left-8 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:bg-[#20BA5A] transition-all hover:scale-110 z-50"

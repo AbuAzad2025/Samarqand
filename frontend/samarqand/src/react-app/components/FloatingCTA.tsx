@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Phone, X } from 'lucide-react';
 
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
+import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
 export default function FloatingCTA() {
   const [isVisible, setIsVisible] = useState(false);
@@ -30,7 +31,8 @@ export default function FloatingCTA() {
 
   if (isDismissed || !isVisible) return null;
 
-  const phone = (company?.phone1 || "").replace(/\D/g, "");
+  const waLink =
+    whatsappUrl(company?.phone1, "مرحباً، أريد الحصول على استشارة مجانية") || "/contact";
 
   return (
     <div className="fixed bottom-24 left-8 z-40 animate-slide-up" dir="rtl">
@@ -58,13 +60,7 @@ export default function FloatingCTA() {
         </div>
 
         <a
-          href={
-            phone
-              ? `https://wa.me/${phone}?text=${encodeURIComponent(
-                  "مرحباً، أريد الحصول على استشارة مجانية",
-                )}`
-              : "/contact"
-          }
+          href={waLink}
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full bg-white text-[#007A3D] text-center py-3 rounded-lg font-bold hover:bg-gray-100 transition"

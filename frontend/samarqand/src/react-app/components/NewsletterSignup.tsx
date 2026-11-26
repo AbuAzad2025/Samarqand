@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mail, Send } from 'lucide-react';
+import { fetchCompany, type CompanyPayload } from '@/react-app/api/site';
+import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
 export default function NewsletterSignup() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [company, setCompany] = useState<CompanyPayload | null>(null);
+
+  useEffect(() => {
+    fetchCompany().then(setCompany).catch(() => {});
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
       // Send WhatsApp message with email
       const message = `اشتراك جديد في النشرة الإخبارية: ${email}`;
-      window.open(`https://wa.me/970569953362?text=${encodeURIComponent(message)}`, '_blank');
+      const link = whatsappUrl(company?.phone1, message);
+      if (link) window.open(link, '_blank');
       setIsSubmitted(true);
       setEmail('');
       setTimeout(() => setIsSubmitted(false), 3000);
