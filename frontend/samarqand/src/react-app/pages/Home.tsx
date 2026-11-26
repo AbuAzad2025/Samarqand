@@ -1,6 +1,7 @@
 import TopBar from '@/react-app/components/TopBar';
 import Navigation from '@/react-app/components/Navigation';
 import ParallaxHero from '@/react-app/components/ParallaxHero';
+import LandingQuickNav from '@/react-app/components/LandingQuickNav';
 import WhatsAppButton from '@/react-app/components/WhatsAppButton';
 import FloatingCTA from '@/react-app/components/FloatingCTA';
 import Footer from '@/react-app/components/Footer';
@@ -14,7 +15,7 @@ import BeforeAfterSlider from "@/react-app/components/BeforeAfterSlider";
 import InteractiveTeam from "@/react-app/components/InteractiveTeam";
 import AIContentShowcase from "@/react-app/components/AIContentShowcase";
 import NewsletterSignup from "@/react-app/components/NewsletterSignup";
-import { MapPin, Calendar, Wrench, Layers, Sparkles, FileText } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { useEffect, useMemo, useState } from "react";
 
@@ -26,6 +27,7 @@ export default function Home() {
   const [projects, setProjects] = useState<ProjectPayload[]>([]);
   const [testimonials, setTestimonials] = useState<TestimonialPayload[]>([]);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
+  const [showAllRfq, setShowAllRfq] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -45,104 +47,41 @@ export default function Home() {
 
   const featuredProjects = useMemo(() => projects.slice(0, 3), [projects]);
   const v = config?.visibility;
-  const groupedRfqTemplates = useMemo(() => groupRfqTemplatesByCategory(RFQ_TEMPLATES), []);
+  const groupedRfqTemplates = useMemo(
+    () =>
+      showAllRfq
+        ? groupRfqTemplatesByCategory(RFQ_TEMPLATES)
+        : groupRfqTemplatesByCategory(RFQ_TEMPLATES).slice(0, 2),
+    [showAllRfq],
+  );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="home-compact min-h-screen bg-white">
       <TopBar />
       <Navigation />
-      <ParallaxHero />
-      {(v?.showHomeAIBanner ?? true) && <AIFeaturesBanner />}
+      <div id="home"><ParallaxHero /></div>
+      <LandingQuickNav />
+      <div id="tools">{(v?.showHomeAIBanner ?? true) && <AIFeaturesBanner />}</div>
       {(v?.showHomeTrustBadges ?? true) && <TrustBadges />}
       {(v?.showHomeStats ?? true) && <AnimatedStats />}
       {(v?.showServices ?? true) && <Services />}
       {(v?.showHomeTimeline ?? true) && <ProcessTimeline />}
       
       {(v?.showHomeQuickLinks ?? true) && (
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4" dir="rtl">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-bold text-gray-800 mb-4">روابط سريعة</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                اختر القسم الذي يهمك للوصول السريع بدون التمرير الطويل
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              {(v?.showServices ?? true) && (
-                <Link
-                  to="/services"
-                  className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-                    <Layers size={22} className="text-sq-green" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">خدماتنا</h3>
-                  <p className="text-gray-600">
-                    المقاولات، الاستشارات، التشطيبات، والتصميم المعماري
-                  </p>
-                  <div className="mt-4 text-sq-green font-semibold group-hover:underline">
-                    فتح الصفحة
-                  </div>
-                </Link>
-              )}
-
-              {(v?.showTools ?? true) && (
-                <Link
-                  to="/tools"
-                  className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-                    <Wrench size={22} className="text-sq-green" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">الأدوات الذكية</h3>
-                  <p className="text-gray-600">
-                    محلل التصميم بالذكاء الاصطناعي، الحاسبة، والمصور المعماري
-                  </p>
-                  <div className="mt-4 text-sq-green font-semibold group-hover:underline">
-                    فتح الصفحة
-                  </div>
-                </Link>
-              )}
-
-              {(v?.showShowcase ?? true) && (
-                <Link
-                  to="/showcase"
-                  className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-                    <Sparkles size={22} className="text-sq-green" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">معرض الأعمال</h3>
-                  <p className="text-gray-600">
-                    شاهد التحولات، فريق العمل، وآراء العملاء
-                  </p>
-                  <div className="mt-4 text-sq-green font-semibold group-hover:underline">
-                    فتح الصفحة
-                  </div>
-                </Link>
-              )}
-
-              {(v?.showRfqTemplates ?? true) && (
-                <Link
-                  to="/#rfq-templates"
-                  className="group bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-lg transition"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-                    <FileText size={22} className="text-sq-green" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">نماذج عروض الأسعار</h3>
-                  <p className="text-gray-600">
-                    قوالب جاهزة لطلب عرض سعر بسرعة عبر واتساب
-                  </p>
-                  <div className="mt-4 text-sq-green font-semibold group-hover:underline">
-                    فتح القسم
-                  </div>
-                </Link>
-              )}
-            </div>
+        <nav
+          aria-label="وصول سريع"
+          className="border-b border-slate-200 bg-white"
+          dir="rtl"
+        >
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-4 py-3">
+            <a href="#services" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">خدماتنا</a>
+            <a href="#projects" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">مشاريعنا</a>
+            <a href="#tools" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">الأدوات الذكية</a>
+            <a href="#rfq-templates" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">نماذج الأسعار</a>
+            <a href="#testimonials" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">آراء العملاء</a>
+            <a href="#contact" className="rounded-full bg-sq-green px-4 py-2 text-sm font-bold text-white">تواصل معنا</a>
           </div>
-        </section>
+        </nav>
       )}
 
       {(v?.showRfqTemplates ?? true) && (
@@ -187,10 +126,19 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={() => setShowAllRfq((value) => !value)}
+                className="rounded-full border border-sq-green px-5 py-2 text-sm font-bold text-sq-green hover:bg-emerald-50"
+              >
+                {showAllRfq ? "عرض أقل" : "عرض كل القوالب"}
+              </button>
+            </div>
           </div>
         </section>
       )}
-      
+
       {/* Featured Projects Section */}
       {(v?.showProjects ?? true) && (
       <section className="py-16 bg-gray-50" id="projects">
@@ -333,7 +281,7 @@ export default function Home() {
       )}
 
       {(v?.showTools ?? true) && <AIContentShowcase />}
-      {(v?.showNewsletter ?? true) && <NewsletterSignup />}
+      {(v?.showNewsletter ?? true) && <div id="contact"><NewsletterSignup /></div>}
 
       <WhatsAppButton />
       <FloatingCTA />

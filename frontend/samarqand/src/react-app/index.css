@@ -1,3 +1,14 @@
+/* Landing page is intentionally compact: the quick-nav bar handles discovery. */
+.home-compact section {
+  padding-top: 3rem !important;
+  padding-bottom: 3rem !important;
+}
+
+.home-compact #home section {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 @font-face {
   font-family: 'Cairo';
   src: url('/static/website/fonts/Cairo.ttf') format('truetype');
