@@ -1492,8 +1492,8 @@ export default function ControlOps() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">إدارة العمليات</h1>
-          <p className="text-gray-600 mt-1">العملاء • العقود • المشتريات • الموارد • تقارير KPI</p>
+          <h1 className="text-2xl font-bold text-white">إدارة العمليات</h1>
+          <p className="text-slate-300 mt-1">العملاء • العقود • المشتريات • الموارد • تقارير KPI</p>
         </div>
         <button
           type="button"

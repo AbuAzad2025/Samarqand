@@ -145,8 +145,8 @@ export default function ControlTestimonials() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">آراء العملاء</h1>
-          <p className="text-gray-600 mt-1">{publishedCount} عنصر</p>
+          <h1 className="text-2xl font-bold text-white">آراء العملاء</h1>
+          <p className="text-slate-300 mt-1">{publishedCount} عنصر</p>
         </div>
         <button
           type="button"

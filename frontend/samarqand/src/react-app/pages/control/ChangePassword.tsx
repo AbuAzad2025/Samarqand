@@ -63,8 +63,8 @@ export default function ControlChangePassword() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">تغيير كلمة المرور</h1>
-      <p className="text-gray-600 mb-8">غيّر كلمة المرور لحسابك الحالي.</p>
+      <h1 className="text-3xl font-bold text-white mb-2">تغيير كلمة المرور</h1>
+      <p className="text-slate-300 mb-8">غيّر كلمة المرور لحسابك الحالي.</p>
 
       {success && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">

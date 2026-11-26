@@ -11,11 +11,14 @@ import { groupRfqTemplatesByCategory, RFQ_TEMPLATES, RFQ_TEMPLATES_BY_KEY } from
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
 import { useSiteContent, heading } from "@/react-app/utils/content";
 
+const QUOTE_TYPE = "طلب عرض سعر";
+
 export default function Contact() {
   const content = useSiteContent();
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const location = useLocation();
+  const isQuote = location.pathname.startsWith("/request-quote");
   const rfqTemplateKey = useMemo(
     () => new URLSearchParams(location.search).get("rfqTemplate") || "",
     [location.search],
@@ -25,7 +28,7 @@ export default function Contact() {
     name: "",
     phone: "",
     email: "",
-    projectType: "",
+    projectType: isQuote ? QUOTE_TYPE : "",
     message: "",
   });
 
@@ -62,7 +65,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       ...prev,
       [name]: value,
     }));
-    if (name === "projectType" && value !== "طلب عرض سعر") {
+    if (name === "projectType" && value !== QUOTE_TYPE) {
       setRfqTemplate("");
     }
   };
@@ -77,7 +80,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       setRfqTemplate("");
       setFormData((prev) => ({
         ...prev,
-        projectType: prev.projectType === "طلب عرض سعر" ? "" : prev.projectType,
+        projectType: prev.projectType === QUOTE_TYPE ? "" : prev.projectType,
       }));
       return;
     }
@@ -94,7 +97,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       if (canReplaceMessage) lastAutoMessageRef.current = selectedRfqMessage;
       return {
         ...prev,
-        projectType: prev.projectType || "طلب عرض سعر",
+        projectType: prev.projectType || QUOTE_TYPE,
         message: nextMessage,
       };
     });
@@ -113,8 +116,14 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "contact", "تواصل معنا")}</h1>
-          <p className="text-xl max-w-3xl mx-auto">نحن هنا لمساعدتك والإجابة على استفساراتك</p>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            {heading(content, isQuote ? "requestQuote" : "contact", isQuote ? "طلب عرض سعر" : "تواصل معنا")}
+          </h1>
+          <p className="text-xl max-w-3xl mx-auto">
+            {isQuote
+              ? "أخبرنا بتفاصيل مشروعك وسنرسل لك عرضاً مناسباً"
+              : "نحن هنا لمساعدتك والإجابة على استفساراتك"}
+          </p>
         </div>
       </section>
 
@@ -253,14 +262,14 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
                   >
                     <option value="">اختر نوع المشروع</option>
-                    {canUseRfq && <option value="طلب عرض سعر">طلب عرض سعر</option>}
+                    {canUseRfq && <option value={QUOTE_TYPE}>{QUOTE_TYPE}</option>}
                     {content.projectTypes.map((type) => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                 </div>
 
-                {canUseRfq && formData.projectType === "طلب عرض سعر" ? (
+                {canUseRfq && formData.projectType === QUOTE_TYPE ? (
                   <div>
                     <label className="block text-gray-700 font-semibold mb-2">نوع نموذج عرض السعر *</label>
                     <select

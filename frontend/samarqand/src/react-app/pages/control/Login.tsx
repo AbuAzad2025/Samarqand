@@ -40,8 +40,8 @@ export default function ControlLogin() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">تسجيل الدخول</h1>
-      <p className="text-gray-600 mb-8">لوحة التحكم مخصصة للمدراء والسوبر أدمن.</p>
+      <h1 className="text-3xl font-bold text-white mb-2">تسجيل الدخول</h1>
+      <p className="text-slate-300 mb-8">لوحة التحكم مخصصة للمدراء والسوبر أدمن.</p>
 
       <form onSubmit={onSubmit} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div>

@@ -5,5 +5,5 @@ $env:DB_ENGINE = ""
 Write-Host "Applying migrations..."
 python manage.py migrate --noinput
 
-Write-Host "Backend starting -> http://127.0.0.1:8000/"
+Write-Host "Backend starting -> http://127.0.0.1:8123/"
 python manage.py runserver --settings=contracting_site.settings.dev

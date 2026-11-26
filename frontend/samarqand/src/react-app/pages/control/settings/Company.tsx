@@ -40,8 +40,8 @@ export default function ControlCompanySettings() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">إعدادات الشركة</h1>
-          <p className="text-gray-600 mt-1">اسم الشركة، التواصل، الروابط، والتصنيف.</p>
+          <h1 className="text-2xl font-bold text-white">إعدادات الشركة</h1>
+          <p className="text-slate-300 mt-1">اسم الشركة، التواصل، الروابط، والتصنيف.</p>
         </div>
         <button
           type="button"

@@ -37,8 +37,8 @@ export default function ControlHomeSettings() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">إعدادات الصفحة الرئيسية</h1>
-          <p className="text-gray-600 mt-1">الهيرو، الأزرار، والنشرة.</p>
+          <h1 className="text-2xl font-bold text-white">إعدادات الصفحة الرئيسية</h1>
+          <p className="text-slate-300 mt-1">الهيرو، الأزرار، والنشرة.</p>
         </div>
         <button
           type="button"

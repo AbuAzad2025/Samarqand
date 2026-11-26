@@ -10,7 +10,7 @@ const iconMap = {
   Pencil,
 };
 
-export default function Services() {
+export default function Services({ showHeading = true }: { showHeading?: boolean }) {
   const [items, setItems] = useState<ServicePayload[]>([]);
 
   useEffect(() => {
@@ -25,10 +25,14 @@ export default function Services() {
   return (
     <section id="services" className="py-20 bg-gradient-to-b from-white to-emerald-50">
       <div className="max-w-7xl mx-auto px-4" dir="rtl">
-        <h2 className="text-5xl font-bold text-center mb-4 bg-gradient-to-r from-sq-green via-sq-black to-sq-red bg-clip-text text-transparent">
-          خدماتنا
-        </h2>
-        <p className="text-center text-gray-600 mb-16 text-lg">نقدم خدمات متكاملة في مجال المقاولات والهندسة</p>
+        {showHeading ? (
+          <>
+            <h2 className="text-5xl font-bold text-center mb-4 bg-gradient-to-r from-sq-green via-sq-black to-sq-red bg-clip-text text-transparent">
+              خدماتنا
+            </h2>
+            <p className="text-center text-gray-600 mb-16 text-lg">نقدم خدمات متكاملة في مجال المقاولات والهندسة</p>
+          </>
+        ) : null}
         
         <div className="grid md:grid-cols-3 gap-8">
           {items.map((service, idx) => {

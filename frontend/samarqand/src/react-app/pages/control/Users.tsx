@@ -73,8 +73,8 @@ export default function ControlUsers() {
   if (!me?.authenticated) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مسجل دخول</h1>
-        <p className="text-gray-600 mb-6">سجل الدخول للوصول إلى لوحة التحكم.</p>
+        <h1 className="text-2xl font-bold text-white mb-2">غير مسجل دخول</h1>
+        <p className="text-slate-300 mb-6">سجل الدخول للوصول إلى لوحة التحكم.</p>
         <Link
           to="/control/login"
           className="inline-block bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
@@ -88,8 +88,8 @@ export default function ControlUsers() {
   if (!me.isSuperuser) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مصرح</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-bold text-white mb-2">غير مصرح</h1>
+        <p className="text-slate-300">
           إدارة المستخدمين متاحة للسوبر أدمن فقط.
         </p>
       </div>
@@ -98,8 +98,8 @@ export default function ControlUsers() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">إدارة المستخدمين</h1>
-      <p className="text-gray-600 mb-8">
+      <h1 className="text-3xl font-bold text-white mb-2">إدارة المستخدمين</h1>
+      <p className="text-slate-300 mb-8">
         إنشاء/تحديث مستخدم مع (يوزرنيم + باسورد + دور). هذه الصفحة للسوبر أدمن فقط.
       </p>
 

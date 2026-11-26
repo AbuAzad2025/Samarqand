@@ -17,7 +17,7 @@ ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 CSRF_TRUSTED_ORIGINS = _env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://127.0.0.1:8000,http://127.0.0.1:5173,http://localhost:8000,http://localhost:5173",
+    "http://127.0.0.1:8123,http://127.0.0.1:5173,http://localhost:8123,http://localhost:5173",
 )
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

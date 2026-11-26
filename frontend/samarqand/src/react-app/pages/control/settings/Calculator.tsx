@@ -124,8 +124,8 @@ export default function ControlCalculatorSettings() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">إعدادات الحاسبة</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-white">إعدادات الحاسبة</h1>
+          <p className="text-slate-300 mt-1">
             جدول كميات تقديري + أسعار السوق (قابل للتعديل).
           </p>
         </div>

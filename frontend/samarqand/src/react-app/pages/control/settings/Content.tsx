@@ -57,6 +57,12 @@ export default function ControlContentSettings() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">نصوص الواجهة</h1>
+        <p className="text-sm text-slate-300 mt-1">
+          عدّل النصوص التي تظهر للزوار في صفحات الموقع.
+        </p>
+      </div>
       <div className="rounded-2xl bg-white border border-slate-200 p-6 space-y-5">
         <label className="block">
           <span className="block text-sm font-bold text-slate-700 mb-2">ساعات العمل</span>

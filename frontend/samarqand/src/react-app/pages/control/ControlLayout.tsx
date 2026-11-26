@@ -449,21 +449,6 @@ export default function ControlLayout() {
                     </div>
                   ))}
 
-                  {canManageSite && (
-                    <div className="pt-2">
-                      <a
-                        href="/control/backup"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-white/10 bg-white/0 hover:bg-white/5 transition text-white/85"
-                      >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-white/10">
-                          <Wrench size={16} />
-                        </div>
-                        <span className="font-bold text-sm truncate">Django Admin</span>
-                      </a>
-                    </div>
-                  )}
                 </nav>
 
                 <div className="p-4 border-t border-white/10 text-xs text-white/60 flex items-center justify-between">

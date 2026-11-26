@@ -73,8 +73,8 @@ export default function ControlRFQDocuments() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">نماذج عروض الأسعار</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-white">نماذج عروض الأسعار</h1>
+          <p className="text-slate-300 mt-1">
             قوالب جاهزة + نماذج محفوظة للاستخدام العملي مع الموردين.
           </p>
         </div>

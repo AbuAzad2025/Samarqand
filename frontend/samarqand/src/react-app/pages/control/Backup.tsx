@@ -18,8 +18,8 @@ export default function ControlBackup() {
   if (!me.isSuperuser) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">النسخ الاحتياطي</h1>
-        <p className="text-gray-600">هذه الصفحة متاحة للسوبر أدمن فقط.</p>
+        <h1 className="text-2xl font-bold text-white mb-2">النسخ الاحتياطي</h1>
+        <p className="text-slate-300">هذه الصفحة متاحة للسوبر أدمن فقط.</p>
       </div>
     );
   }
@@ -28,8 +28,8 @@ export default function ControlBackup() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">النسخ الاحتياطي والاستعادة</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-white">النسخ الاحتياطي والاستعادة</h1>
+          <p className="text-slate-300 mt-1">
             تصدير/استيراد بيانات الموقع كملف JSON (سوبر أدمن فقط).
           </p>
         </div>

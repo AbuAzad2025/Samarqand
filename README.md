@@ -15,8 +15,8 @@ python manage.py runserver
 
 ثم افتح:
 
-- الموقع: http://127.0.0.1:8000/
-- لوحة التحكم (Control SPA): http://127.0.0.1:8000/control/dashboard
+- الموقع: http://127.0.0.1:8123/
+- لوحة التحكم (Control SPA): http://127.0.0.1:8123/control/dashboard
 
 `.\run_local.ps1` ينفّذ `migrate` ثم يبدأ الخادم؛ لا ينفّذ البذر.
 

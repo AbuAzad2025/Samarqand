@@ -175,7 +175,7 @@ export default function ControlProjectEdit() {
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900 truncate">
+            <h1 className="text-2xl font-bold text-white truncate">
               {data.title}
             </h1>
             <span

@@ -36,8 +36,8 @@ export default function ControlAISettings() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">إعدادات الذكاء الاصطناعي</h1>
-          <p className="text-gray-600 mt-1">التحكم بالتفعيل والنموذج والبرومبتات.</p>
+          <h1 className="text-2xl font-bold text-white">إعدادات الذكاء الاصطناعي</h1>
+          <p className="text-slate-300 mt-1">التحكم بالتفعيل والنموذج والبرومبتات.</p>
         </div>
         <button
           type="button"

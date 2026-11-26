@@ -246,7 +246,7 @@ export default function ControlRFQDocumentEdit() {
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900">تحرير نموذج عرض سعر</h1>
+            <h1 className="text-2xl font-bold text-white">تحرير نموذج عرض سعر</h1>
             <span className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-200 text-gray-800" dir="ltr">
               {data.number || `#${data.id}`}
             </span>

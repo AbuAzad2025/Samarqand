@@ -387,6 +387,66 @@ class CalculatorSettings(BaseSiteSetting):
     ]
 
 
+def default_company_values() -> list[str]:
+    return [
+        "الجودة والإتقان",
+        "الالتزام بالمواعيد",
+        "الشفافية والمصداقية",
+        "السلامة المهنية",
+        "رضا العميل أولاً",
+        "دعم المنتج المحلي",
+    ]
+
+
+def default_section_headings() -> dict[str, dict[str, str]]:
+    return {
+        "projects": {
+            "title": "مشاريعنا",
+            "subtitle": "نفخر بإنجازاتنا ومشاريعنا المنجزة",
+        },
+        "testimonials": {
+            "title": "آراء عملائنا",
+            "subtitle": "ما يقوله عملاؤنا عن خدماتنا",
+        },
+        "services": {
+            "title": "خدماتنا",
+            "subtitle": "نقدم خدمات متكاملة تلبي احتياجاتكم",
+        },
+        "showcase": {
+            "title": "معرض الأعمال",
+            "subtitle": "شاهد التحول الذي نحققه في مشاريعنا",
+        },
+        "tools": {
+            "title": "الأدوات الذكية",
+            "subtitle": "أدوات تساعدك في تخطيط مشروعك",
+        },
+        "contact": {
+            "title": "تواصل معنا",
+            "subtitle": "نحن هنا لمساعدتك في كل خطوة",
+        },
+        "requestQuote": {
+            "title": "طلب عرض سعر",
+            "subtitle": "أخبرنا بتفاصيل مشروعك وسنرسل لك عرضاً مناسباً",
+        },
+        "rfq": {
+            "title": "نماذج عروض الأسعار",
+            "subtitle": "اختر قالباً مناسباً واطلب عرض سعر بسرعة",
+        },
+    }
+
+
+def default_project_types() -> list[str]:
+    return [
+        "منزل سكني",
+        "فيلا",
+        "عمارة سكنية",
+        "مبنى تجاري",
+        "استشارة هندسية",
+        "تصميم معماري",
+        "أخرى",
+    ]
+
+
 @register_setting
 class SiteContentSettings(BaseSiteSetting):
     """Editable front-end copy that otherwise lives hard-coded in React."""
@@ -395,9 +455,9 @@ class SiteContentSettings(BaseSiteSetting):
         max_length=255,
         default="السبت - الخميس: 8:00 صباحاً - 6:00 مساءً | الجمعة: مغلق",
     )
-    values = models.JSONField(default=list, blank=True)
-    headings = models.JSONField(default=dict, blank=True)
-    project_types = models.JSONField(default=list, blank=True)
+    values = models.JSONField(default=default_company_values, blank=True)
+    headings = models.JSONField(default=default_section_headings, blank=True)
+    project_types = models.JSONField(default=default_project_types, blank=True)
 
     panels = [
         MultiFieldPanel(

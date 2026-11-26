@@ -204,7 +204,7 @@ export default function ControlPageEdit() {
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900 truncate">{data.title}</h1>
+            <h1 className="text-2xl font-bold text-white truncate">{data.title}</h1>
             <span className="px-3 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-800">
               {data.typeName}
             </span>

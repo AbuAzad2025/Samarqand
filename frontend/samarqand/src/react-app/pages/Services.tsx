@@ -49,7 +49,7 @@ export default function ServicesPage() {
       ) : (
         <>
           <div id="services">
-            <Services />
+            <Services showHeading={false} />
           </div>
           <ProcessTimeline />
         </>

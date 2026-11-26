@@ -649,9 +649,9 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
               rel="noopener noreferrer"
               className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
             >
-              <div className="font-semibold text-gray-900">Django Admin</div>
+              <div className="font-semibold text-gray-900">النسخ الاحتياطي</div>
               <div className="text-sm text-gray-600 mt-1">
-                إدارة متقدمة للمنظومة (سوبر أدمن)
+                نسخ واستعادة بيانات المنظومة (سوبر أدمن)
               </div>
             </a>
           </div>

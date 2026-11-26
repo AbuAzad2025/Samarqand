@@ -22,6 +22,7 @@ export const DEFAULT_CONTENT: SiteContentTexts = {
     showcase: { title: "معرض الأعمال", subtitle: "شاهد التحول الذي نحققه في مشاريعنا" },
     tools: { title: "الأدوات الذكية", subtitle: "أدوات تساعدك في تخطيط مشروعك" },
     contact: { title: "تواصل معنا", subtitle: "نحن هنا لمساعدتك في كل خطوة" },
+    requestQuote: { title: "طلب عرض سعر", subtitle: "أخبرنا بتفاصيل مشروعك وسنرسل لك عرضاً مناسباً" },
     rfq: { title: "نماذج عروض الأسعار", subtitle: "اختر قالباً مناسباً واطلب عرض سعر بسرعة" },
   },
   projectTypes: [
@@ -38,7 +39,15 @@ export const DEFAULT_CONTENT: SiteContentTexts = {
 export function useSiteContent(): SiteContentTexts {
   const [content, setContent] = useState<SiteContentTexts>(DEFAULT_CONTENT);
   useEffect(() => {
-    fetchSiteContent().then(setContent).catch(() => {});
+    fetchSiteContent()
+      .then((data) =>
+        setContent((prev) => ({
+          ...prev,
+          ...data,
+          headings: { ...prev.headings, ...(data.headings || {}) },
+        })),
+      )
+      .catch(() => {});
   }, []);
   return content;
 }

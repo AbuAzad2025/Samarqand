@@ -64,8 +64,8 @@ export default function ControlMedia() {
     <div>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">المكتبة</h1>
-          <p className="text-gray-600 mt-1">إدارة الصور والملفات المستخدمة في الموقع.</p>
+          <h1 className="text-2xl font-bold text-white">المكتبة</h1>
+          <p className="text-slate-300 mt-1">إدارة الصور والملفات المستخدمة في الموقع.</p>
         </div>
         <button
           type="button"
