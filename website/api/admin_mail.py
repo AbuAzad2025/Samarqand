@@ -142,25 +142,42 @@ def _require_mail_access(request: HttpRequest) -> JsonResponse | None:
     )
 
 
+def _recipient_message_pks(user_id: int) -> list[int]:
+    """Portable replacement for JSONField's ``contains`` lookup.
+
+    ``contains`` on a JSON list only works on PostgreSQL, while local
+    development uses SQLite. Resolve membership in Python instead.
+    """
+    pks: list[int] = []
+    for msg in EmailMessage.objects.only("pk", "recipients"):
+        recipients = msg.recipients or []
+        if user_id in recipients or str(user_id) in {
+            str(value) for value in recipients
+        }:
+            pks.append(msg.pk)
+    return pks
+
+
 @require_GET
 def admin_mail_folders(request: HttpRequest) -> JsonResponse:
     fb = _require_mail_access(request)
     if fb:
         return fb
     user: Any = request.user
+    recipient_pks = _recipient_message_pks(user.id)
     folders = [
         {
             "key": EmailMessage.FOLDER_INBOX,
             "label": "الوارد",
             "count": EmailMessage.objects.filter(
-                recipients__contains=[user.id],
+                pk__in=recipient_pks,
                 folder=EmailMessage.FOLDER_INBOX,
                 is_draft=False,
             )
             .exclude(sender=user)
             .count(),
             "unread": EmailMessage.objects.filter(
-                recipients__contains=[user.id],
+                pk__in=recipient_pks,
                 folder=EmailMessage.FOLDER_INBOX,
                 is_draft=False,
                 is_read=False,
@@ -191,9 +208,7 @@ def admin_mail_folders(request: HttpRequest) -> JsonResponse:
                 folder=EmailMessage.FOLDER_TRASH,
                 is_draft=False,
             )
-            .filter(
-                models.Q(sender=user) | models.Q(recipients__contains=[user.id])
-            )
+            .filter(models.Q(sender=user) | models.Q(pk__in=recipient_pks))
             .count(),
             "unread": 0,
         },
@@ -209,6 +224,7 @@ def admin_mail_messages(request: HttpRequest) -> JsonResponse:
     user: Any = request.user
     folder = str(request.GET.get("folder") or EmailMessage.FOLDER_INBOX).strip()
     search = str(request.GET.get("search") or "").strip()
+    recipient_pks = _recipient_message_pks(user.id)
     page_num = int(request.GET.get("page") or 1)
     page_size = int(request.GET.get("pageSize") or 50)
     if page_size > 200:
@@ -218,7 +234,7 @@ def admin_mail_messages(request: HttpRequest) -> JsonResponse:
 
     if folder == EmailMessage.FOLDER_INBOX:
         qs = EmailMessage.objects.filter(
-            recipients__contains=[user.id],
+            pk__in=recipient_pks,
             folder=EmailMessage.FOLDER_INBOX,
             is_draft=False,
         ).exclude(sender=user)
@@ -233,9 +249,7 @@ def admin_mail_messages(request: HttpRequest) -> JsonResponse:
     elif folder == EmailMessage.FOLDER_TRASH:
         qs = EmailMessage.objects.filter(
             folder=EmailMessage.FOLDER_TRASH, is_draft=False
-        ).filter(
-            models.Q(sender=user) | models.Q(recipients__contains=[user.id])
-        )
+        ).filter(models.Q(sender=user) | models.Q(pk__in=recipient_pks))
     else:
         qs = EmailMessage.objects.none()
 
