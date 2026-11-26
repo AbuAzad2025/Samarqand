@@ -160,8 +160,7 @@ export default function ControlHomeSettings() {
             <div className="font-bold text-gray-900 mb-3">صورة خلفية الهيرو</div>
             {data.heroBackgroundUrl ? (
               <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 mb-3">
-                <img
-                  src={data.heroBackgroundUrl}
+                <img loading="lazy" decoding="async"                   src={data.heroBackgroundUrl}
                   alt="hero"
                   className="w-full h-48 object-cover"
                 />

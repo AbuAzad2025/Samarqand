@@ -44,8 +44,7 @@ export default function InteractiveTeam() {
                 {/* Image Container */}
                 <div className="relative h-80 overflow-hidden">
                   {member.imageUrl ? (
-                    <img
-                      src={member.imageUrl}
+                    <img loading="lazy" decoding="async"                       src={member.imageUrl}
                       alt={member.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -100,8 +99,7 @@ export default function InteractiveTeam() {
             {/* Header Image */}
             <div className="relative h-64">
               {selectedMember.imageUrl ? (
-                <img
-                  src={selectedMember.imageUrl}
+                <img loading="lazy" decoding="async"                   src={selectedMember.imageUrl}
                   alt={selectedMember.name}
                   className="w-full h-full object-cover"
                 />

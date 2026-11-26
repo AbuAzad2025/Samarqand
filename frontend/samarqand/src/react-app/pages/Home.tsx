@@ -205,8 +205,7 @@ export default function Home() {
               <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
                 <div className="relative h-64 overflow-hidden">
                   {project.imageUrl ? (
-                    <img
-                      src={project.imageUrl}
+                    <img loading="lazy" decoding="async"                       src={project.imageUrl}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
@@ -271,13 +270,13 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 gap-8">
             <BeforeAfterSlider
-              before="/static/website/images/before-renovation.jpg"
-              after="/static/website/images/after-renovation.jpg"
+              before="/static/website/images/before-renovation.webp"
+              after="/static/website/images/after-renovation.webp"
               title="تجديد واجهات المباني"
             />
             <BeforeAfterSlider
-              before="/static/website/images/before-interior.jpg"
-              after="/static/website/images/after-interior.jpg"
+              before="/static/website/images/before-interior.webp"
+              after="/static/website/images/after-interior.webp"
               title="تجديد التصميم الداخلي"
             />
           </div>

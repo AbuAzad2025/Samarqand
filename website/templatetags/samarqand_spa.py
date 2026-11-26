@@ -41,6 +41,8 @@ def _rewrite_root_paths(html: str) -> str:
         if path.startswith("/static/"):
             static_base = str(getattr(settings, "STATIC_URL", "/static/")).rstrip("/")
             return f"{quote}{static_base}/{path[len('/static/'):]}{quote}"
+        if path in {"/manifest.webmanifest", "/sw.js"}:
+            return f"{quote}{base.rstrip('/')}{path}{quote}"
         if not (path.startswith("/assets/") or path.startswith("/@vite/")):
             return match.group(0)
         if path.startswith("/"):
@@ -48,6 +50,13 @@ def _rewrite_root_paths(html: str) -> str:
         return f"{quote}{base.rstrip('/')}/{path}{quote}"
 
     html = re.sub(r"([\"\'])(\/(?!\/)[^\"\']+)\1", repl, html)
+    # Let client code discover the real static prefix for service-worker scope.
+    static_prefix = base.rstrip("/") + "/"
+    html = html.replace(
+        "<head>",
+        f'<head>\n    <meta name="sq-static-base" content="{static_prefix}">',
+        1,
+    )
     return html
 
 

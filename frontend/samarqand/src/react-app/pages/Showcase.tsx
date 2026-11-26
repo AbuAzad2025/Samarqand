@@ -64,13 +64,13 @@ export default function ShowcasePage() {
 
           <div className="grid md:grid-cols-2 gap-8">
             <BeforeAfterSlider
-              before="/static/website/images/before-renovation.jpg"
-              after="/static/website/images/after-renovation.jpg"
+              before="/static/website/images/before-renovation.webp"
+              after="/static/website/images/after-renovation.webp"
               title="تجديد واجهات المباني"
             />
             <BeforeAfterSlider
-              before="/static/website/images/before-interior.jpg"
-              after="/static/website/images/after-interior.jpg"
+              before="/static/website/images/before-interior.webp"
+              after="/static/website/images/after-interior.webp"
               title="تجديد التصميم الداخلي"
             />
           </div>

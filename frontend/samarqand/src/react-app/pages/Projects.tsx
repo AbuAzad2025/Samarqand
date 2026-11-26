@@ -63,8 +63,7 @@ export default function Projects() {
               <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
                 <div className="relative h-64 overflow-hidden">
                   {project.imageUrl ? (
-                    <img
-                      src={project.imageUrl}
+                    <img loading="lazy" decoding="async"                       src={project.imageUrl}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />

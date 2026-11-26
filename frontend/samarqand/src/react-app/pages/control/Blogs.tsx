@@ -104,7 +104,7 @@ export default function ControlBlogs() {
             {items.map((a) => (
               <div key={a.id} className="p-6 flex items-center gap-5">
                 <div className="w-24 h-16 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
-                  {a.coverUrl ? <img src={a.coverUrl} alt={a.title} className="w-full h-full object-cover" /> : null}
+                  {a.coverUrl ? <img loading="lazy" decoding="async" src={a.coverUrl} alt={a.title} className="w-full h-full object-cover" /> : null}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">

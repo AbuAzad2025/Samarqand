@@ -8,3 +8,15 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>
 );
+
+// Best-effort offline caching for static assets. The real static prefix is
+// injected by the Django SPA template tag; fall back to the site root.
+if ("serviceWorker" in navigator) {
+  const prefix =
+    document
+      .querySelector('meta[name="sq-static-base"]')
+      ?.getAttribute("content") || "/";
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(`${prefix}sw.js`, { scope: prefix }).catch(() => {});
+  });
+}

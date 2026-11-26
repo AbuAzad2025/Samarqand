@@ -190,7 +190,7 @@ export default function ControlMedia() {
             {images.map((img) => (
               <div key={img.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="aspect-square bg-gray-50 border-b border-gray-200 overflow-hidden">
-                  {img.url ? <img src={img.url} alt={img.title} className="w-full h-full object-cover" /> : null}
+                  {img.url ? <img loading="lazy" decoding="async" src={img.url} alt={img.title} className="w-full h-full object-cover" /> : null}
                 </div>
                 <div className="p-3">
                   <div className="text-sm font-bold text-gray-900 truncate">{img.title || `#${img.id}`}</div>

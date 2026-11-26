@@ -73,7 +73,7 @@ export default function ControlCompanySettings() {
             <div className="flex items-center gap-4 flex-wrap">
               <div className="w-28 h-28 rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
                 {data.logoUrl ? (
-                  <img src={data.logoUrl} alt="شعار الشركة" className="w-full h-full object-contain" />
+                  <img loading="lazy" decoding="async" src={data.logoUrl} alt="شعار الشركة" className="w-full h-full object-contain" />
                 ) : (
                   <div className="text-gray-500 text-sm">لا يوجد</div>
                 )}

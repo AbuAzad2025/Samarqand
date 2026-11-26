@@ -69,7 +69,7 @@ export default function Navigation() {
             
             {/* Language Selector */}
             <div className="flex items-center gap-2 text-sm">
-              <img src="https://flagcdn.com/w20/ps.png" alt="فلسطين" className="w-5 h-3" />
+              <img loading="lazy" decoding="async" src="https://flagcdn.com/w20/ps.png" alt="فلسطين" className="w-5 h-3" />
               <span className="text-gray-700">▼</span>
             </div>
           </div>

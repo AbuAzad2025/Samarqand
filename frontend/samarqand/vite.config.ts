@@ -32,6 +32,14 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
     outDir: "../../website/static/website/samarqand_spa",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router"],
+          icons: ["lucide-react"],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

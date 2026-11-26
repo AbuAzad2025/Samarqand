@@ -293,7 +293,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gray-100 overflow-hidden flex items-center justify-center">
                     {m.imageUrl ? (
-                      <img src={m.imageUrl} alt={m.name} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={m.imageUrl} alt={m.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-xs font-bold text-gray-500">بدون صورة</div>
                     )}

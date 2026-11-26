@@ -105,7 +105,7 @@ export default function ControlServices() {
               <div key={s.id} className="p-6 flex items-center gap-5">
                 <div className="w-24 h-16 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
                   {s.coverUrl ? (
-                    <img src={s.coverUrl} alt={s.title} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={s.coverUrl} alt={s.title} className="w-full h-full object-cover" />
                   ) : null}
                 </div>
                 <div className="flex-1 min-w-0">

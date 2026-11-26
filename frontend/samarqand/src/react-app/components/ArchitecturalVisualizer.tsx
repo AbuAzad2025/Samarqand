@@ -296,8 +296,7 @@ export default function ArchitecturalVisualizer() {
               {generatedImage && (
                 <div className="space-y-4 animate-fade-in">
                   <div className="relative group rounded-xl overflow-hidden shadow-lg">
-                    <img
-                      src={generatedImage}
+                    <img loading="lazy" decoding="async"                       src={generatedImage}
                       alt="تصميم معماري"
                       className="w-full h-auto"
                     />

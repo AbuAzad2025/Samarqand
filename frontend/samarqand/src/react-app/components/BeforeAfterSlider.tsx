@@ -46,8 +46,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
         onTouchMove={handleTouchMove}
       >
         {/* After Image */}
-        <img
-          src={after}
+        <img loading="lazy" decoding="async"           src={after}
           alt="بعد"
           className="absolute inset-0 w-full h-full object-cover"
         />
@@ -57,8 +56,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
           className="absolute inset-0 overflow-hidden"
           style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
         >
-          <img
-            src={before}
+          <img loading="lazy" decoding="async"             src={before}
             alt="قبل"
             className="absolute inset-0 w-full h-full object-cover"
           />

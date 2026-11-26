@@ -284,7 +284,7 @@ export default function ControlBlogEdit() {
             <div className="text-lg font-bold text-gray-900 mb-4">صورة الغلاف</div>
             {coverUrl ? (
               <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 mb-4">
-                <img src={coverUrl} alt={title || "cover"} className="w-full h-56 object-cover" />
+                <img loading="lazy" decoding="async" src={coverUrl} alt={title || "cover"} className="w-full h-56 object-cover" />
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600 mb-4">

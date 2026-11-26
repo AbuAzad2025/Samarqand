@@ -676,7 +676,7 @@ export default function ControlRFQDocumentEdit() {
                     </div>
                   </div>
                   {company?.logoUrl ? (
-                    <img src={company.logoUrl} alt={company.name} className="h-12 w-auto object-contain" />
+                    <img loading="lazy" decoding="async" src={company.logoUrl} alt={company.name} className="h-12 w-auto object-contain" />
                   ) : null}
                 </div>
 

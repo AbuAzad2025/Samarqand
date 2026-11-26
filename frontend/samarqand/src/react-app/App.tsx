@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { lazy, Suspense } from "react";
 import HomePage from "@/react-app/pages/Home";
 import About from "@/react-app/pages/About";
 import Projects from "@/react-app/pages/Projects";
@@ -6,38 +7,38 @@ import Contact from "@/react-app/pages/Contact";
 import Services from "@/react-app/pages/Services";
 import Tools from "@/react-app/pages/Tools";
 import Showcase from "@/react-app/pages/Showcase";
-import ControlLayout from "@/react-app/pages/control/ControlLayout";
-import ControlLogin from "@/react-app/pages/control/Login";
-import ControlUsers from "@/react-app/pages/control/Users";
-import ControlChangePassword from "@/react-app/pages/control/ChangePassword";
+const ControlLayout = lazy(() => import("@/react-app/pages/control/ControlLayout"));
+const ControlLogin = lazy(() => import("@/react-app/pages/control/Login"));
+const ControlUsers = lazy(() => import("@/react-app/pages/control/Users"));
+const ControlChangePassword = lazy(() => import("@/react-app/pages/control/ChangePassword"));
 import AdminRedirect from "@/react-app/pages/control/AdminRedirect";
-import ControlDashboard from "@/react-app/pages/control/Dashboard";
-import ControlProjects from "@/react-app/pages/control/Projects";
-import ControlProjectEdit from "@/react-app/pages/control/ProjectEdit";
-import ControlBlogs from "@/react-app/pages/control/Blogs";
-import ControlBlogEdit from "@/react-app/pages/control/BlogEdit";
-import ControlServices from "@/react-app/pages/control/Services";
-import ControlServiceEdit from "@/react-app/pages/control/ServiceEdit";
-import ControlTestimonials from "@/react-app/pages/control/Testimonials";
-import ControlHomeSections from "@/react-app/pages/control/HomeSections";
-import ControlPages from "@/react-app/pages/control/Pages";
-import ControlPageEdit from "@/react-app/pages/control/PageEdit";
-import ControlMedia from "@/react-app/pages/control/Media";
-import ControlCompanyDocuments from "@/react-app/pages/control/CompanyDocuments";
-import ControlRFQDocuments from "@/react-app/pages/control/RFQDocuments";
-import ControlRFQDocumentEdit from "@/react-app/pages/control/RFQDocumentEdit";
-import ControlBackup from "@/react-app/pages/control/Backup";
-import ControlOps from "@/react-app/pages/control/Ops";
-import ControlBOQ from "@/react-app/pages/control/BOQ";
-import ControlFieldDocs from "@/react-app/pages/control/FieldDocs";
-import ControlHR from "@/react-app/pages/control/HR";
-import ControlFleet from "@/react-app/pages/control/Fleet";
-import ControlMail from "@/react-app/pages/control/Mail";
-import ControlCompanySettings from "@/react-app/pages/control/settings/Company";
-import ControlHomeSettings from "@/react-app/pages/control/settings/Home";
-import ControlAISettings from "@/react-app/pages/control/settings/AI";
-import ControlCalculatorSettings from "@/react-app/pages/control/settings/Calculator";
-import ControlVisibilitySettings from "@/react-app/pages/control/settings/Visibility";
+const ControlDashboard = lazy(() => import("@/react-app/pages/control/Dashboard"));
+const ControlProjects = lazy(() => import("@/react-app/pages/control/Projects"));
+const ControlProjectEdit = lazy(() => import("@/react-app/pages/control/ProjectEdit"));
+const ControlBlogs = lazy(() => import("@/react-app/pages/control/Blogs"));
+const ControlBlogEdit = lazy(() => import("@/react-app/pages/control/BlogEdit"));
+const ControlServices = lazy(() => import("@/react-app/pages/control/Services"));
+const ControlServiceEdit = lazy(() => import("@/react-app/pages/control/ServiceEdit"));
+const ControlTestimonials = lazy(() => import("@/react-app/pages/control/Testimonials"));
+const ControlHomeSections = lazy(() => import("@/react-app/pages/control/HomeSections"));
+const ControlPages = lazy(() => import("@/react-app/pages/control/Pages"));
+const ControlPageEdit = lazy(() => import("@/react-app/pages/control/PageEdit"));
+const ControlMedia = lazy(() => import("@/react-app/pages/control/Media"));
+const ControlCompanyDocuments = lazy(() => import("@/react-app/pages/control/CompanyDocuments"));
+const ControlRFQDocuments = lazy(() => import("@/react-app/pages/control/RFQDocuments"));
+const ControlRFQDocumentEdit = lazy(() => import("@/react-app/pages/control/RFQDocumentEdit"));
+const ControlBackup = lazy(() => import("@/react-app/pages/control/Backup"));
+const ControlOps = lazy(() => import("@/react-app/pages/control/Ops"));
+const ControlBOQ = lazy(() => import("@/react-app/pages/control/BOQ"));
+const ControlFieldDocs = lazy(() => import("@/react-app/pages/control/FieldDocs"));
+const ControlHR = lazy(() => import("@/react-app/pages/control/HR"));
+const ControlFleet = lazy(() => import("@/react-app/pages/control/Fleet"));
+const ControlMail = lazy(() => import("@/react-app/pages/control/Mail"));
+const ControlCompanySettings = lazy(() => import("@/react-app/pages/control/settings/Company"));
+const ControlHomeSettings = lazy(() => import("@/react-app/pages/control/settings/Home"));
+const ControlAISettings = lazy(() => import("@/react-app/pages/control/settings/AI"));
+const ControlCalculatorSettings = lazy(() => import("@/react-app/pages/control/settings/Calculator"));
+const ControlVisibilitySettings = lazy(() => import("@/react-app/pages/control/settings/Visibility"));
 import NotFound from "@/react-app/pages/NotFound";
 import ErrorBoundary from "@/react-app/components/ErrorBoundary";
 import ApiErrorBanner from "@/react-app/components/ApiErrorBanner";
@@ -47,7 +48,14 @@ export default function App() {
     <ErrorBoundary>
       <Router>
         <ApiErrorBanner />
-        <Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex items-center justify-center text-slate-600">
+              جارٍ التحميل…
+            </div>
+          }
+        >
+          <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<About />} />
         <Route path="/projects" element={<Projects />} />
@@ -92,7 +100,8 @@ export default function App() {
           <Route path="settings/visibility" element={<ControlVisibilitySettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </Router>
     </ErrorBoundary>
   );

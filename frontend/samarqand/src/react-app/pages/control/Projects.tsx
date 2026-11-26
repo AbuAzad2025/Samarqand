@@ -132,7 +132,7 @@ export default function ControlProjects() {
               <div key={p.id} className="p-6 flex items-center gap-5">
                 <div className="w-24 h-16 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
                   {p.coverUrl ? (
-                    <img src={p.coverUrl} alt={p.title} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={p.coverUrl} alt={p.title} className="w-full h-full object-cover" />
                   ) : null}
                 </div>
                 <div className="flex-1 min-w-0">

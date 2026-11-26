@@ -470,7 +470,7 @@ export default function ControlProjectEdit() {
             {sortedGallery.map((g) => (
               <div key={g.id} className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
                 <div className="aspect-[4/3] bg-gray-100">
-                  {g.url ? <img src={g.url} alt="" className="w-full h-full object-cover" /> : null}
+                  {g.url ? <img loading="lazy" decoding="async" src={g.url} alt="" className="w-full h-full object-cover" /> : null}
                 </div>
                 <div className="p-4 flex items-center justify-between gap-3">
                   <div className="text-sm text-gray-700 truncate">{g.caption || "—"}</div>
