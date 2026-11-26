@@ -455,6 +455,16 @@ export async function fetchVariationOrders(projectId: number): Promise<{
   );
 }
 
+export async function fetchVariationOrderItems(
+  projectId: number,
+  variationId: number,
+): Promise<VariationOrderItem[]> {
+  const data = await fetchJson<{ items: VariationOrderItem[] }>(
+    `/api/admin/boq/projects/${projectId}/variation-orders/${variationId}/items`,
+  );
+  return data.items;
+}
+
 export async function createVariationOrder(
   projectId: number,
   payload: {

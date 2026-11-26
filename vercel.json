@@ -1,6 +1,0 @@
-{
-  "version": 2,
-  "buildCommand": "cd frontend/samarqand && npm ci && npm run build",
-  "outputDirectory": "frontend/samarqand/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}

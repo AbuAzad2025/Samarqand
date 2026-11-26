@@ -59,6 +59,9 @@ import {
   updateAdminOpsPurchaseOrder,
   updateAdminOpsSupplier,
   updateAdminOpsWorker,
+  setAdminOpsAttendanceState,
+  markAdminOpsPayrollPaid,
+  generateJournalFromPayroll,
   type AdminUserListItem,
   type AdminOpsAuditLog,
   type AdminKpiProjectItem,
@@ -1165,6 +1168,29 @@ export default function ControlOps() {
     }
   }
 
+  async function changeAttendanceState(
+    id: number,
+    action: "submit" | "approve" | "lock",
+  ) {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await setAdminOpsAttendanceState(id, action);
+      if (!res.ok) throw new Error(res.error || "error");
+      setAttendanceItems(
+        await fetchAdminOpsAttendance({
+          workerId: Number(attendanceFilter.workerId) || undefined,
+          year: Number(attendanceFilter.year) || undefined,
+          month: Number(attendanceFilter.month) || undefined,
+        }),
+      );
+    } catch {
+      setError("تعذر تحديث حالة الدوام.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function removeAttendance(id: number) {
     if (!window.confirm("حذف سجل الدوام؟")) return;
     setLoading(true);
@@ -1238,6 +1264,31 @@ export default function ControlOps() {
       );
     } catch {
       setError("تعذر حفظ حركة الرواتب.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function payrollAction(
+    id: number,
+    action: "paid" | "journal",
+  ) {
+    setLoading(true);
+    setError("");
+    try {
+      const res = action === "paid"
+        ? await markAdminOpsPayrollPaid(id)
+        : await generateJournalFromPayroll(id);
+      if (!res.ok) throw new Error(res.error || "error");
+      setPayrollEntries(
+        await fetchAdminOpsPayroll({
+          workerId: Number(payrollFilter.workerId) || undefined,
+          year: Number(payrollFilter.year) || undefined,
+          month: Number(payrollFilter.month) || undefined,
+        }),
+      );
+    } catch {
+      setError(action === "paid" ? "تعذر تحديد الراتب كمدفوع." : "تعذر إنشاء القيد المحاسبي.");
     } finally {
       setLoading(false);
     }
@@ -3305,6 +3356,15 @@ export default function ControlOps() {
                         >
                           تعديل
                         </button>
+                        {(it.state || "draft") === "draft" ? (
+                          <button type="button" onClick={() => changeAttendanceState(it.id, "submit")} className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-lg font-semibold">إرسال للمراجعة</button>
+                        ) : null}
+                        {it.state === "review" ? (
+                          <button type="button" onClick={() => changeAttendanceState(it.id, "approve")} className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2 rounded-lg font-semibold">اعتماد</button>
+                        ) : null}
+                        {it.state === "approved" ? (
+                          <button type="button" onClick={() => changeAttendanceState(it.id, "lock")} className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg font-semibold">قفل</button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => removeAttendance(it.id)}
@@ -3887,6 +3947,11 @@ export default function ControlOps() {
                         >
                           تعديل
                         </button>
+                        {p.status !== "paid" ? (
+                          <button type="button" onClick={() => payrollAction(p.id, "paid")} className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2 rounded-lg font-semibold">تحديد كمدفوع</button>
+                        ) : (
+                          <button type="button" onClick={() => payrollAction(p.id, "journal")} className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-2 rounded-lg font-semibold">إنشاء قيد</button>
+                        )}
                         <button
                           type="button"
                           onClick={() => removePayrollEntry(p.id)}

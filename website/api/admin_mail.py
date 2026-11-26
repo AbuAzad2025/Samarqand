@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,21 @@ def _dispatch_smtp(msg: EmailMessage) -> None:
             reply_to=[sender_user.email],
         )
         email.attach_alternative(html, "text/html")
+        for attachment in msg.attachments.select_related("document").all():
+            document = getattr(attachment, "document", None)
+            file_field = getattr(document, "file", None)
+            file_path = getattr(file_field, "path", None)
+            if not file_path or not os.path.exists(file_path):
+                continue
+            try:
+                email.attach_file(
+                    file_path,
+                    mimetype=attachment.content_type or None,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to attach document for mail #%s", msg.id
+                )
         email.send(fail_silently=False)
         logger.info("SMTP mail #%s dispatched to %s", msg.id, to_emails)
     except Exception:
@@ -109,7 +125,8 @@ def _msg_to_dict(msg: EmailMessage, *, user_id: int) -> dict[str, Any]:
         "senderName": sender_name,
         "recipients": msg.recipients,
         "cc": msg.cc,
-        "bcc": msg.bcc,
+        # BCC is only visible to the sender, never to other recipients.
+        "bcc": msg.bcc if msg.sender_id == user_id else [],
         "subject": msg.subject,
         "body": msg.body,
         "folder": msg.folder,
@@ -394,14 +411,19 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
             id__in=attachment_ids, message__isnull=True
         ).update(message=msg)
 
-    # If sending (not draft), create inbox copies for recipients + dispatch SMTP
+    # If sending (not draft), create inbox copies for To and CC recipients.
     if not save_as_draft:
-        for recipient_id in valid_recipients:
+        inbox_recipient_ids = [
+            rid
+            for rid in [*valid_recipients, *valid_cc]
+            if rid != user.id
+        ]
+        for recipient_id in inbox_recipient_ids:
             EmailMessage.objects.create(
                 sender=user,
                 recipients=[recipient_id],
                 cc=valid_cc,
-                bcc=valid_bcc,
+                bcc=[],
                 subject=subject,
                 body=body,
                 folder=EmailMessage.FOLDER_INBOX,
@@ -471,13 +493,14 @@ def admin_mail_messages_update(
     if send_now:
         msg.folder = EmailMessage.FOLDER_SENT
         msg.is_draft = False
-        # Create inbox copies
-        for recipient_id in msg.recipients:
+        for recipient_id in [
+            rid for rid in [*msg.recipients, *msg.cc] if rid != user.id
+        ]:
             EmailMessage.objects.create(
                 sender=user,
                 recipients=[recipient_id],
                 cc=msg.cc,
-                bcc=msg.bcc,
+                bcc=[],
                 subject=msg.subject,
                 body=msg.body,
                 folder=EmailMessage.FOLDER_INBOX,
@@ -485,6 +508,15 @@ def admin_mail_messages_update(
                 parent=msg.parent,
             )
     msg.save()
+    if send_now:
+        _audit_ops(
+            request,
+            action="mail_send_now",
+            entity_type="mail",
+            entity_id=str(msg.id),
+            after={"subject": msg.subject, "recipients": msg.recipients},
+        )
+        _dispatch_smtp(msg)
     return _api_ok({"message": _msg_to_dict(msg, user_id=user.id)})
 
 

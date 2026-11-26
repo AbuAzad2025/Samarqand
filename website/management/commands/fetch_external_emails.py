@@ -10,6 +10,8 @@ from email.utils import parsedate_to_datetime
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.utils.timezone import is_aware
+from django.utils.timezone import make_aware
 from django.utils.timezone import now
 
 from website.models import EmailMessage
@@ -92,6 +94,7 @@ class Command(BaseCommand):
             _typ, data = conn.search(None, search_criteria)
             msg_ids = data[0].split() if data[0] else []
             self.stdout.write(f"Found {len(msg_ids)} messages in {folder}")
+            imported_message_ids: set[str] = set()
 
             for mid in msg_ids:
                 _typ, raw = conn.fetch(mid, "(RFC822)")
@@ -103,11 +106,17 @@ class Command(BaseCommand):
                 subject = _decode_str(parsed.get("Subject"))
                 from_header = _decode_str(parsed.get("From"))
                 to_header = _decode_str(parsed.get("To"))
+                cc_header = _decode_str(parsed.get("Cc"))
                 date_header = parsed.get("Date")
+                message_id = str(parsed.get("Message-ID") or "").strip()
+                if message_id and message_id in imported_message_ids:
+                    continue
 
                 from_addr = _extract_email(from_header)
                 to_addrs = [
-                    _extract_email(a) for a in to_header.split(",") if a.strip()
+                    _extract_email(a)
+                    for a in f"{to_header},{cc_header}".split(",")
+                    if a.strip()
                 ]
 
                 body_text = _get_body(parsed)
@@ -138,12 +147,14 @@ class Command(BaseCommand):
                     try:
                         dt = parsedate_to_datetime(date_header)
                         if dt:
-                            created_time = dt
+                            created_time = (
+                                make_aware(dt) if not is_aware(dt) else dt
+                            )
                     except Exception:
                         pass
 
                 for inbox_user in inbox_users:
-                    EmailMessage.objects.create(
+                    imported = EmailMessage.objects.create(
                         sender=sender_user,
                         recipients=[inbox_user.id],
                         subject=subject,
@@ -151,8 +162,14 @@ class Command(BaseCommand):
                         folder=EmailMessage.FOLDER_INBOX,
                         is_read=False,
                         is_starred=False,
-                        created_at=created_time,
                     )
+                    # created_at has auto_now_add, so set the original date
+                    # with an explicit UPDATE after insertion.
+                    EmailMessage.objects.filter(pk=imported.pk).update(
+                        created_at=created_time
+                    )
+                if message_id:
+                    imported_message_ids.add(message_id)
 
                 if not mark_seen:
                     conn.store(mid, "+FLAGS", "\\Seen")

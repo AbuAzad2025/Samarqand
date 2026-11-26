@@ -1149,3 +1149,30 @@ def admin_field_docs_submittals_delete(
     )
     s.delete()
     return _api_ok()
+
+
+@require_GET
+def admin_field_docs_delivery_note_items(
+    request: HttpRequest, project_id: int, note_id: int
+) -> JsonResponse:
+    forbidden = _require_manager(request)
+    if forbidden:
+        return forbidden
+    note = MaterialDeliveryNote.objects.filter(
+        pk=note_id, project_id=project_id
+    ).first()
+    if not note:
+        return _api_error("not_found", status=404)
+    items = [
+        {
+            "id": item.id,
+            "inventoryItemId": item.inventory_item_id,
+            "description": item.description,
+            "quantity": float(item.quantity or 0),
+            "unit": item.unit,
+            "unitPrice": float(item.unit_price or 0),
+            "total": float(item.total or 0),
+        }
+        for item in note.items.select_related("inventory_item").order_by("id")
+    ]
+    return _api_ok({"items": items})

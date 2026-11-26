@@ -15,6 +15,7 @@ import {
   fetchPaymentApplicationDetail,
   fetchPaymentApplications,
   fetchVariationOrders,
+  fetchVariationOrderItems,
   generatePaymentApplicationEntry,
   payPaymentApplication,
   rejectPaymentApplication,
@@ -850,8 +851,16 @@ export default function ControlBOQ() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <button
                               type="button"
-                              onClick={() => {
-                                setActiveVariation(v);
+                              onClick={async () => {
+                                try {
+                                  const items = await fetchVariationOrderItems(
+                                    Number(selectedProjectId),
+                                    v.id,
+                                  );
+                                  setActiveVariation({ ...v, items });
+                                } catch {
+                                  setActiveVariation(v);
+                                }
                                 setVariationModal("items");
                               }}
                               className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-white/80 hover:bg-white/10"

@@ -817,6 +817,34 @@ def _streamfield_first_html(body: Any) -> str:
     return ""
 
 
+def _replace_streamfield_html(body: Any, new_html: str) -> list[dict[str, Any]]:
+    """Update only HTML blocks, preserving every other StreamField block.
+
+    The SPA editor sends a single HTML string. Replacing the whole body used
+    to silently delete hero/row/cardgrid blocks and later HTML blocks.
+    """
+    try:
+        data = getattr(body, "raw_data", None)
+        if data is None:
+            data = getattr(body, "stream_data", None)
+    except Exception:
+        data = None
+    blocks: list[dict[str, Any]] = (
+        [dict(block) for block in data if isinstance(block, dict)]
+        if isinstance(data, list)
+        else []
+    )
+    replaced = False
+    for block in blocks:
+        if block.get("type") == "html":
+            if not replaced:
+                block["value"] = new_html
+                replaced = True
+    if not replaced:
+        blocks.insert(0, {"type": "html", "value": new_html})
+    return blocks
+
+
 def _allowed_page_models() -> dict[str, type[Page]]:
     models: list[type[Page]] = [
         WebPage,
@@ -1022,6 +1050,64 @@ def _simple_pdf_from_lines(
         )
     )
     return b"".join(parts)
+
+
+def _arabic_pdf_from_lines(
+    lines: list[str],
+    *,
+    logo_jpeg: bytes | None = None,
+    logo_px: tuple[int, int] | None = None,
+) -> bytes:
+    """Render UTF-8 (including Arabic/RTL) text into a real PDF."""
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    font_name = "NotoSansArabic"
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        font_path = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "website"
+            / "fonts"
+            / "NotoSansArabic.ttf"
+        )
+        pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+
+    buf = BytesIO()
+    pdf = canvas.Canvas(buf, pagesize=A4)
+    page_w, page_h = A4
+    y = page_h - 50
+    if logo_jpeg:
+        try:
+            pdf.drawImage(
+                ImageReader(BytesIO(logo_jpeg)),
+                page_w - 160,
+                page_h - 90,
+                width=110,
+                height=50,
+                mask="auto",
+            )
+            y -= 60
+        except Exception:
+            pass
+
+    for raw in lines:
+        text = str(raw or "")
+        shaped = get_display(arabic_reshaper.reshape(text))
+        if y < 50:
+            pdf.showPage()
+            pdf.setFont(font_name, 11)
+            y = page_h - 50
+        pdf.setFont(font_name, 11)
+        pdf.drawRightString(page_w - 45, y, shaped)
+        y -= 16
+    pdf.save()
+    return buf.getvalue()
 
 
 def _rfq_extract_items(data: dict[str, Any]) -> list[dict[str, Any]]:

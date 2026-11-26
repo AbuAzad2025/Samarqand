@@ -386,6 +386,16 @@ export async function fetchDeliveryNotes(projectId: number): Promise<DeliveryNot
   return data.items;
 }
 
+export async function fetchDeliveryNoteItems(
+  projectId: number,
+  noteId: number,
+): Promise<DeliveryNoteLineItem[]> {
+  const data = await fetchJson<{ items: DeliveryNoteLineItem[] }>(
+    `/api/admin/field-docs/projects/${projectId}/delivery-notes/${noteId}/items`,
+  );
+  return data.items;
+}
+
 export async function createDeliveryNote(
   projectId: number,
   payload: Partial<DeliveryNoteItem>,

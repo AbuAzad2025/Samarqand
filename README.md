@@ -83,6 +83,12 @@ python manage.py sync_samarqand_spa
 - SMTP/IMAP اختيارية وتُعطّل عند ترك إعداداتها فارغة.
 - صور "قبل/بعد" أصبحت محلية في `website/static/website/images/` بدلاً من روابط طرف ثالث.
 
+## النشر
+
+هذا التطبيق يحتاج خادم Django ( راجع قسم Production deployment في الوثائق الأصلية أو استخدم `Dockerfile` + `docker-compose.yml`). **النشر الثابت على Vercel غير مدعوم**: الواجهة تعتمد على `/api/*` و`/media/*` التي يقدّمها Django، وأي إعادة توجيه شاملة إلى `index.html` ستبتلع طلبات API وتُفرغ الصفحات. لذلك أُزيل `vercel.json`.
+
+إذا احتجت نشراً تحت مسار فرعي (sub-path)، تأكد من ضبط `STATIC_URL` و`CSRF_TRUSTED_ORIGINS` و`VITE_API_BASE_URL` وفقاً للبادئة; قالب SPA يُعيد كتابة مسارات الأصول تلقائياً عبر `STATIC_URL`.
+
 ## الاختبارات
 
 ```powershell

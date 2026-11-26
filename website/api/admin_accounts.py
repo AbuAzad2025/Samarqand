@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpRequest
 from django.http import JsonResponse
 from django.utils import timezone
@@ -1093,6 +1095,8 @@ def admin_accounts_reports_balance_sheet(request: HttpRequest) -> JsonResponse:
     assets = Decimal("0")
     liabilities = Decimal("0")
     equity = Decimal("0")
+    income = Decimal("0")
+    expenses = Decimal("0")
     for acc in Account.objects.filter(is_active=True):
         balance = acc.balance(as_of=as_of)
         if acc.account_type == Account.TYPE_ASSET:
@@ -1101,13 +1105,23 @@ def admin_accounts_reports_balance_sheet(request: HttpRequest) -> JsonResponse:
             liabilities += balance
         elif acc.account_type == Account.TYPE_EQUITY:
             equity += balance
+        elif acc.account_type == Account.TYPE_INCOME:
+            income += balance
+        elif acc.account_type == Account.TYPE_EXPENSE:
+            expenses += balance
+    # Current-period profit is part of equity; without it the balance sheet
+    # can never balance once income/expense entries are posted.
+    retained_earnings = income - expenses
     return _api_ok(
         {
             "asOf": _to_iso(as_of),
             "assets": float(assets),
             "liabilities": float(liabilities),
             "equity": float(equity),
-            "liabilitiesAndEquity": float(liabilities + equity),
+            "retainedEarnings": float(retained_earnings),
+            "liabilitiesAndEquity": float(
+                liabilities + equity + retained_earnings
+            ),
         }
     )
 
@@ -1128,7 +1142,9 @@ def admin_accounts_reports_income_statement(
     for acc in Account.objects.filter(is_active=True):
         balance = acc.balance(as_of=to_date)
         if from_date:
-            opening = acc.balance(as_of=from_date)
+            # balance() uses <= as_of, so use the previous day to avoid
+            # excluding entries dated exactly at the period start.
+            opening = acc.balance(as_of=from_date - timedelta(days=1))
             balance = balance - opening
         if acc.account_type == Account.TYPE_INCOME:
             income += balance
@@ -1160,9 +1176,8 @@ def admin_accounts_reports_project_pl(
     to_date = _to_date(request.GET.get("to")) or timezone.now().date()
     income = Decimal("0")
     expenses = Decimal("0")
-    qs = JournalEntryLine.objects.filter(
-        project=project,
-        entry__is_posted=True,
+    qs = JournalEntryLine.objects.filter(entry__is_posted=True).filter(
+        Q(project=project) | Q(entry__project=project)
     )
     if from_date:
         qs = qs.filter(entry__date__gte=from_date)

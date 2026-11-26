@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from django.db.models import Sum
 from django.http import HttpRequest
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_POST
 
@@ -952,7 +954,12 @@ def admin_ops_payroll_generate_from_attendance(
         WorkerAttendance.objects.filter(
             worker__in=workers, date__year=year, date__month=month
         )
-        .exclude(state=WorkerAttendance.STATE_DRAFT)
+        .filter(
+            state__in=[
+                WorkerAttendance.STATE_APPROVED,
+                WorkerAttendance.STATE_LOCKED,
+            ]
+        )
         .values("worker_id", "status")
         .annotate(total=Sum(1))
     )
@@ -1179,6 +1186,7 @@ def admin_ops_payroll(request: HttpRequest) -> JsonResponse:
                     else None
                 ),
                 "status": p.status,
+                "paidAt": _to_iso(p.paid_at) if p.paid_at else None,
                 "date": _to_iso(p.date),
                 "notes": p.notes,
             }
@@ -1324,6 +1332,25 @@ def admin_ops_payroll_update(
         p.date = pay_date
     if data.get("notes") is not None:
         p.notes = str(data.get("notes") or "").strip()
+    if data.get("status") is not None:
+        status = str(data.get("status") or "").strip()
+        if status not in dict(WorkerPayrollEntry.STATUS_CHOICES):
+            return _api_error("invalid_status", status=400)
+        p.status = status
+    if data.get("paidAt") is not None:
+        raw_paid_at = str(data.get("paidAt") or "").strip()
+        parsed = parse_datetime(raw_paid_at)
+        if parsed is None:
+            try:
+                paid_date = _to_date(raw_paid_at)
+                parsed = datetime.combine(paid_date, datetime.min.time())
+            except Exception:
+                return _api_error("invalid_paid_at", status=400)
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed)
+        p.paid_at = parsed
+    if p.status == WorkerPayrollEntry.STATUS_PAID and not p.paid_at:
+        p.paid_at = timezone.now()
     p.net_salary = p.calculate_net_salary()
     p.save()
     return _api_ok()

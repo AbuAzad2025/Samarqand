@@ -343,8 +343,11 @@ def admin_boq_payment_applications_update(
     ).first()
     if not pa:
         return _api_error("not_found", status=404)
-    if pa.status == PaymentApplication.STATUS_PAID:
-        return _api_error("paid_application_locked", status=400)
+    if pa.status in (
+        PaymentApplication.STATUS_APPROVED,
+        PaymentApplication.STATUS_PAID,
+    ):
+        return _api_error("approved_application_locked", status=400)
     data = _read_json(request)
     pa.application_number = str(
         data.get("applicationNumber") or pa.application_number
@@ -391,8 +394,11 @@ def admin_boq_payment_applications_delete(
     ).first()
     if not pa:
         return _api_error("not_found", status=404)
-    if pa.status == PaymentApplication.STATUS_PAID:
-        return _api_error("paid_application_cannot_delete", status=400)
+    if pa.status in (
+        PaymentApplication.STATUS_APPROVED,
+        PaymentApplication.STATUS_PAID,
+    ):
+        return _api_error("approved_application_cannot_delete", status=400)
     _audit_ops(
         request,
         action="payment_application_delete",
@@ -1021,3 +1027,30 @@ def admin_boq_final_account_create_or_update(
         after={"status": fa.status, "netDue": float(fa.net_due)},
     )
     return _api_ok({"id": fa.id})
+
+
+@require_GET
+def admin_boq_variation_order_items(
+    request: HttpRequest, project_id: int, variation_id: int
+) -> JsonResponse:
+    forbidden = _require_manager(request)
+    if forbidden:
+        return forbidden
+    order = VariationOrder.objects.filter(
+        pk=variation_id, project_id=project_id
+    ).first()
+    if not order:
+        return _api_error("not_found", status=404)
+    items = [
+        {
+            "id": item.id,
+            "boqItemId": item.boq_item_id,
+            "description": item.description,
+            "unit": item.unit,
+            "quantityChange": float(item.quantity_change or 0),
+            "unitPrice": float(item.unit_price or 0),
+            "total": float(item.total or 0),
+        }
+        for item in order.items.select_related("boq_item").order_by("id")
+    ]
+    return _api_ok({"items": items})

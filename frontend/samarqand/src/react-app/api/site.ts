@@ -1853,6 +1853,7 @@ export type AdminOpsAttendance = {
   status: string;
   hours: number | null;
   notes: string;
+  state?: string;
 };
 
 export async function fetchAdminOpsAttendance(input?: {
@@ -2066,6 +2067,21 @@ export async function deleteAdminOpsAttendance(itemId: number): Promise<{ ok: bo
   return { ok: true };
 }
 
+export async function setAdminOpsAttendanceState(
+  itemId: number,
+  action: "submit" | "approve" | "lock",
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/attendance/${itemId}/${action}`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
 export type AdminOpsPayrollEntry = {
   id: number;
   workerId: number;
@@ -2076,6 +2092,8 @@ export type AdminOpsPayrollEntry = {
   amount: number | null;
   date: string;
   notes: string;
+  status?: string;
+  paidAt?: string | null;
 };
 
 export async function fetchAdminOpsPayroll(input?: {
@@ -2181,6 +2199,37 @@ export async function updateAdminOpsPayrollEntry(
 
 export async function deleteAdminOpsPayrollEntry(entryId: number): Promise<{ ok: boolean; error?: string }> {
   const res = await apiFetch(`/api/admin/ops/payroll/${entryId}/delete`, {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: JSON.stringify({}),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function markAdminOpsPayrollPaid(
+  entryId: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/ops/payroll/${entryId}/update`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken") || "",
+    },
+    body: JSON.stringify({ status: "paid", paidAt: new Date().toISOString() }),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
+  return { ok: true };
+}
+
+export async function generateJournalFromPayroll(
+  entryId: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/accounts/generate-from/payroll/${entryId}`, {
     method: "POST",
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     body: JSON.stringify({}),

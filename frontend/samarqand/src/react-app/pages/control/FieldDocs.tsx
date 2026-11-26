@@ -20,6 +20,7 @@ import {
   fetchCorrespondence,
   fetchDailyReports,
   fetchDeliveryNotes,
+  fetchDeliveryNoteItems,
   fetchFieldDocsProjects,
   fetchMeetings,
   fetchMeetingActionItems,
@@ -1324,8 +1325,18 @@ function DeliveryItemsModal({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
-    setItems([]);
-  }, [note.id]);
+    let cancelled = false;
+    fetchDeliveryNoteItems(projectId, note.id)
+      .then((loaded) => {
+        if (!cancelled) setItems(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [note.id, projectId]);
 
   async function handleSave() {
     const payload = { ...form };

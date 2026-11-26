@@ -1000,7 +1000,11 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
 
     body_html = data.get("bodyHtml")
     if body_html is not None and hasattr(page, "body"):
-        setattr(page, "body", [{"type": "html", "value": str(body_html or "")}])
+        setattr(
+            page,
+            "body",
+            _replace_streamfield_html(page.body, str(body_html or "")),
+        )
 
     cover_image_id = data.get("coverImageId")
     if cover_image_id not in {None, ""} and hasattr(page, "cover_image"):
@@ -1047,7 +1051,9 @@ def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
         setattr(
             page,
             "body",
-            [{"type": "html", "value": str(data.get("bodyHtml") or "")}],
+            _replace_streamfield_html(
+                page.body, str(data.get("bodyHtml") or "")
+            ),
         )
 
     if data.get("coverImageId") is not None and hasattr(page, "cover_image"):
@@ -1354,7 +1360,9 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
         setattr(
             page,
             "body",
-            [{"type": "html", "value": str(data.get("bodyHtml") or "")}],
+            _replace_streamfield_html(
+                page.body, str(data.get("bodyHtml") or "")
+            ),
         )
 
     if isinstance(page, ServicePage):
@@ -1521,7 +1529,9 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
 
     body_html = data.get("bodyHtml")
     if body_html is not None:
-        page.body = [{"type": "html", "value": str(body_html or "")}]
+        page.body = _replace_streamfield_html(
+            page.body, str(body_html or "")
+        )
 
     cover_image_id = data.get("coverImageId")
     if cover_image_id not in {None, ""}:
@@ -1568,7 +1578,9 @@ def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
             page.slug = _unique_child_slug(parent, new_slug)
 
     if data.get("bodyHtml") is not None:
-        page.body = [{"type": "html", "value": str(data.get("bodyHtml") or "")}]
+        page.body = _replace_streamfield_html(
+            page.body, str(data.get("bodyHtml") or "")
+        )
 
     if data.get("coverImageId") is not None and hasattr(page, "cover_image"):
         val = data.get("coverImageId")
@@ -1808,11 +1820,11 @@ def admin_rfq_document_pdf(request: HttpRequest, doc_id: int) -> HttpResponse:
     logo = _company_logo_as_jpeg(company)
     if logo:
         logo_jpeg, logo_w, logo_h = logo
-        pdf_bytes = _simple_pdf_from_lines(
+        pdf_bytes = _arabic_pdf_from_lines(
             lines, logo_jpeg=logo_jpeg, logo_px=(logo_w, logo_h)
         )
     else:
-        pdf_bytes = _simple_pdf_from_lines(lines)
+        pdf_bytes = _arabic_pdf_from_lines(lines)
     filename = _pdf_sanitize_text(d.number or f"rfq-{d.id}") or f"rfq-{d.id}"
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
