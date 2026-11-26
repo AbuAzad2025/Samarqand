@@ -32,6 +32,7 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
     outDir: "../../website/static/website/samarqand_spa",
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks: {
