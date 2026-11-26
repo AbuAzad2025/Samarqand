@@ -22,5 +22,5 @@ urlpatterns = [
     path("sitemap.xml", sitemap_xml),
     re_path("^docs/$", lambda request: HttpResponse("", status=404)),
     path("docs/", include(wagtaildocs_urls)),
-    path("search/", spa_shell),
+    path("search/", spa_shell, name="crx_search"),
 ]

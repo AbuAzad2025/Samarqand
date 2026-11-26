@@ -11,15 +11,13 @@ export default function FloatingCTA() {
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
 
   useEffect(() => {
-    // Show after 5 seconds of page load
-    const timer = setTimeout(() => {
-      if (!isDismissed) {
-        setIsVisible(true);
-      }
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [isDismissed]);
+    // Appear only once the visitor has scrolled past the hero, so it never
+    // covers the headline or primary call-to-action.
+    const onScroll = () => setIsVisible(window.scrollY > 500);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -35,14 +33,15 @@ export default function FloatingCTA() {
     whatsappUrl(company?.phone1, "مرحباً، أريد الحصول على استشارة مجانية") || "/contact";
 
   return (
-    <div className="fixed bottom-24 left-8 z-40 animate-slide-up" dir="rtl">
-      <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white rounded-2xl shadow-2xl p-6 max-w-sm relative">
+    <div className="fixed bottom-6 left-24 z-40 animate-slide-up max-w-[calc(100vw-8rem)]" dir="rtl">
+      <div className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white rounded-2xl shadow-2xl p-4 max-w-xs relative">
         {/* Close Button */}
         <button
           onClick={() => {
             setIsDismissed(true);
             setIsVisible(false);
           }}
+          aria-label="إغلاق بطاقة الاستشارة"
           className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition shadow-lg"
         >
           <X size={16} className="text-white" />

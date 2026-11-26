@@ -323,6 +323,8 @@ export default function ControlLayout() {
                 </div>
                 <Link
                   to="/control/password"
+                  aria-label="تغيير كلمة المرور"
+                  title="تغيير كلمة المرور"
                   className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition text-white/90 text-sm"
                 >
                   <LockKeyhole size={16} />
@@ -331,6 +333,7 @@ export default function ControlLayout() {
                 <button
                   type="button"
                   onClick={onLogout}
+                  aria-label="تسجيل الخروج"
                   className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white text-sm font-extrabold shadow-lg hover:shadow-xl transition"
                 >
                   <LogOut size={16} />
@@ -349,6 +352,7 @@ export default function ControlLayout() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label={mobileMenuOpen ? "إغلاق القائمة" : "فتح القائمة"}
               className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -385,7 +389,7 @@ export default function ControlLayout() {
         )}
       </header>
 
-      <main className="relative max-w-7xl mx-auto px-4 py-4">
+      <div className="relative max-w-7xl mx-auto px-4 py-4">
         {isLogin ? (
           <div className="max-w-md mx-auto pt-4">
             <div className="bg-white/5 border border-white/10 rounded-3xl p-6 shadow-xl">
@@ -476,7 +480,7 @@ export default function ControlLayout() {
             </section>
           </div>
         )}
-      </main>
+      </div>
 
       <footer className="relative border-t border-white/10 bg-[#0B0F19]/70 backdrop-blur-xl mt-auto">
         <div className="max-w-7xl mx-auto px-4 py-5 text-sm text-white/60 flex items-center justify-between gap-3 flex-wrap">

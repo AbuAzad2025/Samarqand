@@ -3,7 +3,7 @@ import Navigation from "@/react-app/components/Navigation";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import Footer from "@/react-app/components/Footer";
 import AIChatbot from "@/react-app/components/AIChatbot";
-import { MapPin, Calendar } from "lucide-react";
+import { MapPin, Calendar, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -59,7 +59,7 @@ export default function Projects() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
                 <div className="relative h-64 overflow-hidden">
                   {project.imageUrl ? (
@@ -68,7 +68,17 @@ export default function Projects() {
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#007A3D] via-[#0B0F19] to-[#CE1126]" />
+                    <div
+                      className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${
+                        [
+                          "from-[#007A3D] via-[#0B0F19] to-[#CE1126]",
+                          "from-[#CE1126] via-[#0B0F19] to-[#007A3D]",
+                          "from-[#0B0F19] via-[#007A3D] to-[#CE1126]",
+                        ][index % 3]
+                      }`}
+                    >
+                      <Building2 size={64} className="text-white/25" aria-hidden="true" />
+                    </div>
                   )}
                   <div className="absolute top-4 right-4 bg-[#007A3D] text-white px-4 py-2 rounded-full text-sm font-semibold">
                     {project.category}

@@ -57,6 +57,7 @@ export default function App() {
             </div>
           }
         >
+          <main className="min-h-screen">
           <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<About />} />
@@ -109,6 +110,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<NotFound />} />
           </Routes>
+          </main>
         </Suspense>
       </Router>
     </ErrorBoundary>

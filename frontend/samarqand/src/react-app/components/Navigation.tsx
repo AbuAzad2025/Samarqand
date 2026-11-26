@@ -22,7 +22,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Search Icon */}
-          <button className="p-2 hover:bg-emerald-50 rounded-full transition">
+          <button aria-label="بحث" title="بحث" className="p-2 hover:bg-emerald-50 rounded-full transition">
             <Search size={22} className="text-gray-600" />
           </button>
 

@@ -57,7 +57,7 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
     <div className="min-h-screen bg-slate-50" dir="rtl">
       <TopBar />
       <Navigation />
-      <main className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 py-16">
         <header className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 mb-3">{label.title}</h1>
           <p className="text-slate-600 max-w-2xl mx-auto">{label.intro}</p>
@@ -107,7 +107,7 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
             <p className="text-slate-600">لا توجد عناصر لعرضها حالياً.</p>
           </div>
         )}
-      </main>
+      </div>
       <Footer />
       <WhatsAppButton />
     </div>

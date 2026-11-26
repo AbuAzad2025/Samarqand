@@ -124,6 +124,8 @@ export default function AIChatbot() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
+          aria-label="فتح المساعد الذكي"
+          title="المساعد الذكي"
           className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
         >
           <Bot className="text-white" size={28} />
@@ -158,12 +160,14 @@ export default function AIChatbot() {
             <div className="flex gap-2">
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
+                aria-label={isMinimized ? "تكبير المحادثة" : "تصغير المحادثة"}
                 className="text-white hover:bg-white/20 p-2 rounded-lg transition"
               >
                 {isMinimized ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
               </button>
               <button
                 onClick={() => setIsOpen(false)}
+                aria-label="إغلاق المحادثة"
                 className="text-white hover:bg-white/20 p-2 rounded-lg transition"
               >
                 <X size={18} />
@@ -252,6 +256,7 @@ export default function AIChatbot() {
                   />
                   <button
                     type="submit"
+                    aria-label="إرسال الرسالة"
                     disabled={isLoading || !input.trim()}
                     className="bg-gradient-to-r from-[#007A3D] via-[#0B0F19] to-[#CE1126] text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
                   >

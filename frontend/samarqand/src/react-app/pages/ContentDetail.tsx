@@ -82,7 +82,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
     <div className="min-h-screen bg-slate-50" dir="rtl">
       <TopBar />
       <Navigation />
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
         <Link
           to={PATHS[kind]}
           className="inline-flex items-center gap-2 text-[#007A3D] font-bold mb-6 hover:underline"
@@ -143,7 +143,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
             </div>
           ) : null}
         </article>
-      </main>
+      </div>
       <Footer />
       <WhatsAppButton />
     </div>
