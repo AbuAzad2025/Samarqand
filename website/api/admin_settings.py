@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -314,9 +315,18 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
         return _api_error("site_not_found", status=400)
     s = AISettings.for_site(site)
     data = _read_json(request)
-    s.gemini_api_key_env_var = str(
+    requested_env_var = str(
         data.get("geminiApiKeyEnvVar") or s.gemini_api_key_env_var
-    )
+    ).strip()
+    if requested_env_var != s.gemini_api_key_env_var:
+        # Changing the env-var name could be used to read arbitrary secrets
+        # from the process environment. Restrict it to Gemini names and to
+        # superusers only.
+        if not getattr(request.user, "is_superuser", False):
+            return _api_error("forbidden", status=403)
+        if not re.fullmatch(r"GEMINI[A-Z0-9_]*", requested_env_var):
+            return _api_error("invalid_env_var", status=400)
+    s.gemini_api_key_env_var = requested_env_var
     s.gemini_model = str(data.get("geminiModel") or s.gemini_model)
     s.gemini_enabled = bool(
         data.get("geminiEnabled")

@@ -22,8 +22,14 @@ def _env_bool(name: str, default: str = "false") -> bool:
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", "true")
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", "true")
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", "true")
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = _env_bool("USE_X_FORWARDED_HOST", "true")
+# Never trust forwarding headers from the public internet unless the
+# deployment explicitly declares a trusted reverse proxy.
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if _env_bool("TRUST_X_FORWARDED_PROTO", "false")
+    else None
+)
+USE_X_FORWARDED_HOST = _env_bool("USE_X_FORWARDED_HOST", "false")
 
 SECURE_HSTS_SECONDS = int(_env("SECURE_HSTS_SECONDS", "31536000") or "31536000")
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool(
@@ -35,9 +41,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = _env("SECURE_REFERRER_POLICY", "same-origin")
 
 RENDER_EXTERNAL_HOSTNAME = _env("RENDER_EXTERNAL_HOSTNAME", "")
-SERVE_MEDIA = _env_bool(
-    "SERVE_MEDIA", "true" if RENDER_EXTERNAL_HOSTNAME else "false"
-)
+# Serving media through Django exposes every uploaded document to the public.
+# Opt in explicitly; prefer a signed/CDN-backed media setup in production.
+SERVE_MEDIA = _env_bool("SERVE_MEDIA", "false")
 
 # To send email from the server, we recommend django_sendmail_backend
 # Or specify your own email backend such as an SMTP server.

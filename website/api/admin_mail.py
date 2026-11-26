@@ -134,10 +134,12 @@ def _msg_to_dict(msg: EmailMessage, *, user_id: int) -> dict[str, Any]:
 
 
 def _require_mail_access(request: HttpRequest) -> JsonResponse | None:
-    forbidden = _require_staff(request)
-    if forbidden:
-        return forbidden
-    return None
+    # Reading company mail is not a generic staff privilege.
+    return _require_ops_rule(
+        request,
+        "mail_access",
+        default_allowed_roles={"manager", "registrar"},
+    )
 
 
 @require_GET

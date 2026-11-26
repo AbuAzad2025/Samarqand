@@ -99,7 +99,15 @@ class Command(BaseCommand):
                     user, created = User.objects.get_or_create(
                         username=username
                     )
-                    user.is_staff = True
+                    # Only roles that actually need the control panel get
+                    # staff access; guests/employees must not read company
+                    # mail or other staff-only APIs.
+                    user.is_staff = role in {
+                        "superadmin",
+                        "manager",
+                        "accountant",
+                        "registrar",
+                    }
 
                     if role == "superadmin":
                         user.is_superuser = True

@@ -70,6 +70,7 @@ MIDDLEWARE = [
     # Security
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "contracting_site.middleware.AdminApiRateLimitMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # CMS functionality
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
@@ -121,6 +122,10 @@ def _env(name: str, default: str = "") -> str:
 def _env_list(name: str, default: str = "") -> list[str]:
     value = _env(name, default)
     return [part.strip() for part in value.split(",") if part.strip()]
+
+
+# Only these proxies may supply X-Forwarded-For for rate limiting.
+TRUSTED_PROXY_IPS = _env_list("TRUSTED_PROXY_IPS", "")
 
 
 if _env("DB_ENGINE").lower() in {"postgres", "postgresql"}:

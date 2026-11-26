@@ -14,6 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.http import HttpRequest
@@ -88,6 +89,16 @@ def _api_error(
     )
 
 
+def _client_ip(request: HttpRequest) -> str:
+    """Return the client IP, honouring X-Forwarded-For only from trusted proxies."""
+    remote = str(request.META.get("REMOTE_ADDR") or "").strip() or "unknown"
+    trusted = set(getattr(settings, "TRUSTED_PROXY_IPS", None) or [])
+    forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
+    if trusted and remote in trusted and forwarded:
+        return forwarded.split(",")[0].strip() or remote
+    return remote
+
+
 def _rate_limit_key(
     request: HttpRequest, *, scope: str, window_seconds: int
 ) -> str:
@@ -97,8 +108,7 @@ def _rate_limit_key(
         if user and getattr(user, "is_authenticated", False)
         else None
     )
-    ip = str(request.META.get("REMOTE_ADDR") or "").strip() or "unknown"
-    ident = f"u:{user_id}" if user_id else f"ip:{ip}"
+    ident = f"u:{user_id}" if user_id else f"ip:{_client_ip(request)}"
     bucket = int(time.time() // max(1, int(window_seconds)))
     return f"rl:{scope}:{ident}:{bucket}"
 
@@ -121,7 +131,13 @@ def _check_rate_limit(
         if int(current) <= lim:
             return None
     except Exception:
-        return None
+        # Fail closed: if the cache is unavailable we cannot enforce limits,
+        # so reject the request instead of silently allowing unlimited calls.
+        return _api_error(
+            "rate_limit_unavailable",
+            status=503,
+            message="تعذّر التحقق من حد الطلبات. يرجى المحاولة لاحقاً.",
+        )
 
     now = int(time.time())
     retry_after = win - (now % win)
@@ -302,7 +318,11 @@ def _require_ops_crm_read(request: HttpRequest) -> Any | None:
 
 
 def _require_ops_crm_write(request: HttpRequest) -> Any | None:
-    return _require_ops_crm_read(request)
+    return _require_ops_rule(
+        request,
+        "ops_crm_write",
+        default_allowed_roles={"manager", "registrar"},
+    )
 
 
 def _require_ops_contracts_read(request: HttpRequest) -> Any | None:
@@ -310,7 +330,11 @@ def _require_ops_contracts_read(request: HttpRequest) -> Any | None:
 
 
 def _require_ops_contracts_write(request: HttpRequest) -> Any | None:
-    return _require_ops_contracts_read(request)
+    return _require_ops_rule(
+        request,
+        "ops_contracts_write",
+        default_allowed_roles={"manager", "accountant"},
+    )
 
 
 def _require_ops_procurement_read(request: HttpRequest) -> Any | None:
@@ -318,7 +342,11 @@ def _require_ops_procurement_read(request: HttpRequest) -> Any | None:
 
 
 def _require_ops_procurement_write(request: HttpRequest) -> Any | None:
-    return _require_ops_procurement_read(request)
+    return _require_ops_rule(
+        request,
+        "ops_procurement_write",
+        default_allowed_roles={"manager", "accountant"},
+    )
 
 
 def _require_ops_workers_read(request: HttpRequest) -> Any | None:
@@ -358,7 +386,11 @@ def _require_ops_payroll_read(request: HttpRequest) -> Any | None:
 
 
 def _require_ops_payroll_write(request: HttpRequest) -> Any | None:
-    return _require_ops_payroll_read(request)
+    return _require_ops_rule(
+        request,
+        "ops_payroll_write",
+        default_allowed_roles={"manager", "accountant"},
+    )
 
 
 def _require_ops_equipment_read(request: HttpRequest) -> Any | None:
@@ -1132,8 +1164,7 @@ def _gemini_generate_text(
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         + model
-        + ":generateContent?key="
-        + api_key
+        + ":generateContent"
     )
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
@@ -1147,7 +1178,12 @@ def _gemini_generate_text(
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        # Send the credential in a header so it never lands in URLs, proxy
+        # logs or browser history.
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
         method="POST",
     )
     try:

@@ -21,18 +21,11 @@ application = get_wsgi_application()
 
 
 def _auto_migrate_if_enabled() -> None:
-    auto = os.environ.get("AUTO_MIGRATE")
-    if auto is not None and auto.strip().lower() not in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }:
+    # Migrations are a release step, never an import side effect. Run them
+    # only when explicitly requested by the deployment.
+    auto = (os.environ.get("AUTO_MIGRATE") or "").strip().lower()
+    if auto not in {"1", "true", "yes", "on"}:
         return
-    if auto is None:
-        settings_module = os.environ.get("DJANGO_SETTINGS_MODULE", "")
-        if not settings_module.endswith(".prod"):
-            return
 
     _fcntl: Any
     try:
