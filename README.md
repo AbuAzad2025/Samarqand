@@ -8,6 +8,7 @@
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py seed_samarqand
+$env:DEMO_USERS_PASSWORD = "choose-a-strong-local-password"
 python manage.py seed_demo_users
 python manage.py runserver
 ```
@@ -24,10 +25,12 @@ python manage.py runserver
 
 ## الحسابات التجريبية
 
-`python manage.py seed_demo_users` ينشئ حسابات `demo_*` (منها `demo_superadmin`). كلمة المرور الافتراضية `demo1234` ويمكن تغييرها عبر:
+`python manage.py seed_demo_users` ينشئ حسابات `demo_*` (منها `demo_superadmin`). **لا توجد كلمة مرور افتراضية**؛ يجب ضبط `DEMO_USERS_PASSWORD` أو تمرير `--password`. الأوامر التجريبية ترفض العمل عند `DEBUG=False` حمايةً للنشر.
+
+لتغيير كلمة المرور لاحقاً:
 
 ```powershell
-python manage.py seed_demo_users --password YOUR_PASSWORD --reset-passwords
+python manage.py seed_demo_users --password YOUR_NEW_PASSWORD --reset-passwords
 ```
 
 أو أنشئ مديراً عبر متغيرات البيئة `DJANGO_SUPERUSER_USERNAME` / `DJANGO_SUPERUSER_PASSWORD` ثم `python manage.py ensure_superuser`.

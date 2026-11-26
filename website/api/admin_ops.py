@@ -870,6 +870,7 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
 def admin_backup_portal(
     request: HttpRequest,
 ) -> HttpResponse | StreamingHttpResponse:
+    """Superuser-only backup portal with hard limits on imports/exports."""
     user = getattr(request, "user", None)
     if (
         not user
@@ -879,6 +880,16 @@ def admin_backup_portal(
         return HttpResponse(
             "forbidden", status=403, content_type="text/plain; charset=utf-8"
         )
+
+    limited = _check_rate_limit(
+        request, scope="admin_backup_portal", limit=12, window_seconds=600
+    )
+    if limited:
+        return limited
+
+    max_backup_bytes = 20 * 1024 * 1024
+    max_media_zip_bytes = 50 * 1024 * 1024
+    max_media_files = 200
 
     if request.method == "GET" and str(request.GET.get("export") or "") == "1":
         out = StringIO()
@@ -917,6 +928,7 @@ def admin_backup_portal(
             ) as tmp:
                 tmp_path = tmp.name
 
+            total_bytes = 0
             with zipfile.ZipFile(
                 tmp_path, "w", compression=zipfile.ZIP_DEFLATED
             ) as zf:
@@ -930,10 +942,17 @@ def admin_backup_portal(
                                 )
                             except Exception:
                                 continue
+                            try:
+                                size = full_path.stat().st_size
+                            except Exception:
+                                continue
+                            if total_bytes + size > max_media_zip_bytes:
+                                break
                             zf.write(
                                 str(full_path),
                                 arcname=str(rel).replace("\\", "/"),
                             )
+                            total_bytes += size
 
             def _stream() -> Iterator[bytes]:
                 try:
@@ -969,60 +988,76 @@ def admin_backup_portal(
             )
 
     status_msg = ""
+
+    def _add_msg(text: str) -> None:
+        nonlocal status_msg
+        status_msg = f"{status_msg} {text}".strip()
+
     if request.method == "POST":
         backup_file = request.FILES.get("backup_file")
         if backup_file:
-            tmp_path = ""
-            try:
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".json"
-                ) as tmp:
-                    tmp.write(backup_file.read())
-                    tmp_path = tmp.name
-                with transaction.atomic():
-                    call_command("loaddata", tmp_path, verbosity=0)
-                status_msg = "ØªÙ…Øª Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ù†Ø¬Ø§Ø­."
-            except Exception:
-                status_msg = (
-                    "ÙØ´Ù„Øª Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª."
-                )
-            finally:
-                if tmp_path:
-                    try:
-                        os.unlink(tmp_path)
-                    except Exception:
-                        pass
+            if backup_file.size > max_backup_bytes:
+                _add_msg("ملف النسخة الاحتياطية كبير جداً (الحد الأقصى 20 ميغابايت).")
+            else:
+                tmp_path = ""
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".json"
+                    ) as tmp:
+                        tmp.write(backup_file.read())
+                        tmp_path = tmp.name
+                    with transaction.atomic():
+                        call_command("loaddata", tmp_path, verbosity=0)
+                    _add_msg("تمت استعادة بيانات قاعدة البيانات بنجاح.")
+                except Exception:
+                    _add_msg("فشلت استعادة قاعدة البيانات.")
+                finally:
+                    if tmp_path:
+                        try:
+                            os.unlink(tmp_path)
+                        except Exception:
+                            pass
 
         media_zip = request.FILES.get("media_zip")
         if media_zip:
-            try:
-                media_root = Path(settings.MEDIA_ROOT).resolve()
-                media_root.mkdir(parents=True, exist_ok=True)
-                extracted = 0
-                with zipfile.ZipFile(media_zip) as zf:
-                    for info in zf.infolist():
-                        if info.is_dir():
-                            continue
-                        name = str(info.filename or "")
-                        if not name or name.endswith("/"):
-                            continue
-                        dest = (media_root / name).resolve()
-                        if (
-                            media_root not in dest.parents
-                            and dest != media_root
-                        ):
-                            continue
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        with zf.open(info) as src, open(dest, "wb") as out_f:
-                            out_f.write(src.read())
-                        extracted += 1
-                status_msg = (
-                    status_msg + " " if status_msg else ""
-                ) + f"ØªÙ… Ø±ÙØ¹ Ù…Ù„ÙØ§Øª media: {extracted} Ù…Ù„Ù."
-            except Exception:
-                status_msg = (
-                    status_msg + " " if status_msg else ""
-                ) + "ÙØ´Ù„ Ø±ÙØ¹ Ù…Ù„ÙØ§Øª media."
+            if media_zip.size > max_media_zip_bytes:
+                _add_msg("ملف media.zip كبير جداً (الحد الأقصى 50 ميغابايت).")
+            else:
+                try:
+                    media_root = Path(settings.MEDIA_ROOT).resolve()
+                    media_root.mkdir(parents=True, exist_ok=True)
+                    extracted = 0
+                    total_bytes = 0
+                    with zipfile.ZipFile(media_zip) as zf:
+                        for info in zf.infolist():
+                            if info.is_dir():
+                                continue
+                            name = str(info.filename or "")
+                            if not name or name.endswith("/"):
+                                continue
+                            if extracted >= max_media_files:
+                                _add_msg("تم تجاوز الحد الأقصى لعدد الملفات (200).")
+                                break
+                            if info.file_size > max_media_zip_bytes:
+                                _add_msg("أحد الملفات داخل الأرشيف كبير جداً.")
+                                break
+                            total_bytes += info.file_size
+                            if total_bytes > max_media_zip_bytes:
+                                _add_msg("حجم الملفات المستخرجة يتجاوز 50 ميغابايت.")
+                                break
+                            dest = (media_root / name).resolve()
+                            if (
+                                media_root not in dest.parents
+                                and dest != media_root
+                            ):
+                                continue
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            with zf.open(info) as src, open(dest, "wb") as out_f:
+                                out_f.write(src.read())
+                            extracted += 1
+                    _add_msg(f"تم رفع ملفات media: {extracted} ملف.")
+                except Exception:
+                    _add_msg("فشل رفع ملفات media.")
 
     csrf_token = get_token(request)
     html = f"""<!doctype html>
@@ -1030,7 +1065,7 @@ def admin_backup_portal(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ø§Ø³ØªØ¹Ø§Ø¯Ø©/Ù†Ø³Ø® Ø§Ø­ØªÙŠØ§Ø·ÙŠ</title>
+    <title>استعادة/نسخ احتياطي</title>
     <style>
       body {{ font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; padding: 32px; }}
       .box {{ max-width: 840px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }}
@@ -1046,31 +1081,31 @@ def admin_backup_portal(
   </head>
   <body>
     <div class="box">
-      <h1>Ù†Ø³Ø® Ø§Ø­ØªÙŠØ§Ø·ÙŠ / Ø§Ø³ØªØ¹Ø§Ø¯Ø© (Ø³ÙˆØ¨Ø± Ø£Ø¯Ù…Ù†)</h1>
-      <p>Ù‡Ø°Ù‡ Ø§Ù„ØµÙØ­Ø© ØªØ¹Ù…Ù„ Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø¬Ù‡Ø© React. Ø§Ø³ØªØ®Ø¯Ù…Ù‡Ø§ Ø¥Ø°Ø§ ÙƒØ§Ù†Øª ØµÙØ­Ø§Øª <code>/</code> Ø£Ùˆ <code>/control</code> ØªØ¸Ù‡Ø± ÙØ§Ø±ØºØ©.</p>
+      <h1>نسخ احتياطي / استعادة (سوبر أدمن)</h1>
+      <p>هذه الصفحة تعمل بدون واجهة React. استخدمها إذا كانت صفحات <code>/</code> أو <code>/control</code> تظهر فارغة.</p>
       <div class="row">
-        <a class="btn" href="/admin-backup/?export=1">ØªÙ†Ø²ÙŠÙ„ Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ© (JSON)</a>
-        <a class="btn" href="/admin-backup/?export_media=1">ØªÙ†Ø²ÙŠÙ„ Ù…Ù„ÙØ§Øª media (ZIP)</a>
-        <a class="btn" href="/django-admin/">ÙØªØ­ Django Admin</a>
+        <a class="btn" href="/admin-backup/?export=1">تنزيل نسخة احتياطية (JSON)</a>
+        <a class="btn" href="/admin-backup/?export_media=1">تنزيل ملفات media (ZIP)</a>
+        <a class="btn" href="/django-admin/">فتح Django Admin</a>
       </div>
 
-      <h2>Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª</h2>
+      <h2>استعادة قاعدة البيانات</h2>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
         <div class="row">
           <input type="file" name="backup_file" accept=".json,application/json" required>
-          <button type="submit">Ø§Ø³ØªØ¹Ø§Ø¯Ø©</button>
+          <button type="submit">استعادة</button>
         </div>
       </form>
 
-      <h2>Ø±ÙØ¹ Ù…Ù„ÙØ§Øª Ø§Ù„ØµÙˆØ±/Ø§Ù„Ù…Ø±ÙÙ‚Ø§Øª (media.zip)</h2>
+      <h2>رفع ملفات الصور/المرفقات (media.zip)</h2>
       <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
         <div class="row">
           <input type="file" name="media_zip" accept=".zip,application/zip" required>
-          <button type="submit">Ø±ÙØ¹</button>
+          <button type="submit">رفع</button>
         </div>
-        <p>Ø§Ø±ÙØ¹ Ù…Ù„Ù ZIP ÙŠØ­ØªÙˆÙŠ Ù†ÙØ³ Ø¨Ù†ÙŠØ© Ù…Ø¬Ù„Ø¯ <code>media/</code> Ù…Ù† Ø¬Ù‡Ø§Ø²Ùƒ.</p>
+        <p>ارفع ملف ZIP يحتوي نفس بنية مجلد <code>media/</code> من جهازك. الحد الأقصى 50 ميغابايت و200 ملف.</p>
       </form>
 
       {f'<div class="msg">{status_msg}</div>' if status_msg else ""}

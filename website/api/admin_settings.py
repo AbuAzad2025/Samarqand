@@ -591,6 +591,7 @@ def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
     return _api_ok()
 
 
+@require_POST
 def admin_users(request: HttpRequest) -> JsonResponse:
     forbidden = _require_superuser(request)
     if forbidden:

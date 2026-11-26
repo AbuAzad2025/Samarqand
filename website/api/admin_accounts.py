@@ -7,6 +7,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.db import transaction
 from django.http import HttpRequest
 from django.http import JsonResponse
 from django.utils import timezone
@@ -294,21 +295,24 @@ def admin_accounts_journal_entries_create(request: HttpRequest) -> JsonResponse:
     lines_data = data.get("lines", [])
     if not isinstance(lines_data, list) or len(lines_data) < 2:
         return _api_error("invalid_lines", status=400)
-    entry = JournalEntry.objects.create(
-        number=data.get("number") or _next_entry_number(),
-        date=entry_date,
-        description=description,
-        entry_type=entry_type,
-        ref_number=str(data.get("refNumber") or "").strip(),
-        project=project,
-        created_by=request.user if request.user.is_authenticated else None,
-    )
-    result = _update_entry_lines(entry, lines_data)
-    if result:
-        entry.delete()
-        return result
-    entry.recalculate_totals()
-    entry.save()
+    error, new_lines = _validate_entry_lines(lines_data)
+    if error:
+        return error
+    with transaction.atomic():
+        entry = JournalEntry.objects.create(
+            number=data.get("number") or _next_entry_number(),
+            date=entry_date,
+            description=description,
+            entry_type=entry_type,
+            ref_number=str(data.get("refNumber") or "").strip(),
+            project=project,
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+        for line in new_lines:
+            line.entry = entry
+        JournalEntryLine.objects.bulk_create(new_lines)
+        entry.recalculate_totals()
+        entry.save()
     _audit_ops(
         request,
         action="journal_entry_create",
@@ -353,10 +357,19 @@ def admin_accounts_journal_entries_update(
         entry.project = project
     lines_data = data.get("lines")
     if lines_data is not None:
-        entry.lines.all().delete()
-        result = _update_entry_lines(entry, lines_data)
-        if result:
-            return result
+        if not isinstance(lines_data, list) or len(lines_data) < 2:
+            return _api_error("invalid_lines", status=400)
+        # Validate every line BEFORE touching the existing ones.  The previous
+        # implementation deleted the lines first, so a failed balance check
+        # left the entry with no lines and stale totals (silent corruption).
+        error, new_lines = _validate_entry_lines(lines_data)
+        if error:
+            return error
+        with transaction.atomic():
+            entry.lines.all().delete()
+            for line in new_lines:
+                line.entry = entry
+            JournalEntryLine.objects.bulk_create(new_lines)
     entry.recalculate_totals()
     entry.save()
     _audit_ops(
@@ -441,11 +454,17 @@ def admin_accounts_journal_entries_unpost(
     return _api_ok({"id": entry.id})
 
 
-def _update_entry_lines(
-    entry: JournalEntry, lines_data: list[dict[str, Any]]
-) -> JsonResponse | None:
+def _validate_entry_lines(
+    lines_data: list[dict[str, Any]],
+) -> tuple[JsonResponse | None, list[JournalEntryLine]]:
+    """Build and validate journal lines *without writing them*.
+
+    Callers persist the returned (unsaved) objects only after the balance
+    check has passed, so a rejected edit can never destroy the old lines.
+    """
     total_debit = Decimal("0")
     total_credit = Decimal("0")
+    new_lines: list[JournalEntryLine] = []
     for line_data in lines_data:
         account_id = line_data.get("accountId")
         account = (
@@ -454,36 +473,37 @@ def _update_entry_lines(
             else None
         )
         if not account:
-            return _api_error("account_not_found", status=400)
+            return _api_error("account_not_found", status=400), []
         debit = _to_dec(line_data.get("debit")) or Decimal("0")
         credit = _to_dec(line_data.get("credit")) or Decimal("0")
         if debit < 0 or credit < 0:
-            return _api_error("negative_amount", status=400)
+            return _api_error("negative_amount", status=400), []
         if debit > 0 and credit > 0:
-            return _api_error("both_sides", status=400)
+            return _api_error("both_sides", status=400), []
         project_id = line_data.get("projectId")
         project = None
         if project_id:
             project = ProjectPage.objects.filter(pk=int(project_id)).first()
             if not project:
-                return _api_error("project_not_found", status=404)
-        JournalEntryLine.objects.create(
-            entry=entry,
-            account=account,
-            description=str(line_data.get("description") or "").strip(),
-            debit=debit,
-            credit=credit,
-            project=project,
-            contact_type=str(line_data.get("contactType") or "").strip(),
-            contact_id=line_data.get("contactId"),
+                return _api_error("project_not_found", status=404), []
+        new_lines.append(
+            JournalEntryLine(
+                account=account,
+                description=str(line_data.get("description") or "").strip(),
+                debit=debit,
+                credit=credit,
+                project=project,
+                contact_type=str(line_data.get("contactType") or "").strip(),
+                contact_id=line_data.get("contactId"),
+            )
         )
         total_debit += debit
         total_credit += credit
     if total_debit != total_credit:
-        return _api_error("unbalanced_entry", status=400)
+        return _api_error("unbalanced_entry", status=400), []
     if total_debit == 0:
-        return _api_error("empty_entry", status=400)
-    return None
+        return _api_error("empty_entry", status=400), []
+    return None, new_lines
 
 
 @require_GET

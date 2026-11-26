@@ -283,15 +283,29 @@ class PaymentApplication(models.Model):
             raise ValidationError(
                 "حسابات الذمم المدينة أو الإيرادات غير موجودة."
             )
+        if self.retention_amount and not retention_account:
+            raise ValidationError("حساب الاستقطاعات (2106) غير موجود.")
+        if self.withholding_tax_amount and not tax_account:
+            raise ValidationError(
+                "حساب ضريبة الاستقطاع (2105) غير موجود."
+            )
+        # `net_amount` already subtracts retention, withholding tax AND
+        # previous deductions.  Crediting the full `current_due` as revenue
+        # therefore left the entry unbalanced whenever previous deductions
+        # existed.  Reduce the credit by the same amount so debits == credits:
+        #   net + retention + tax == current_due - previous_deductions
+        revenue_amount = self.current_due - self.previous_deductions
+        if revenue_amount <= 0:
+            raise ValidationError("مبلغ الإيراد يجب أن يكون أكبر من صفر.")
         lines: list[tuple[Account, Decimal, Decimal]] = [
             (ar_account, self.net_amount, Decimal("0")),
-            (revenue_account, Decimal("0"), self.current_due),
+            (revenue_account, Decimal("0"), revenue_amount),
         ]
-        if self.retention_amount and retention_account:
+        if self.retention_amount:
             lines.append(
                 (retention_account, self.retention_amount, Decimal("0"))
             )
-        if self.withholding_tax_amount and tax_account:
+        if self.withholding_tax_amount:
             lines.append(
                 (tax_account, self.withholding_tax_amount, Decimal("0"))
             )

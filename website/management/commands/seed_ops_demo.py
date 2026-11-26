@@ -8,8 +8,10 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -145,10 +147,23 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--password",
-            default="demo1234",
+            default="",
+            help="Kept for compatibility; demo accounts are created by "
+            "seed_demo_users with an explicit password.",
+        )
+        parser.add_argument(
+            "--allow-production",
+            action="store_true",
+            default=False,
+            help="Explicit opt-in required when DEBUG is False.",
         )
 
     def handle(self, *args, **options):
+        if not settings.DEBUG and not options.get("allow_production"):
+            raise CommandError(
+                "seed_ops_demo is a development-only command. "
+                "Refusing to seed demo operational data with DEBUG=False."
+            )
         password = str(options.get("password") or "").strip()
         self.stdout.write("Seeding operational demo data...")
 

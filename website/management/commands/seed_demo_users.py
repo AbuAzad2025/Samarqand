@@ -1,9 +1,11 @@
 import os
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -17,9 +19,14 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--password",
-            default=(
-                os.environ.get("DEMO_USERS_PASSWORD") or "demo1234"
-            ).strip(),
+            default=(os.environ.get("DEMO_USERS_PASSWORD") or "").strip(),
+            help="Required for seeding. Prefer the DEMO_USERS_PASSWORD env var.",
+        )
+        parser.add_argument(
+            "--allow-production",
+            action="store_true",
+            default=False,
+            help="Explicit opt-in required when DEBUG is False.",
         )
         parser.add_argument(
             "--reset-passwords",
@@ -43,6 +50,18 @@ class Command(BaseCommand):
         limit = int(options.get("limit") or 500)
         limit = max(1, min(limit, 5000))
         list_only = bool(options.get("list_only"))
+        if not list_only:
+            if not settings.DEBUG and not options.get("allow_production"):
+                raise CommandError(
+                    "seed_demo_users is a development-only command. "
+                    "Refusing to create demo accounts with DEBUG=False. "
+                    "Pass --allow-production only if you understand the risk."
+                )
+            if not password:
+                raise CommandError(
+                    "A demo password is required. Set DEMO_USERS_PASSWORD "
+                    "or pass --password explicitly."
+                )
 
         User = get_user_model()
 
