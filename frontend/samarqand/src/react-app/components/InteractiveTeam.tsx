@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Briefcase, GraduationCap, X } from 'lucide-react';
+import { Award, Briefcase, GraduationCap, UsersRound, X } from 'lucide-react';
 
 import {
   fetchCompany,
@@ -51,14 +51,16 @@ export default function InteractiveTeam() {
                 className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
               >
                 {/* Image Container */}
-                <div className="relative h-80 overflow-hidden">
+                <div className="relative h-56 overflow-hidden">
                   {member.imageUrl ? (
                     <img loading="lazy" decoding="async"                       src={member.imageUrl}
                       alt={member.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
+                    <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
+                      <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
+                    </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   
@@ -114,7 +116,9 @@ export default function InteractiveTeam() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
+                <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
+                      <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
+                    </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
               <div className="absolute bottom-6 right-6 text-white">

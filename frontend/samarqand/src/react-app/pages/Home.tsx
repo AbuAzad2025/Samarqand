@@ -2,7 +2,6 @@ import { useSiteContent, heading } from "@/react-app/utils/content";
 import TopBar from '@/react-app/components/TopBar';
 import Navigation from '@/react-app/components/Navigation';
 import ParallaxHero from '@/react-app/components/ParallaxHero';
-import LandingQuickNav from '@/react-app/components/LandingQuickNav';
 import LandingSidebar from '@/react-app/components/LandingSidebar';
 import WhatsAppButton from '@/react-app/components/WhatsAppButton';
 import FloatingCTA from '@/react-app/components/FloatingCTA';
@@ -17,7 +16,7 @@ import BeforeAfterSlider from "@/react-app/components/BeforeAfterSlider";
 import InteractiveTeam from "@/react-app/components/InteractiveTeam";
 import AIContentShowcase from "@/react-app/components/AIContentShowcase";
 import NewsletterSignup from "@/react-app/components/NewsletterSignup";
-import { MapPin, Calendar } from 'lucide-react';
+import { MapPin, Calendar, Building2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { useEffect, useMemo, useState } from "react";
 
@@ -62,11 +61,8 @@ export default function Home() {
     <div className="home-compact min-h-screen bg-white">
       <TopBar />
       <Navigation />
-      <div className="mx-auto max-w-7xl px-4 grid lg:grid-cols-[240px_1fr] gap-6 items-start">
-        <LandingSidebar visibility={v} />
-        <div className="min-w-0">
+      <LandingSidebar visibility={v} />
       <div id="home"><ParallaxHero /></div>
-      <LandingQuickNav visibility={v} />
       <div id="tools">{(v?.showHomeAIBanner ?? true) && <AIFeaturesBanner />}</div>
       {(v?.showHomeTrustBadges ?? true) && <TrustBadges />}
       {(v?.showHomeStats ?? true) && <AnimatedStats />}
@@ -120,7 +116,7 @@ export default function Home() {
                           <div className="mt-5">
                             <Link
                               to={`/contact?rfqTemplate=${encodeURIComponent(t.key)}`}
-                              className="inline-flex items-center justify-center w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition"
+                              className="btn-corp-primary w-full font-bold hover:shadow-lg transition"
                             >
                               ابدأ الطلب
                             </Link>
@@ -157,14 +153,16 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8">
             {featuredProjects.map((project) => (
               <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
-                <div className="relative h-64 overflow-hidden">
+                <div className="relative h-52 overflow-hidden">
                   {project.imageUrl ? (
                     <img loading="lazy" decoding="async"                       src={project.imageUrl}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red" />
+                    <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
+                      <Building2 size={44} strokeWidth={1.2} aria-hidden="true" />
+                    </div>
                   )}
                   <div className="absolute top-4 right-4 bg-sq-red text-white px-4 py-2 rounded-full text-sm font-semibold">
                     {project.category}
@@ -194,7 +192,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 to="/projects"
-                className="inline-block bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+                className="btn-corp-primary font-semibold hover:shadow-lg transition"
               >
                 عرض جميع المشاريع
               </Link>
@@ -265,7 +263,7 @@ export default function Home() {
                     <Star key={i} size={20} className="fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-gray-600 mb-4 italic">"{testimonial.text}"</p>
+                <p className="text-slate-600 mb-4 leading-loose">"{testimonial.text}"</p>
                 <div className="border-t pt-4">
                   <p className="font-bold text-gray-800">{testimonial.name}</p>
                   <p className="text-sm text-gray-500">{testimonial.project}</p>
@@ -277,7 +275,7 @@ export default function Home() {
           <div className="text-center mt-12">
             <Link
               to="/showcase"
-              className="inline-block bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
+              className="btn-corp-primary font-semibold hover:shadow-lg transition"
             >
               قراءة المزيد
             </Link>
@@ -288,9 +286,6 @@ export default function Home() {
 
       {(v?.showTools ?? true) && <AIContentShowcase />}
       {(v?.showNewsletter ?? true) && <div id="contact"><NewsletterSignup /></div>}
-
-        </div>
-      </div>
 
       <WhatsAppButton />
       <FloatingCTA />

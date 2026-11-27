@@ -27,7 +27,7 @@ export default function Services({ showHeading = true }: { showHeading?: boolean
       <div className="max-w-7xl mx-auto px-4" dir="rtl">
         {showHeading ? (
           <>
-            <h2 className="text-5xl font-bold text-center mb-4 bg-gradient-to-r from-sq-green via-sq-black to-sq-red bg-clip-text text-transparent">
+            <h2 className="text-4xl font-bold text-center mb-4 text-slate-900">
               خدماتنا
             </h2>
             <p className="text-center text-gray-600 mb-16 text-lg">نقدم خدمات متكاملة في مجال المقاولات والهندسة</p>
@@ -62,7 +62,7 @@ export default function Services({ showHeading = true }: { showHeading?: boolean
         <div className="text-center mt-12">
           <Link
             to="/contact"
-            className="inline-block bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-10 py-4 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all text-lg"
+            className="btn-corp-primary font-bold hover:shadow-lg hover:scale-105 transition-all text-lg"
           >
             احصل على استشارة مجانية
           </Link>

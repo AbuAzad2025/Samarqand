@@ -15,65 +15,44 @@ export default function ProcessTimeline() {
   }, []);
 
   const icons = useMemo(() => [FileSearch, PenTool, HardHat, CheckCircle], []);
-  const colors = useMemo(
-    () => [
-      "from-sq-green via-sq-black to-sq-red",
-      "from-purple-500 to-purple-600",
-      "from-orange-500 to-orange-600",
-      "from-green-500 to-green-600",
-    ],
-    [],
-  );
 
   return (
-    <section className="py-20 bg-white" dir="rtl">
+    <section className="section-corp" dir="rtl">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+        <div className="text-center mb-12">
+          <div className="eyebrow-corp mb-2">منهج العمل</div>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">
             كيف نعمل
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-600 max-w-2xl mx-auto">
             عملية واضحة وشفافة من البداية حتى النهاية
           </p>
         </div>
 
         <div className="relative">
-          {/* Timeline Line */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-sq-green via-sq-black to-sq-red transform -translate-y-1/2" />
-
-          <div className="grid md:grid-cols-4 gap-8 relative">
+          <div className="hidden md:block absolute inset-x-0 top-8 h-px bg-slate-200" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 relative">
             {steps.map((step, index) => {
               const Icon = icons[index % icons.length] ?? FileSearch;
-              const color = colors[index % colors.length] ?? colors[0]!;
               return (
-              <div key={index} className="relative">
-                {/* Step Card */}
-                <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-gray-100">
-                  <div className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${color} flex items-center justify-center shadow-lg relative z-10`}>
-                    <Icon className="text-white" size={36} />
+                <article key={step.id ?? index} className="card-corp flex flex-col p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
+                      <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-400">
+                      المرحلة {index + 1}
+                    </span>
                   </div>
-
-                  {/* Number Badge */}
-                  <div className="absolute -top-4 -right-4 w-10 h-10 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-                    {index + 1}
-                  </div>
-
-                  <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">
                     {step.title}
                   </h3>
-                  <p className="text-gray-600 text-center text-sm leading-relaxed">
+                  <p className="text-sm leading-relaxed text-slate-600">
                     {step.description}
                   </p>
-                </div>
-
-                {/* Connector Arrow (mobile only) */}
-                {index < steps.length - 1 && (
-                  <div className="md:hidden flex justify-center my-4">
-                    <div className="w-1 h-8 bg-gradient-to-b from-sq-green via-sq-black to-sq-red" />
-                  </div>
-                )}
-              </div>
-            )})}
+                </article>
+              );
+            })}
           </div>
         </div>
       </div>

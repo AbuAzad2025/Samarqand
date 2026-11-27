@@ -61,25 +61,17 @@ export default function Projects() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project, index) => (
+            {projects.map((project) => (
               <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
-                <div className="relative h-64 overflow-hidden">
+                <div className="relative h-52 overflow-hidden">
                   {project.imageUrl ? (
                     <img loading="lazy" decoding="async"                       src={project.imageUrl}
                       alt={project.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                     />
                   ) : (
-                    <div
-                      className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${
-                        [
-                          "from-sq-green via-sq-black to-sq-red",
-                          "from-sq-red via-sq-black to-sq-green",
-                          "from-sq-black via-sq-green to-sq-red",
-                        ][index % 3]
-                      }`}
-                    >
-                      <Building2 size={64} className="text-white/25" aria-hidden="true" />
+                    <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
+                      <Building2 size={44} strokeWidth={1.2} aria-hidden="true" />
                     </div>
                   )}
                   <div className="absolute top-4 right-4 bg-sq-green text-white px-4 py-2 rounded-full text-sm font-semibold">

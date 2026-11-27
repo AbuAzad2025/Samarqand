@@ -42,13 +42,13 @@ export default function AIContentShowcase() {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+    <section className="section-corp-muted">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full mb-6">
+          <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--corp-green)] text-white">
             <FileText className="text-white" size={48} />
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+          <h2 className="mb-4 text-3xl font-bold text-slate-900">
             مولّد المحتوى التسويقي بالذكاء الاصطناعي
           </h2>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">

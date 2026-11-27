@@ -49,7 +49,7 @@ export default function ParallaxHero() {
   }, [company?.brandTitle, company?.slogan, home]);
 
   return (
-    <section className="relative h-screen overflow-hidden">
+    <section className="relative h-[78vh] min-h-[560px] max-h-[820px] overflow-hidden">
       {/* Background Image with Parallax */}
       <div
         className="absolute inset-0 bg-cover bg-center"
@@ -79,11 +79,11 @@ export default function ParallaxHero() {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 animate-fade-in-up">
-            <span className="bg-gradient-to-r from-sq-green via-white to-sq-red bg-clip-text text-transparent">
+            <span className="text-white">
               {hero.title1}
             </span>
             <br />
-            <span className="text-4xl md:text-5xl">{hero.title2}</span>
+            <span className="text-4xl md:text-5xl text-[#A7D7BC]">{hero.title2}</span>
           </h1>
 
           <p className="text-xl md:text-2xl text-white/90 mb-12 animate-fade-in-up animation-delay-200">
@@ -94,7 +94,7 @@ export default function ParallaxHero() {
           <div className="flex flex-wrap gap-4 justify-center animate-fade-in-up animation-delay-400">
             <a
               href={hero.primaryUrl}
-              className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
+              className="btn-corp-primary text-lg font-bold hover:shadow-2xl hover:scale-105 transition-all"
             >
               {hero.primaryLabel}
             </a>
@@ -115,10 +115,10 @@ export default function ParallaxHero() {
 
       {/* Animated Particles */}
       <div className="absolute inset-0 pointer-events-none">
-        {[...Array(15)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-2 h-2 bg-white rounded-full opacity-30"
+            className="absolute w-1.5 h-1.5 bg-white rounded-full opacity-15"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,

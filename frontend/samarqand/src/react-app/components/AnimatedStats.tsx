@@ -77,9 +77,9 @@ export default function AnimatedStats() {
     const icons = [Building2, Users, Award, Briefcase] as const;
     const colors = [
       "from-sq-green via-sq-black to-sq-red",
-      "from-green-500 to-green-600",
-      "from-yellow-500 to-yellow-600",
-      "from-purple-500 to-purple-600",
+      "from-emerald-600 to-emerald-700",
+      "from-emerald-700 to-emerald-800",
+      "from-teal-700 to-emerald-800",
     ];
 
     return raw.slice(0, 4).map((s, idx) => {
@@ -99,7 +99,7 @@ export default function AnimatedStats() {
     <section className="py-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 relative overflow-hidden">
       {/* Animated Background Particles */}
       <div className="absolute inset-0 opacity-20">
-        {[...Array(20)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <div
             key={i}
             className="absolute w-2 h-2 bg-white rounded-full animate-float"
@@ -125,10 +125,10 @@ export default function AnimatedStats() {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center hover:bg-white/20 transition-all duration-300 hover:scale-105 hover:shadow-2xl border border-white/20"
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
             >
-              <div className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg`}>
-                <stat.icon className="text-white" size={40} />
+              <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}>
+                <stat.icon className="text-white" size={22} strokeWidth={1.8} aria-hidden="true" />
               </div>
               
               <div className="text-white mb-2">

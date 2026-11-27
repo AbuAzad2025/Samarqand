@@ -15,11 +15,17 @@ export default function FloatingCTA() {
   useEffect(() => {
     // Appear only once the visitor has scrolled past the hero, so it never
     // covers the headline or primary call-to-action.
-    const onScroll = () => setIsVisible(window.scrollY > 500);
+    const onScroll = () => setIsVisible(window.scrollY > 1200);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!isVisible || isDismissed) return;
+    const timer = window.setTimeout(() => setIsVisible(false), 12000);
+    return () => window.clearTimeout(timer);
+  }, [isVisible, isDismissed]);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -35,8 +41,8 @@ export default function FloatingCTA() {
     whatsappUrl(company?.phone1, "مرحباً، أريد الحصول على استشارة مجانية") || "/contact";
 
   return (
-    <div className="fixed bottom-6 left-24 z-40 animate-slide-up max-w-[calc(100vw-8rem)]" dir="rtl">
-      <div className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white rounded-2xl shadow-2xl p-4 max-w-xs relative">
+    <div className="fixed bottom-6 left-20 z-40 animate-slide-up max-w-[calc(100vw-6rem)]" dir="rtl">
+      <div className="card-corp bg-white p-4 max-w-[15rem] relative">
         <button
           onClick={() => {
             setIsDismissed(true);

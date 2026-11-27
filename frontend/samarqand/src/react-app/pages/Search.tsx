@@ -81,7 +81,7 @@ export default function Search() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white" dir="rtl">
       <TopBar />
       <Navigation />
-      <main className="min-h-[60vh]">
+      <div className="min-h-[60vh]">
         <section className="bg-gradient-to-l from-sq-green via-sq-black to-sq-red text-white py-16">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">البحث في الموقع</h1>
@@ -150,7 +150,7 @@ export default function Search() {
             )}
           </div>
         </section>
-      </main>
+      </div>
       <Footer />
       <WhatsAppButton />
     </div>

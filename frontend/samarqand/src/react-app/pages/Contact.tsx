@@ -136,7 +136,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
+      <section className="relative bg-[#0D131D] text-white py-16">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
             {heading(content, isQuote ? "requestQuote" : "contact", isQuote ? "طلب عرض سعر" : "تواصل معنا")}
@@ -335,7 +335,7 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
 
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                  className="btn-corp-primary w-full font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                 >
                   <Send size={20} />
                   <span>إرسال الطلب</span>
