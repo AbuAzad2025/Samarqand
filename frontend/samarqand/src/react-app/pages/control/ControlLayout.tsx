@@ -7,6 +7,7 @@ import {
   Boxes,
   BriefcaseBusiness,
   Building2,
+  ChevronDown,
   ClipboardList,
   FileSpreadsheet,
   FileText,
@@ -26,9 +27,45 @@ import {
   UsersRound,
   Wrench,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
-import { fetchAdminVisibilitySettings, fetchAuthMe, logout } from "@/react-app/api/site";
+import { fetchAuthMe, fetchSiteConfig, logout } from "@/react-app/api/site";
+
+const PROJECT_MANAGER_GROUPS = [
+  "Project Managers",
+  "PMO",
+  "مدراء المشاريع",
+  "مدير مشروع",
+  "مدير المشاريع",
+];
+
+type NavItem = { to: string; label: string; icon: LucideIcon; show: boolean };
+type GroupKey =
+  | "operations"
+  | "projects"
+  | "files"
+  | "content"
+  | "settings"
+  | "system";
+
+const GROUP_TITLES: Record<GroupKey, string> = {
+  operations: "العمليات اليومية",
+  projects: "المشاريع والعقود",
+  files: "الملفات والوسائط",
+  content: "محتوى الموقع",
+  settings: "الإعدادات",
+  system: "النظام والحساب",
+};
+
+const DEFAULT_GROUP_ORDER: GroupKey[] = [
+  "operations",
+  "projects",
+  "files",
+  "content",
+  "settings",
+  "system",
+];
 
 export default function ControlLayout() {
   const [me, setMe] = useState<{
@@ -42,6 +79,7 @@ export default function ControlLayout() {
   const [meLoading, setMeLoading] = useState(true);
   const [showControlProjectsManagement, setShowControlProjectsManagement] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<GroupKey[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
   const meRequestId = useRef(0);
@@ -74,86 +112,101 @@ export default function ControlLayout() {
     refreshMe();
   }, [location.pathname, refreshMe]);
 
-  const meAuthenticated = Boolean(me?.authenticated);
-  const meIsStaff = Boolean(me?.isStaff);
-
   useEffect(() => {
-    if (!meAuthenticated || !meIsStaff) return;
+    if (!me?.authenticated) return;
     const reqId = ++visibilityRequestId.current;
-    fetchAdminVisibilitySettings()
-      .then((v) => {
+    // Public config carries this flag; the admin endpoint is manager-only and
+    // would raise a 403 for every other role.
+    fetchSiteConfig()
+      .then((config) => {
         if (reqId !== visibilityRequestId.current) return;
-        setShowControlProjectsManagement(Boolean(v.showControlProjectsManagement));
+        setShowControlProjectsManagement(
+          Boolean(config.visibility.showControlProjectsManagement),
+        );
       })
       .catch(() => {});
-  }, [meAuthenticated, meIsStaff]);
+  }, [me?.authenticated]);
+
+  // One source of truth: the same access map drives both the route guard and
+  // the menu, so a link can never appear for a path the user cannot open.
+  const access = useMemo(() => {
+    const role = me?.role || "anonymous";
+    const groups = new Set(
+      (me?.groups || []).map((g) => String(g || "").trim()).filter(Boolean),
+    );
+    const superuser = Boolean(me?.isSuperuser);
+    const manager = superuser || role === "manager" || groups.has("Managers");
+    const projectRole = manager || PROJECT_MANAGER_GROUPS.some((g) => groups.has(g));
+    const registrar = manager || role === "registrar" || groups.has("Registrars");
+    const accountant = manager || role === "accountant" || groups.has("Accountants");
+    const employee = role === "employee" || groups.has("Employees");
+    const canProjects = projectRole && (superuser || manager || showControlProjectsManagement);
+    const canDelivery = projectRole || accountant || registrar;
+
+    return {
+      superuser,
+      manager,
+      registrar,
+      accountant,
+      employee,
+      projectRole,
+      canOps: manager || accountant || registrar || employee,
+      canProjects,
+      canBoq: canDelivery,
+      canFieldDocs: canDelivery,
+      canRfq: canDelivery,
+      canHr: manager || registrar || accountant,
+      canFleet: manager || registrar,
+      canMail: manager || registrar,
+      canCompanyDocs: accountant || registrar,
+      canMedia: manager || registrar,
+      canUsers: superuser,
+      canAudit: manager,
+      canBackup: superuser,
+    };
+  }, [me, showControlProjectsManagement]);
 
   useEffect(() => {
-    if (meLoading) return;
-    if (!me) return;
-    const role = me.role || "staff";
-    const groupNames = new Set((me.groups || []).map((x) => String(x || "").trim()).filter(Boolean));
-    const canProjectsByGroup =
-      me.isSuperuser ||
-      role === "manager" ||
-      ["Project Managers", "PMO", "مدراء المشاريع", "مدير مشروع", "مدير المشاريع"].some((g) => groupNames.has(g));
-    const canManageSite = me.isSuperuser || role === "manager";
-    const canRegistration = me.isSuperuser || role === "manager" || role === "registrar";
-    const canAccounting = me.isSuperuser || role === "manager" || role === "accountant";
-    const canOps = me.isSuperuser || role === "manager" || role === "accountant" || role === "registrar" || role === "employee";
-    const canProjects = canProjectsByGroup;
-    const canRfq = canProjectsByGroup || me.isSuperuser || role === "manager" || role === "accountant" || role === "registrar";
-    const canBoq = canProjectsByGroup || me.isSuperuser || role === "manager" || role === "accountant" || role === "registrar";
-    const canCompanyDocs = canAccounting || canRegistration;
-    const canMedia = canRegistration || canManageSite;
-    const canUsers = me.isSuperuser;
-    const canHr = me.isSuperuser || role === "manager" || role === "registrar" || role === "accountant";
-    const canFleet = me.isSuperuser || role === "manager" || role === "registrar";
-    const canMail = me.isSuperuser || role === "manager" || role === "registrar";
-
+    if (meLoading || !me) return;
     const pathname = location.pathname || "";
     const isAllowedPath =
       pathname === "/control" ||
       pathname.startsWith("/control/dashboard") ||
       pathname.startsWith("/control/password") ||
-      (pathname.startsWith("/control/ops") && canOps) ||
-      (pathname.startsWith("/control/projects") && canProjects && showControlProjectsManagement) ||
-      (pathname.startsWith("/control/rfq") && canRfq) ||
-      (pathname.startsWith("/control/boq") && canBoq) ||
-      (pathname.startsWith("/control/field-docs") && canBoq) ||
-      (pathname.startsWith("/control/hr") && canHr) ||
-      (pathname.startsWith("/control/fleet") && canFleet) ||
-      (pathname.startsWith("/control/mail") && canMail) ||
-      (pathname.startsWith("/control/media") && canMedia) ||
-      (pathname.startsWith("/control/company-documents") && canCompanyDocs) ||
-      (pathname.startsWith("/control/services") && canManageSite) ||
-      (pathname.startsWith("/control/blogs") && canManageSite) ||
-      (pathname.startsWith("/control/testimonials") && canManageSite) ||
-      (pathname.startsWith("/control/home-sections") && canManageSite) ||
-      (pathname.startsWith("/control/pages") && canManageSite) ||
-      (pathname.startsWith("/control/settings") && canManageSite) ||
-      (pathname.startsWith("/control/team") && canManageSite) ||
-      (pathname.startsWith("/control/users") && canUsers) ||
-      (pathname.startsWith("/control/backup") && me.isSuperuser);
+      (pathname.startsWith("/control/ops") && access.canOps) ||
+      (pathname.startsWith("/control/projects") && access.canProjects) ||
+      (pathname.startsWith("/control/rfq") && access.canRfq) ||
+      (pathname.startsWith("/control/boq") && access.canBoq) ||
+      (pathname.startsWith("/control/field-docs") && access.canFieldDocs) ||
+      (pathname.startsWith("/control/hr") && access.canHr) ||
+      (pathname.startsWith("/control/fleet") && access.canFleet) ||
+      (pathname.startsWith("/control/mail") && access.canMail) ||
+      (pathname.startsWith("/control/media") && access.canMedia) ||
+      (pathname.startsWith("/control/company-documents") && access.canCompanyDocs) ||
+      (pathname.startsWith("/control/services") && access.manager) ||
+      (pathname.startsWith("/control/blogs") && access.manager) ||
+      (pathname.startsWith("/control/testimonials") && access.manager) ||
+      (pathname.startsWith("/control/home-sections") && access.manager) ||
+      (pathname.startsWith("/control/pages") && access.manager) ||
+      (pathname.startsWith("/control/settings") && access.manager) ||
+      (pathname.startsWith("/control/team") && access.manager) ||
+      (pathname.startsWith("/control/users") && access.canUsers) ||
+      (pathname.startsWith("/control/backup") && access.canBackup);
 
-    if (location.pathname.startsWith("/control/login")) {
+    if (pathname.startsWith("/control/login")) {
       if (me.authenticated && me.isStaff) {
         navigate("/control/dashboard", { replace: true });
       }
       return;
     }
-    if (!me.authenticated) {
-      navigate("/control/login", { replace: true });
-      return;
-    }
-    if (!me.isStaff) {
+    if (!me.authenticated || !me.isStaff) {
       navigate("/control/login", { replace: true });
       return;
     }
     if (!isAllowedPath) {
       navigate("/control/dashboard", { replace: true });
     }
-  }, [location.pathname, me, meLoading, navigate, showControlProjectsManagement]);
+  }, [location.pathname, me, meLoading, navigate, access]);
 
   async function onLogout() {
     await logout().catch(() => {});
@@ -162,123 +215,109 @@ export default function ControlLayout() {
   }
 
   const roleLabel = useMemo(() => {
-    const role = me?.role || "anonymous";
-    if (me?.isSuperuser) return "سوبر أدمن";
-    if (role === "manager") return "مدير";
+    if (access.superuser) return "سوبر أدمن";
+    const role = me?.role || "";
+    if (role === "manager" || access.manager) return "مدير";
     if (role === "accountant") return "محاسب";
     if (role === "registrar") return "مسجل";
     if (role === "employee") return "موظف";
     if (role === "registered_guest") return "ضيف مسجل";
     if (role === "guest") return "ضيف";
-    return "";
-  }, [me?.isSuperuser, me?.role]);
-
-  const canManageSite = Boolean(me?.isSuperuser || me?.role === "manager");
-  const canRegistration = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar");
-  const canAccounting = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "accountant");
-  const canOps = Boolean(
-    me?.isSuperuser || me?.role === "manager" || me?.role === "accountant" || me?.role === "registrar" || me?.role === "employee",
-  );
-  const canProjects = Boolean(
-    me?.isSuperuser ||
-      me?.role === "manager" ||
-      ["Project Managers", "PMO", "مدراء المشاريع", "مدير مشروع", "مدير المشاريع"].some((g) => Boolean(me?.groups?.includes(g))),
-  ) && showControlProjectsManagement;
-  const canRfq = Boolean(
-    canProjects || me?.isSuperuser || me?.role === "manager" || me?.role === "accountant" || me?.role === "registrar",
-  );
-  const canBoq = Boolean(
-    canProjects || me?.isSuperuser || me?.role === "manager" || me?.role === "accountant" || me?.role === "registrar",
-  );
-  const canFieldDocs = canBoq;
-  const canHr = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar" || me?.role === "accountant");
-  const canFleet = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar");
-  const canMail = Boolean(me?.isSuperuser || me?.role === "manager" || me?.role === "registrar");
-  const canCompanyDocs = Boolean(canAccounting || canRegistration);
-  const canMedia = Boolean(canRegistration || canManageSite);
-  const canAudit = Boolean(me?.isSuperuser || me?.role === "manager");
+    return "موظف";
+  }, [access.superuser, access.manager, me?.role]);
 
   const pathname = location.pathname || "";
-  const isActive = useCallback((prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`), [pathname]);
+  const isActive = useCallback(
+    (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    [pathname],
+  );
 
   const navGroups = useMemo(() => {
-    const items = [
-      {
-        title: "الأساسيات",
-        items: [
-          { to: "/control/dashboard", label: "لوحة التحكم", icon: LayoutDashboard, show: true },
-          { to: "/control/ops", label: "العمليات والموارد", icon: ClipboardList, show: canOps },
-          { to: "/control/hr", label: "الموارد البشرية", icon: UserCog, show: canHr },
-          { to: "/control/fleet", label: "المركبات", icon: Truck, show: canFleet },
-          { to: "/control/mail", label: "البريد", icon: Mail, show: canMail },
-        ],
-      },
-      {
-        title: "إدارة المشاريع",
-        items: [
-          { to: "/control/projects", label: "المشاريع", icon: BriefcaseBusiness, show: canProjects },
-          { to: "/control/boq", label: "بنود الكميات", icon: FileSpreadsheet, show: canBoq },
-          { to: "/control/field-docs", label: "التوثيق الميداني", icon: ClipboardList, show: canFieldDocs },
-          { to: "/control/rfq", label: "عروض الأسعار", icon: FileText, show: canRfq },
-          { to: "/control/media", label: "المكتبة", icon: ImageIcon, show: canMedia },
-          { to: "/control/company-documents", label: "مستندات الشركة", icon: FolderOpen, show: canCompanyDocs },
-        ],
-      },
-      {
-        title: "محتوى الموقع",
-        items: [
-          { to: "/control/services", label: "الخدمات", icon: Boxes, show: canManageSite },
-          { to: "/control/blogs", label: "المدونات", icon: BookOpenText, show: canManageSite },
-          { to: "/control/testimonials", label: "آراء العملاء", icon: UsersRound, show: canManageSite },
-          { to: "/control/home-sections", label: "الصفحة الرئيسية", icon: Building2, show: canManageSite },
-          { to: "/control/pages", label: "الصفحات", icon: FileText, show: canManageSite },
-          { to: "/control/team", label: "فريق العمل", icon: UsersRound, show: canManageSite },
-        ],
-      },
-      {
-        title: "الإعدادات",
-        items: [
-          { to: "/control/settings/company", label: "الشركة", icon: Building2, show: canManageSite },
-          { to: "/control/settings/home", label: "الصفحة الرئيسية", icon: LayoutDashboard, show: canManageSite },
-          { to: "/control/settings/ai", label: "الذكاء الاصطناعي", icon: Wrench, show: canManageSite },
-          { to: "/control/settings/calculator", label: "الحاسبة", icon: BarChart3, show: canManageSite },
-          { to: "/control/settings/content", label: "نصوص الواجهة", icon: FileText, show: canManageSite },
-{ to: "/control/settings/visibility", label: "إظهار الأقسام", icon: Settings, show: canManageSite },
-        ],
-      },
-      {
-        title: "الأمان والنظام",
-        items: [
-          { to: "/control/ops?tab=audit", label: "سجل التدقيق", icon: Shield, show: canAudit },
-          { to: "/control/users", label: "المستخدمون", icon: Users, show: Boolean(me?.isSuperuser) },
-          { to: "/control/password", label: "كلمة المرور", icon: LockKeyhole, show: true },
-          { to: "/control/backup", label: "نسخ احتياطي", icon: Shield, show: Boolean(me?.isSuperuser) },
-        ],
-      },
-    ];
+    const groups: Record<GroupKey, NavItem[]> = {
+      operations: [
+        { to: "/control/ops", label: "العمليات والموارد", icon: ClipboardList, show: access.canOps },
+        { to: "/control/hr", label: "الموارد البشرية", icon: UserCog, show: access.canHr },
+        { to: "/control/fleet", label: "المركبات", icon: Truck, show: access.canFleet },
+        { to: "/control/mail", label: "البريد", icon: Mail, show: access.canMail },
+      ],
+      projects: [
+        { to: "/control/projects", label: "المشاريع", icon: BriefcaseBusiness, show: access.canProjects },
+        { to: "/control/boq", label: "بنود الكميات", icon: FileSpreadsheet, show: access.canBoq },
+        { to: "/control/field-docs", label: "التوثيق الميداني", icon: ClipboardList, show: access.canFieldDocs },
+        { to: "/control/rfq", label: "عروض الأسعار", icon: FileText, show: access.canRfq },
+      ],
+      files: [
+        { to: "/control/company-documents", label: "وثائق الشركة", icon: FolderOpen, show: access.canCompanyDocs },
+        { to: "/control/media", label: "المكتبة", icon: ImageIcon, show: access.canMedia },
+      ],
+      content: [
+        { to: "/control/home-sections", label: "أقسام الرئيسية", icon: Building2, show: access.manager },
+        { to: "/control/services", label: "الخدمات", icon: Boxes, show: access.manager },
+        { to: "/control/pages", label: "الصفحات", icon: FileText, show: access.manager },
+        { to: "/control/team", label: "فريق العمل", icon: UsersRound, show: access.manager },
+        { to: "/control/blogs", label: "المدونات", icon: BookOpenText, show: access.manager },
+        { to: "/control/testimonials", label: "آراء العملاء", icon: UsersRound, show: access.manager },
+      ],
+      settings: [
+        { to: "/control/settings/company", label: "بيانات الشركة", icon: Building2, show: access.manager },
+        { to: "/control/settings/content", label: "نصوص الواجهة", icon: FileText, show: access.manager },
+        { to: "/control/settings/visibility", label: "إظهار الأقسام", icon: Settings, show: access.manager },
+        { to: "/control/settings/home", label: "الشعار والهيرو", icon: ImageIcon, show: access.manager },
+        { to: "/control/settings/ai", label: "الذكاء الاصطناعي", icon: Wrench, show: access.manager },
+        { to: "/control/settings/calculator", label: "الحاسبة", icon: BarChart3, show: access.manager },
+      ],
+      system: [
+        { to: "/control/ops?tab=audit", label: "سجل التدقيق", icon: Shield, show: access.canAudit },
+        { to: "/control/users", label: "المستخدمون", icon: Users, show: access.canUsers },
+        { to: "/control/backup", label: "نسخ احتياطي", icon: Shield, show: access.canBackup },
+        { to: "/control/password", label: "كلمة المرور", icon: LockKeyhole, show: true },
+      ],
+    };
 
-    return items
-      .map((g) => ({ ...g, items: g.items.filter((it) => it.show) }))
-      .filter((g) => g.items.length);
-  }, [canAudit, canBoq, canCompanyDocs, canFieldDocs, canFleet, canHr, canMail, canManageSite, canMedia, canOps, canProjects, canRfq, me?.isSuperuser]);
+    let order = DEFAULT_GROUP_ORDER;
+    if (access.projectRole && !access.manager) {
+      order = ["projects", "operations", "files", "content", "settings", "system"];
+    } else if (access.registrar && !access.manager) {
+      order = ["operations", "files", "projects", "content", "settings", "system"];
+    }
+
+    return order
+      .map((key) => ({
+        key,
+        title: GROUP_TITLES[key],
+        items: groups[key].filter((it) => it.show),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [access]);
 
   const quickLinks = useMemo(() => {
-    const items = [
-      { to: "/control/dashboard", label: "الرئيسية", icon: LayoutDashboard, show: true },
-      { to: "/control/ops", label: "العمليات", icon: ClipboardList, show: canOps },
-      { to: "/control/hr", label: "الموارد البشرية", icon: UserCog, show: canHr },
-      { to: "/control/fleet", label: "المركبات", icon: Truck, show: canFleet },
-      { to: "/control/mail", label: "البريد", icon: Mail, show: canMail },
-      { to: "/control/projects", label: "المشاريع", icon: BriefcaseBusiness, show: canProjects },
-      { to: "/control/boq", label: "بنود الكميات", icon: FileSpreadsheet, show: canBoq },
-      { to: "/control/field-docs", label: "التوثيق", icon: ClipboardList, show: canFieldDocs },
-      { to: "/control/rfq", label: "عروض الأسعار", icon: FileText, show: canRfq },
-      { to: "/control/media", label: "المكتبة", icon: ImageIcon, show: canMedia },
-      { to: "/control/users", label: "المستخدمون", icon: Users, show: Boolean(me?.isSuperuser) },
-      { to: "/control/backup", label: "نسخ احتياطي", icon: Shield, show: Boolean(me?.isSuperuser) },
+    let preferred: string[];
+    if (access.superuser || access.manager) {
+      preferred = ["/control/dashboard", "/control/ops", "/control/projects", "/control/settings/content", "/control/backup"];
+    } else if (access.projectRole) {
+      preferred = ["/control/dashboard", "/control/projects", "/control/boq", "/control/field-docs"];
+    } else if (access.accountant) {
+      preferred = ["/control/dashboard", "/control/ops", "/control/boq", "/control/rfq"];
+    } else if (access.registrar) {
+      preferred = ["/control/dashboard", "/control/ops", "/control/hr", "/control/mail"];
+    } else {
+      preferred = ["/control/dashboard", "/control/ops"];
+    }
+    const all = [
+      { to: "/control/dashboard", label: "الرئيسية", icon: LayoutDashboard },
+      ...navGroups.flatMap((g) => g.items),
     ];
-    return items.filter((x) => x.show);
-  }, [canBoq, canFieldDocs, canFleet, canHr, canMail, canMedia, canOps, canProjects, canRfq, me?.isSuperuser]);
+    return preferred
+      .map((path) => all.find((it) => it.to === path))
+      .filter((it): it is (typeof all)[number] => Boolean(it))
+      .slice(0, 5);
+  }, [access, navGroups]);
+
+  function toggleGroup(key: GroupKey) {
+    setCollapsedGroups((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
 
   const isLogin = pathname.startsWith("/control/login");
 
@@ -361,7 +400,7 @@ export default function ControlLayout() {
           </div>
         </div>
 
-        {!isLogin && quickLinks.length > 0 && (
+        {!isLogin && quickLinks.length > 2 && (
           <div className="border-t border-white/10 bg-white/5">
             <div className="max-w-7xl mx-auto px-4 py-2">
               <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -405,7 +444,7 @@ export default function ControlLayout() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-extrabold text-white">التنقل</div>
-                      <div className="text-xs text-white/60 mt-1">حسب صلاحياتك</div>
+                      <div className="text-xs text-white/60 mt-1">{roleLabel} · حسب صلاحياتك</div>
                     </div>
                     <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-sq-green/40 via-white/5 to-sq-red/40 flex items-center justify-center border border-white/10">
                       <Activity size={16} />
@@ -413,42 +452,70 @@ export default function ControlLayout() {
                   </div>
                 </div>
 
-                <nav className="p-3 space-y-4">
-                  {navGroups.map((g) => (
-                    <div key={g.title} className="space-y-1.5">
-                      <div className="px-3 text-[11px] font-extrabold tracking-wide text-white/50">
-                        {g.title}
-                      </div>
-                      <div className="space-y-1">
-                        {g.items.map((it) => {
-                          const Icon = it.icon;
-                          const active = isActive(it.to.split("?")[0] || it.to);
-                          return (
-                            <Link
-                              key={it.to}
-                              to={it.to}
-                              onClick={() => setMobileMenuOpen(false)}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
-                                active
-                                  ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
-                                  : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
-                              }`}
-                            >
-                              <div
-                                className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
-                                  active ? "bg-white/10 border-white/15" : "bg-white/0 border-white/10"
-                                }`}
-                              >
-                                <Icon size={16} />
-                              </div>
-                              <span className="font-bold text-sm truncate">{it.label}</span>
-                            </Link>
-                          );
-                        })}
-                      </div>
+                <nav className="p-3 space-y-2">
+                  <Link
+                    to="/control/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
+                      isActive("/control/dashboard")
+                        ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
+                        : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center border bg-white/10 border-white/15">
+                      <LayoutDashboard size={16} />
                     </div>
-                  ))}
+                    <span className="font-bold text-sm truncate">لوحة التحكم</span>
+                  </Link>
 
+                  {navGroups.map((g) => {
+                    const collapsed = collapsedGroups.includes(g.key);
+                    return (
+                      <div key={g.key} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(g.key)}
+                          aria-expanded={!collapsed}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[11px] font-extrabold tracking-wide text-white/50 hover:text-white/80 transition"
+                        >
+                          <span>{g.title}</span>
+                          <ChevronDown
+                            size={14}
+                            className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                          />
+                        </button>
+                        {!collapsed && (
+                          <div className="space-y-1">
+                            {g.items.map((it) => {
+                              const Icon = it.icon;
+                              const active = isActive(it.to.split("?")[0] || it.to);
+                              return (
+                                <Link
+                                  key={it.to}
+                                  to={it.to}
+                                  onClick={() => setMobileMenuOpen(false)}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
+                                    active
+                                      ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
+                                      : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
+                                  }`}
+                                >
+                                  <div
+                                    className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                                      active ? "bg-white/10 border-white/15" : "bg-white/0 border-white/10"
+                                    }`}
+                                  >
+                                    <Icon size={16} />
+                                  </div>
+                                  <span className="font-bold text-sm truncate">{it.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </nav>
 
                 <div className="p-4 border-t border-white/10 text-xs text-white/60 flex items-center justify-between">

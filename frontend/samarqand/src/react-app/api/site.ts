@@ -209,6 +209,7 @@ export type SiteConfigPayload = {
     showWhatsAppButton: boolean;
     showFloatingCTA: boolean;
     showFooter: boolean;
+    showControlProjectsManagement: boolean;
   };
 };
 
@@ -245,7 +246,7 @@ export async function fetchAuthMe(): Promise<{
 export async function login(input: {
   username: string;
   password: string;
-}): Promise<{ ok: boolean }> {
+}): Promise<{ ok: boolean; status: number }> {
   if (!getCookie("csrftoken")) {
     try {
       await fetchAuthMe();
@@ -264,7 +265,10 @@ export async function login(input: {
     credentials: "same-origin",
   });
   const data = await readApiResponse<Record<string, never>>(res);
-  return { ok: Boolean(res.ok && data && data.ok === true) };
+  return {
+    ok: Boolean(res.ok && data && data.ok === true),
+    status: res.status,
+  };
 }
 
 export async function createOrUpdateUser(input: {

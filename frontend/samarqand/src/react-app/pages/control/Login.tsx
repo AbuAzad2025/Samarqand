@@ -27,7 +27,11 @@ export default function ControlLogin() {
     try {
       const res = await login({ username, password });
       if (!res.ok) {
-        setError("اسم المستخدم أو كلمة المرور غير صحيحة.");
+        setError(
+          res.status === 403
+            ? "هذا الحساب غير مصرح له بالدخول إلى لوحة التحكم."
+            : "اسم المستخدم أو كلمة المرور غير صحيحة.",
+        );
         return;
       }
       navigate("/control/dashboard", { replace: true });
