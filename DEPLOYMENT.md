@@ -68,7 +68,9 @@ provided. No AI feature is advertised as active, and no analytics tag is emitted
    `set_truthful_stats` and `seed_jericho_project` are one-time data commands and are
    already reflected in the restored fixture; only run them when intentionally
    resetting content.
-5. `systemctl restart samarqand` and `nginx -t && systemctl reload nginx`.
+5. Clear the shared page cache so visitors receive the new bundle immediately:
+   `find /srv/apps/samarqand/shared/cache -mindepth 1 -delete`.
+6. `systemctl restart samarqand` and `nginx -t && systemctl reload nginx`.
 
 ## Rollback
 
