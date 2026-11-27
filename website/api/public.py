@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 from typing import Iterator
 
@@ -664,7 +665,22 @@ def site_content_detail(
                     }
                 )
         result["timeline"] = timeline
-        gallery = []
+        if slug == "jericho-hall":
+            from django.conf import settings
+
+            timeline_file = (
+                Path(settings.BASE_DIR)
+                / "website"
+                / "data"
+                / "jericho_timeline.json"
+            )
+            try:
+                result["timeline"] = json.loads(
+                    timeline_file.read_text(encoding="utf-8")
+                )
+            except Exception:
+                pass
+        gallery: list[dict[str, Any]] = []
         for item in page.gallery_images.all().order_by("sort_order", "id"):
             url = _image_url(request, getattr(item, "image", None))
             if url:

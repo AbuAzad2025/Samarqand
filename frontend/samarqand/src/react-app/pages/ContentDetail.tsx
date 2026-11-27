@@ -146,19 +146,54 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
 
           {kind === "projects" && item.timeline?.length ? (
             <div className="mt-10">
-              <h2 className="text-xl font-bold text-slate-900 mb-5">التسلسل الزمني للأعمال</h2>
-              <ol className="space-y-5 border-r-2 border-emerald-100 pr-5">
-                {item.timeline.map((step, index) => (
-                  <li key={index} className="relative">
-                    <span className="absolute -right-[27px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[var(--corp-green)]" />
-                    <div className="text-xs font-bold text-sq-green" dir="ltr">
-                      {new Date(step.date).toLocaleDateString("ar")}
-                    </div>
-                    <div className="font-bold text-slate-900">{step.title}</div>
-                    <p className="text-sm leading-relaxed text-slate-600">{step.description}</p>
-                  </li>
-                ))}
-              </ol>
+              <h2 className="mb-2 text-xl font-bold text-slate-900">
+                التسلسل الزمني للأعمال بالصور
+              </h2>
+              <p className="mb-5 text-xs text-slate-500">
+                صورة ممثلة عن كل يوم من أيام العمل؛ الأرقام تشير إلى عدد الصور التوثيقية في اليوم.
+              </p>
+              {[...new Set((item.timeline || []).map((step) => step.date.slice(0, 7)))].map((month) => (
+                <details
+                  key={month}
+                  open={month === "2026-11"}
+                  className="mb-4 rounded-xl border border-slate-200"
+                >
+                  <summary className="cursor-pointer bg-slate-50 px-4 py-3 font-bold text-slate-900">
+                    {new Date(`${month}-01`).toLocaleDateString("ar", { month: "long", year: "numeric" })}
+                  </summary>
+                  <ol className="space-y-5 p-4 pr-6">
+                    {(item.timeline || [])
+                      .filter((step) => step.date.startsWith(month))
+                      .map((step, index) => (
+                        <li key={index} className="grid gap-3 sm:grid-cols-[160px_1fr]">
+                          {step.imageUrl ? (
+                            <img
+                              loading="lazy"
+                              decoding="async"
+                              src={step.imageUrl}
+                              alt={step.title}
+                              className="h-28 w-full rounded-lg object-cover"
+                            />
+                          ) : null}
+                          <div>
+                            <div className="mb-1 flex flex-wrap items-center gap-3 text-xs">
+                              <span className="font-bold text-sq-green" dir="ltr">
+                                {(() => { const [y, m, d] = step.date.split("-"); return `${d}/${m}/${y}`; })()}
+                              </span>
+                              {step.photos ? (
+                                <span className="text-slate-500">{step.photos} صورة</span>
+                              ) : null}
+                            </div>
+                            <div className="font-bold text-slate-900">{step.title}</div>
+                            <p className="text-sm leading-relaxed text-slate-600">
+                              {step.description}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                  </ol>
+                </details>
+              ))}
             </div>
           ) : null}
 

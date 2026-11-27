@@ -3240,7 +3240,13 @@ export type SiteContentDetail = SiteContentItem & {
   location?: string;
   status?: string;
   budgetAmount?: number | null;
-  timeline?: { date: string; title: string; description: string }[];
+  timeline?: {
+    date: string;
+    title: string;
+    description: string;
+    imageUrl?: string;
+    photos?: number;
+  }[];
 };
 
 export async function fetchSiteContentList(
