@@ -61,7 +61,15 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
       <div className="min-h-screen bg-slate-50" dir="rtl">
         <TopBar />
         <Navigation />
-        <div className="text-center py-24 text-slate-500">جارٍ التحميل…</div>
+        <div className="container mx-auto max-w-4xl px-4 py-12" role="status" aria-label="جارٍ التحميل">
+          <div className="animate-pulse space-y-4">
+            <div className="h-72 w-full rounded-xl bg-slate-200" />
+            <div className="h-10 w-2/3 rounded bg-slate-200" />
+            <div className="h-4 w-full rounded bg-slate-200" />
+            <div className="h-4 w-5/6 rounded bg-slate-200" />
+            <div className="h-40 w-full rounded-xl bg-slate-200" />
+          </div>
+        </div>
       </div>
     );
   }

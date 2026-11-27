@@ -21,7 +21,7 @@ export default function TopBar() {
     <div className="text-white">
       <div className="h-1 bg-gradient-to-r from-sq-red via-sq-black to-sq-green" />
       <div className="bg-[#0D131D] py-2 sm:py-3">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 text-xs sm:text-sm">
+      <div className="mx-auto flex min-h-[52px] max-w-7xl flex-wrap items-center justify-between gap-2 px-4 text-xs sm:min-h-[36px] sm:text-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
           {phones.length ? (
             <div className="flex items-center gap-4">

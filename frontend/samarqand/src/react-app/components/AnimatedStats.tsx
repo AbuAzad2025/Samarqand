@@ -84,7 +84,7 @@ export default function AnimatedStats() {
 
     return raw.slice(0, 4).map((s, idx) => {
       const num = parseFloat(String(s.value).replace(/[^\d.]/g, ""));
-      const suffix = String(s.value).replace(/[\d.\s]/g, "") || "+";
+      const suffix = String(s.value).replace(/[\d.\s]/g, "");
       return {
         icon: icons[idx % icons.length] ?? Building2,
         value: Number.isFinite(num) ? num : 0,
