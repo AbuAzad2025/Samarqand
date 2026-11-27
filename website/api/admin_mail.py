@@ -24,7 +24,101 @@ User = get_user_model()
 _SMTP_ENABLED = bool(settings.EMAIL_HOST and settings.EMAIL_HOST_USER)
 
 
+from .admin_accounts import _bounded_search
+from .admin_accounts import _clean_text
+from .admin_accounts import _safe_int
+from .admin_accounts import _valid_email
 from .common import *
+
+# Hard ceilings for internal mail.  A single request must never be able to
+# turn into a company-wide (or larger) broadcast.
+_MAIL_RECIPIENT_LIMIT = 50
+_MAIL_SUBJECT_MAX = 200
+_MAIL_BODY_MAX = 20000
+_MAIL_ATTACHMENT_LIMIT = 20
+
+
+def _allowed_mail_domains(sender: Any) -> set[str]:
+    """Domains allowed as mail recipients.
+
+    Administrators may configure ``settings.MAIL_ALLOWED_DOMAINS``.  When it is
+    not configured we fall back to the sender's own email domain, so internal
+    mail can only ever go to addresses belonging to the same organisation.
+    """
+    raw = getattr(settings, "MAIL_ALLOWED_DOMAINS", None) or []
+    if isinstance(raw, str):
+        raw = [raw]
+    domains = {
+        str(d).strip().lower().lstrip("@") for d in raw if str(d).strip()
+    }
+    if not domains and sender and getattr(sender, "email", ""):
+        domain = str(sender.email).strip().lower().partition("@")[2]
+        if domain:
+            domains.add(domain)
+    return {d for d in domains if d}
+
+
+def _email_domain_allowed(email: str, domains: set[str]) -> bool:
+    if not domains:
+        return True
+    return email.partition("@")[2].lower() in domains
+
+
+def _resolve_recipient_ids(
+    raw_ids: Any,
+    sender: Any,
+    *,
+    exclude_sender: bool = True,
+) -> tuple[list[int] | None, str | None]:
+    """Resolve user IDs to active staff accounts with a valid, allowed email.
+
+    Returns ``(ids, None)`` on success or ``(None, error_code)`` on failure.
+    Duplicates are removed, the sender is excluded, and the total is capped.
+    Every requested ID must resolve, otherwise the whole request is rejected
+    (no silent partial/broadcast sends).
+    """
+    if raw_ids is None:
+        return [], None
+    if not isinstance(raw_ids, (list, tuple)):
+        return None, "invalid_recipients"
+    sender_id = getattr(sender, "id", None)
+    ids: list[int] = []
+    seen: set[int] = set()
+    for raw in raw_ids:
+        uid = _safe_int(raw, 0)
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        if exclude_sender and uid == sender_id:
+            continue
+        if len(ids) >= _MAIL_RECIPIENT_LIMIT:
+            return None, "too_many_recipients"
+        ids.append(uid)
+    if not ids:
+        return [], None
+    domains = _allowed_mail_domains(sender)
+    allowed_ids: set[int] = set()
+    for u in User.objects.filter(
+        id__in=ids, is_active=True, is_staff=True
+    ).only("id", "email"):
+        email = str(getattr(u, "email", "") or "").strip()
+        if _valid_email(email) and _email_domain_allowed(email, domains):
+            allowed_ids.add(u.id)
+    if len(allowed_ids) != len(ids):
+        return None, "invalid_recipients"
+    return ids, None
+
+
+def _recipient_error(code: str) -> JsonResponse:
+    messages = {
+        "too_many_recipients": "عدد المستلمين يتجاوز الحد المسموح (50).",
+        "invalid_recipients": "بعض المستلمين غير صالحين أو خارج النطاق المسموح.",
+    }
+    return _api_error(
+        code,
+        status=400,
+        message=messages.get(code, "بيانات المستلمين غير صالحة."),
+    )
 
 
 def _dispatch_smtp(msg: EmailMessage) -> None:
@@ -33,32 +127,51 @@ def _dispatch_smtp(msg: EmailMessage) -> None:
     sender_user = msg.sender
     if not sender_user or not sender_user.email:
         return
-    to_emails: list[str] = []
-    for rid in msg.recipients or []:
-        try:
-            u = User.objects.get(id=int(rid))
-            if u.email:
-                to_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
-            pass
+    domains = _allowed_mail_domains(sender_user)
+
+    # Resolve every recipient in one query, restricted to active staff accounts
+    # whose email is valid and inside the allowed domain.  Cap the total so a
+    # stored/draft message can never explode into a mass mailing at send time.
+    raw_ids = [
+        *(msg.recipients or []),
+        *(msg.cc or []),
+        *(msg.bcc or []),
+    ]
+    ids: list[int] = []
+    seen_ids: set[int] = set()
+    for raw in raw_ids:
+        rid = _safe_int(raw, 0)
+        if not rid or rid in seen_ids or rid == sender_user.id:
+            continue
+        seen_ids.add(rid)
+        if len(ids) >= _MAIL_RECIPIENT_LIMIT:
+            break
+        ids.append(rid)
+    allowed: dict[int, str] = {}
+    if ids:
+        for u in User.objects.filter(
+            id__in=ids, is_active=True, is_staff=True
+        ).only("id", "email"):
+            email = str(getattr(u, "email", "") or "").strip()
+            if _valid_email(email) and _email_domain_allowed(email, domains):
+                allowed[u.id] = email
+
+    def _emails_for(raw_list: Any) -> list[str]:
+        result: list[str] = []
+        seen: set[str] = set()
+        for raw in raw_list or []:
+            email = allowed.get(_safe_int(raw, 0))
+            if not email or email in seen:
+                continue
+            seen.add(email)
+            result.append(email)
+        return result
+
+    to_emails = _emails_for(msg.recipients)
     if not to_emails:
         return
-    cc_emails: list[str] = []
-    for rid in msg.cc or []:
-        try:
-            u = User.objects.get(id=int(rid))
-            if u.email:
-                cc_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
-            pass
-    bcc_emails: list[str] = []
-    for rid in msg.bcc or []:
-        try:
-            u = User.objects.get(id=int(rid))
-            if u.email:
-                bcc_emails.append(u.email)
-        except (ValueError, User.DoesNotExist):
-            pass
+    cc_emails = _emails_for(msg.cc)
+    bcc_emails = _emails_for(msg.bcc)
     try:
         html = render_to_string(
             "email/internal_message.html",
@@ -239,13 +352,17 @@ def admin_mail_messages(request: HttpRequest) -> JsonResponse:
     if fb:
         return fb
     user: Any = request.user
-    folder = str(request.GET.get("folder") or EmailMessage.FOLDER_INBOX).strip()
-    search = str(request.GET.get("search") or "").strip()
+    folder = str(
+        request.GET.get("folder") or EmailMessage.FOLDER_INBOX
+    ).strip()[:32]
+    search = _bounded_search(request.GET.get("search"), 120)
     recipient_pks = _recipient_message_pks(user.id)
-    page_num = int(request.GET.get("page") or 1)
-    page_size = int(request.GET.get("pageSize") or 50)
+    page_num = _safe_int(request.GET.get("page"), 1)
+    page_size = _safe_int(request.GET.get("pageSize"), 50)
     if page_size > 200:
         page_size = 200
+    if page_size < 1:
+        page_size = 50
     if page_num < 1:
         page_num = 1
 
@@ -270,7 +387,9 @@ def admin_mail_messages(request: HttpRequest) -> JsonResponse:
     else:
         qs = EmailMessage.objects.none()
 
-    qs = qs.select_related("sender")
+    # ``_msg_to_dict`` reads every message's attachments; prefetch them to
+    # avoid one query per row in the paginated list.
+    qs = qs.select_related("sender").prefetch_related("attachments")
     if search:
         qs = qs.filter(
             models.Q(subject__icontains=search)
@@ -339,55 +458,62 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
         return fb
     user: Any = request.user
     data = _read_json(request)
-    subject = str(data.get("subject") or "").strip()
-    body = str(data.get("body") or "").strip()
-    recipients = list(data.get("recipients") or [])
-    cc = list(data.get("cc") or [])
-    bcc = list(data.get("bcc") or [])
+    subject = _clean_text(data.get("subject"), _MAIL_SUBJECT_MAX) or ""
+    body = _clean_text(data.get("body"), _MAIL_BODY_MAX) or ""
+    recipients = data.get("recipients") or []
+    cc = data.get("cc") or []
+    bcc = data.get("bcc") or []
     parent_id = data.get("parentId")
     save_as_draft = bool(data.get("saveAsDraft"))
-    attachment_ids = list(data.get("attachmentIds") or [])
+    raw_attachment_ids = data.get("attachmentIds") or []
 
     if not subject and not save_as_draft:
-        return _api_error("missing_subject", status=400)
+        return _api_error(
+            "missing_subject", status=400, message="الموضوع مطلوب."
+        )
+    if (
+        not isinstance(recipients, list)
+        or not isinstance(cc, list)
+        or not isinstance(bcc, list)
+    ):
+        return _recipient_error("invalid_recipients")
     if not recipients and not cc and not bcc and not save_as_draft:
-        return _api_error("missing_recipients", status=400)
+        return _api_error(
+            "missing_recipients",
+            status=400,
+            message="يجب تحديد مستلم واحد على الأقل.",
+        )
 
-    valid_recipients = []
-    for rid in recipients:
-        try:
-            u = User.objects.get(id=int(rid))
-            if u.id != user.id:
-                valid_recipients.append(u.id)
-        except (ValueError, User.DoesNotExist):
-            pass
+    valid_recipients, error = _resolve_recipient_ids(recipients, user)
+    if error:
+        return _recipient_error(error)
+    valid_cc, error = _resolve_recipient_ids(cc, user)
+    if error:
+        return _recipient_error(error)
+    valid_bcc, error = _resolve_recipient_ids(bcc, user)
+    if error:
+        return _recipient_error(error)
 
-    valid_cc = []
-    for rid in cc:
-        try:
-            u = User.objects.get(id=int(rid))
-            if u.id != user.id:
-                valid_cc.append(u.id)
-        except (ValueError, User.DoesNotExist):
-            pass
-
-    valid_bcc = []
-    for rid in bcc:
-        try:
-            u = User.objects.get(id=int(rid))
-            valid_bcc.append(u.id)
-        except (ValueError, User.DoesNotExist):
-            pass
-
+    # The limit applies to the message as a whole, not to each field separately.
+    if len({*valid_recipients, *valid_cc, *valid_bcc}) > _MAIL_RECIPIENT_LIMIT:
+        return _recipient_error("too_many_recipients")
     if not valid_recipients and not valid_cc and not save_as_draft:
-        return _api_error("invalid_recipients", status=400)
+        return _recipient_error("invalid_recipients")
+
+    if not isinstance(raw_attachment_ids, list):
+        return _api_error(
+            "invalid_attachment_ids", status=400, message="المرفقات غير صالحة."
+        )
+    attachment_ids = [
+        _safe_int(aid, 0)
+        for aid in raw_attachment_ids[:_MAIL_ATTACHMENT_LIMIT]
+        if _safe_int(aid, 0)
+    ]
 
     parent = None
-    if parent_id:
-        try:
-            parent = EmailMessage.objects.get(id=int(parent_id))
-        except (ValueError, EmailMessage.DoesNotExist):
-            pass
+    parent_pk = _safe_int(parent_id, 0)
+    if parent_pk:
+        parent = EmailMessage.objects.filter(pk=parent_pk).first()
 
     folder = (
         EmailMessage.FOLDER_DRAFTS
@@ -414,7 +540,9 @@ def admin_mail_messages_send(request: HttpRequest) -> JsonResponse:
     # If sending (not draft), create inbox copies for To and CC recipients.
     if not save_as_draft:
         inbox_recipient_ids = [
-            rid for rid in [*valid_recipients, *valid_cc] if rid != user.id
+            rid
+            for rid in dict.fromkeys([*valid_recipients, *valid_cc])
+            if rid != user.id
         ]
         for recipient_id in inbox_recipient_ids:
             EmailMessage.objects.create(
@@ -457,42 +585,31 @@ def admin_mail_messages_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if "subject" in data:
-        msg.subject = str(data["subject"] or "").strip()
+        msg.subject = _clean_text(data["subject"], _MAIL_SUBJECT_MAX) or ""
     if "body" in data:
-        msg.body = str(data["body"] or "").strip()
-    if "recipients" in data:
-        valid = []
-        for rid in data["recipients"]:
-            try:
-                u = User.objects.get(id=int(rid))
-                valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
-                pass
-        msg.recipients = valid
-    if "cc" in data:
-        valid = []
-        for rid in data["cc"]:
-            try:
-                u = User.objects.get(id=int(rid))
-                valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
-                pass
-        msg.cc = valid
-    if "bcc" in data:
-        valid = []
-        for rid in data["bcc"]:
-            try:
-                u = User.objects.get(id=int(rid))
-                valid.append(u.id)
-            except (ValueError, User.DoesNotExist):
-                pass
-        msg.bcc = valid
+        msg.body = _clean_text(data["body"], _MAIL_BODY_MAX) or ""
+
+    # Validate all recipient fields before the draft is turned into a sent
+    # message, otherwise an invalid/stale ID could silently become a broadcast.
+    for field in ("recipients", "cc", "bcc"):
+        if field in data:
+            valid, error = _resolve_recipient_ids(data[field], user)
+            if error:
+                return _recipient_error(error)
+            setattr(msg, field, valid)
+    if len({*msg.recipients, *msg.cc, *msg.bcc}) > _MAIL_RECIPIENT_LIMIT:
+        return _recipient_error("too_many_recipients")
+
     send_now = bool(data.get("sendNow"))
+    if send_now and not msg.recipients and not msg.cc:
+        return _recipient_error("invalid_recipients")
     if send_now:
         msg.folder = EmailMessage.FOLDER_SENT
         msg.is_draft = False
         for recipient_id in [
-            rid for rid in [*msg.recipients, *msg.cc] if rid != user.id
+            rid
+            for rid in dict.fromkeys([*msg.recipients, *msg.cc])
+            if rid != user.id
         ]:
             EmailMessage.objects.create(
                 sender=user,
@@ -646,7 +763,7 @@ def admin_mail_users(request: HttpRequest) -> JsonResponse:
     fb = _require_mail_access(request)
     if fb:
         return fb
-    search = str(request.GET.get("search") or "").strip()
+    search = _bounded_search(request.GET.get("search"), 120)
     qs = User.objects.filter(is_active=True, is_staff=True)
     if search:
         qs = qs.filter(
@@ -673,17 +790,18 @@ def admin_mail_attachments_upload(request: HttpRequest) -> JsonResponse:
     from wagtail.documents import get_document_model
 
     Document = get_document_model()
+    safe_name = _clean_text(file.name, 255) or "attachment"
     doc = Document.objects.create(
-        title=file.name,
+        title=safe_name,
         file=file,
         uploaded_by_user=request.user,
     )
     attach = EmailAttachment.objects.create(
         message=None,
         document=doc,
-        filename=file.name or "",
+        filename=safe_name,
         file_size=file.size or 0,
-        content_type=file.content_type or "",
+        content_type=_clean_text(file.content_type, 128) or "",
     )
     return _api_ok(
         {

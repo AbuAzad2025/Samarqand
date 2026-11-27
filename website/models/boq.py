@@ -20,6 +20,16 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db import transaction
 
+from ._formatting import EMPTY_VALUE as _EMPTY_VALUE
+from ._formatting import admin_change_url as _admin_change_url
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_date as _format_date
+from ._formatting import format_datetime as _format_datetime
+from ._formatting import format_number as _format_number
+from ._formatting import format_percent as _format_percent
+from ._formatting import related_label as _related_label
+from ._formatting import validate_date_range as _validate_date_range
+from ._formatting import validate_percent as _validate_percent
 from .accounts import Account
 from .accounts import JournalEntry
 from .accounts import create_journal_entry_from_source
@@ -78,6 +88,18 @@ class ProjectBOQItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.item_code or self.pk} — {self.description[:40]}"
+
+    @property
+    def quantity_ar(self) -> str:
+        return _format_number(self.quantity, decimals=3)
+
+    @property
+    def unit_price_ar(self) -> str:
+        return _format_number(self.unit_price)
+
+    @property
+    def total_price_ar(self) -> str:
+        return _format_number(self.total_price)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         self.total_price = (self.quantity * self.unit_price).quantize(
@@ -233,7 +255,63 @@ class PaymentApplication(models.Model):
         verbose_name_plural = "المستخلصات"
 
     def __str__(self) -> str:
-        return f"{self.application_number} — {self.project.title}"
+        return (
+            f"{self.application_number} — "
+            f"{_related_label(self, 'project', 'title')} "
+            f"({self.status_label})"
+        )
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def application_date_ar(self) -> str:
+        return _format_date(self.application_date)
+
+    @property
+    def period_label(self) -> str:
+        if not (self.period_from or self.period_to):
+            return _EMPTY_VALUE
+        return (
+            f"{_format_date(self.period_from)} — {_format_date(self.period_to)}"
+        )
+
+    @property
+    def net_amount_ar(self) -> str:
+        return _format_number(self.net_amount)
+
+    @property
+    def current_due_ar(self) -> str:
+        return _format_number(self.current_due)
+
+    @property
+    def retention_percent_ar(self) -> str:
+        return _format_percent(self.retention_percent)
+
+    @property
+    def withholding_tax_percent_ar(self) -> str:
+        return _format_percent(self.withholding_tax_percent)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
+
+    def clean(self) -> None:
+        _validate_percent(
+            self.retention_percent, "retention_percent", "نسبة حبس الضمان"
+        )
+        _validate_percent(
+            self.withholding_tax_percent,
+            "withholding_tax_percent",
+            "نسبة ضريبة الخصم",
+        )
+        _validate_date_range(
+            self.period_from,
+            self.period_to,
+            "period_to",
+            "تاريخ بداية الفترة",
+            "تاريخ نهاية الفترة",
+        )
 
     def recalculate(self) -> None:
         # A new application has no pk and therefore no related items yet.
@@ -398,6 +476,21 @@ class PaymentApplicationItem(models.Model):
         verbose_name = "بند مستخلص"
         verbose_name_plural = "بنود المستخلص"
 
+    @property
+    def done_percent_ar(self) -> str:
+        return _format_percent(self.done_percent)
+
+    @property
+    def current_amount_ar(self) -> str:
+        return _format_number(self.current_amount)
+
+    @property
+    def total_done_quantity_ar(self) -> str:
+        return _format_number(self.total_done_quantity, decimals=3)
+
+    def clean(self) -> None:
+        _validate_percent(self.done_percent, "done_percent", "نسبة الإنجاز")
+
     def save(self, *args: Any, **kwargs: Any) -> None:
         self.total_done_quantity = (
             self.previously_done_quantity + self.current_quantity
@@ -513,7 +606,26 @@ class VariationOrder(models.Model):
         verbose_name_plural = "أوامر تغييرية"
 
     def __str__(self) -> str:
-        return f"{self.variation_number} — {self.title}"
+        return f"{self.variation_number} — {self.title} ({self.status_label})"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def reason_label(self) -> str:
+        return _format_choice(self, "reason")
+
+    @property
+    def submitted_at_ar(self) -> str:
+        return _format_datetime(self.submitted_at)
+
+    @property
+    def cost_impact_ar(self) -> str:
+        return _format_number(self.cost_impact)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
 
 class VariationOrderItem(models.Model):
@@ -553,6 +665,14 @@ class VariationOrderItem(models.Model):
         ordering = ["id"]
         verbose_name = "بند أمر تغييري"
         verbose_name_plural = "بنود أوامر تغييرية"
+
+    @property
+    def total_ar(self) -> str:
+        return _format_number(self.total)
+
+    @property
+    def quantity_change_ar(self) -> str:
+        return _format_number(self.quantity_change, decimals=3)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         self.total = (self.quantity_change * self.unit_price).quantize(
@@ -631,7 +751,29 @@ class FinalAccount(models.Model):
         verbose_name_plural = "الحسابات الختامية"
 
     def __str__(self) -> str:
-        return f"حساب ختامي — {self.project.title}"
+        return (
+            f"حساب ختامي — {_related_label(self, 'project', 'title')} "
+            f"({self.status_label})"
+        )
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def net_due_ar(self) -> str:
+        return _format_number(self.net_due)
+
+    @property
+    def revised_contract_amount_ar(self) -> str:
+        return _format_number(self.revised_contract_amount)
+
+    @property
+    def closed_at_ar(self) -> str:
+        return _format_datetime(self.closed_at)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
     def recalculate(self) -> None:
         self.revised_contract_amount = (

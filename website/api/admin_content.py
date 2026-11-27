@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+from functools import wraps
 from typing import Any
 
 from django.db import transaction
@@ -35,13 +37,238 @@ logger = logging.getLogger(__name__)
 
 from .common import *
 
+# ---------------------------------------------------------------------------
+# Strict input validation. Every rejection uses a short Arabic message with no
+# internal details (no exception text, SQL, model names or file paths).
+# ---------------------------------------------------------------------------
+
+_api_error_base = _api_error
+
+_MAX_SHORT = 255
+_MAX_LONG = 20000
+_MAX_LIST = 500
+_MAX_SORT_ORDER = 1_000_000
+_MAX_PK = 9_223_372_036_854_775_807
+
+_SAFE_MESSAGES: dict[str, str] = {
+    "unauthorized": "يرجى تسجيل الدخول أولاً.",
+    "forbidden": "لا تملك صلاحية لتنفيذ هذا الإجراء.",
+    "not_found": "العنصر المطلوب غير موجود.",
+    "site_not_found": "تعذّر تحديد الموقع.",
+    "invalid_input": "البيانات المدخلة غير صالحة. يرجى مراجعتها والمحاولة مجدداً.",
+    "missing_name": "يرجى إدخال الاسم.",
+    "missing_title": "يرجى إدخال العنوان.",
+    "missing_text": "يرجى إدخال النص.",
+    "missing_label": "يرجى إدخال التسمية.",
+    "missing_value": "يرجى إدخال القيمة.",
+    "invalid_sortOrder": "الترتيب المدخل غير صالح.",
+    "invalid_rating": "التقييم المدخل غير صالح.",
+    "invalid_image": "الصورة المحددة غير صالحة.",
+    "invalid_ids": "قائمة العناصر غير صالحة.",
+    "invalid_issuedYear": "سنة الإصدار غير صالحة.",
+    "services_index_missing": "قسم الخدمات غير متاح حالياً.",
+    "articles_index_missing": "قسم المقالات غير متاح حالياً.",
+    "invalid_parentId": "الصفحة الأم المحددة غير صالحة.",
+    "missing_parentId": "يرجى تحديد الصفحة الأم.",
+    "parent_not_found": "الصفحة الأم غير موجودة.",
+    "invalid_type": "نوع الصفحة غير صالح.",
+    "type_not_allowed_here": "لا يمكن إنشاء هذا النوع من الصفحات هنا.",
+    "confirm_required": "يرجى تأكيد الحذف قبل المتابعة.",
+    "has_children": "لا يمكن حذف صفحة تحتوي على صفحات فرعية دون تأكيد إضافي.",
+    "invalid_slug": "الرابط المختصر غير صالح.",
+}
+
+
+def _err(
+    code: str,
+    *,
+    status: int = 400,
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> JsonResponse:
+    safe = (
+        message or _SAFE_MESSAGES.get(code) or _SAFE_MESSAGES["invalid_input"]
+    )
+    return _api_error_base(code, status=status, message=safe, details=details)
+
+
+class _InputError(Exception):
+    """A validation failure whose message is safe to display to an admin."""
+
+    def __init__(self, message: str, code: str = "invalid_input") -> None:
+        super().__init__(message)
+        self.message = message
+        self.code = code
+
+
+def _validated(view_func: Any) -> Any:
+    @wraps(view_func)
+    def _wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return view_func(request, *args, **kwargs)
+        except _InputError as exc:
+            return _err(exc.code, message=exc.message)
+
+    return _wrapped
+
+
+def _text(value: Any, label: str, *, max_len: int = _MAX_SHORT) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.")
+    result = value.strip()
+    if len(result) > max_len:
+        raise _InputError(f"يجب ألا يتجاوز {label} {max_len} حرفاً.")
+    return result
+
+
+def _long_text(value: Any, label: str) -> str:
+    return _text(value, label, max_len=_MAX_LONG)
+
+
+def _bool(value: Any, label: str, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+    raise _InputError(f"قيمة {label} غير صالحة.")
+
+
+def _integer(
+    value: Any, label: str, *, low: int, high: int, code: str = "invalid_input"
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    if number < low or number > high:
+        raise _InputError(f"يجب أن يكون {label} بين {low} و {high}.", code)
+    return number
+
+
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
+
+
+def _slug(value: Any, *, fallback: str = "page") -> str:
+    if value is None:
+        raw = ""
+    elif isinstance(value, str):
+        raw = value.strip()
+    else:
+        raise _InputError("الرابط المختصر غير صالح.")
+    if not raw:
+        return fallback
+    if len(raw) > 60:
+        raise _InputError("الرابط المختصر طويل جداً.")
+    result = slugify(raw)[:60].strip("-")
+    if not result or not _SLUG_RE.fullmatch(result):
+        raise _InputError(
+            "الرابط المختصر غير صالح؛ استخدم حروفاً لاتينية وأرقاماً وشرطة."
+        )
+    return result
+
+
+def _image(value: Any) -> Any:
+    """Resolve an image id, or None when the field is being cleared/omitted."""
+    if value is None or value == "":
+        return None
+    pk = _integer(value, "الصورة", low=1, high=_MAX_PK)
+    try:
+        from wagtail.images import get_image_model
+
+        ImageModel = get_image_model()
+        img = ImageModel.objects.filter(pk=pk).first()
+    except Exception:
+        img = None
+    if not img:
+        raise _InputError("الصورة المحددة غير صالحة.", "invalid_image")
+    return img
+
+
+def _id_list(value: Any) -> list[int]:
+    if not isinstance(value, list) or not value or len(value) > _MAX_LIST:
+        raise _InputError("قائمة العناصر غير صالحة.", "invalid_ids")
+    cleaned: list[int] = []
+    seen: set[int] = set()
+    for item in value:
+        if isinstance(item, bool):
+            raise _InputError("قائمة العناصر غير صالحة.", "invalid_ids")
+        try:
+            pk = int(str(item).strip())
+        except (TypeError, ValueError):
+            raise _InputError("قائمة العناصر غير صالحة.", "invalid_ids")
+        if pk < 1 or pk > _MAX_PK or pk in seen:
+            raise _InputError("قائمة العناصر غير صالحة.", "invalid_ids")
+        cleaned.append(pk)
+        seen.add(pk)
+    return cleaned
+
+
+_CONFIRM_KEYS = (
+    "confirm",
+    "confirmed",
+    "confirmDelete",
+    "confirm_delete",
+    "confirmation",
+)
+_CHILDREN_KEYS = (
+    "includeChildren",
+    "include_children",
+    "deleteDescendants",
+    "withChildren",
+)
+
+
+def _is_true(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value == 1
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "ok"}
+    return False
+
+
+def _require_confirmation(data: dict[str, Any]) -> None:
+    """The UI asks the user to confirm; never ignore an explicit rejection."""
+    for key in _CONFIRM_KEYS:
+        if key in data and not _is_true(data.get(key)):
+            raise _InputError(
+                "يرجى تأكيد الحذف قبل المتابعة.", "confirm_required"
+            )
+
+
+def _require_children_confirmation(data: dict[str, Any], page: Any) -> None:
+    """An explicit refusal to delete a page's subtree must be honoured.
+
+    Wagtail's delete() already removes the subtree atomically, so no orphaned
+    child pages remain; this only prevents overriding a "do not include
+    children" instruction coming from the UI.
+    """
+    for key in _CHILDREN_KEYS:
+        if key in data and not _is_true(data.get(key)):
+            raise _InputError(
+                "لا يمكن حذف الصفحات الفرعية دون تأكيد إضافي.", "has_children"
+            )
+
 
 def admin_team(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
-    for m in TeamMember.objects.all():
+    for m in TeamMember.objects.select_related("image"):
         items.append(
             {
                 "id": m.id,
@@ -62,27 +289,20 @@ def admin_team(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_team_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _text(data.get("name"), "الاسم")
     if not name:
-        return _api_error("missing_name", status=400)
-
-    image_id_raw = data.get("imageId")
-    image_id: int | None = None
-    if isinstance(image_id_raw, int):
-        image_id = image_id_raw
-    elif isinstance(image_id_raw, str) and image_id_raw.strip():
-        try:
-            image_id = int(image_id_raw)
-        except Exception:
-            image_id = None
+        return _err("missing_name", status=400)
 
     img = None
-    if image_id is not None:
+    image_id_raw = data.get("imageId")
+    if image_id_raw is not None and image_id_raw != "":
+        image_id = _integer(image_id_raw, "الصورة", low=1, high=_MAX_PK)
         try:
             from wagtail.images import get_image_model
 
@@ -90,6 +310,8 @@ def admin_team_create(request: HttpRequest) -> JsonResponse:
             img = ImageModel.objects.filter(pk=image_id).first()
         except Exception:
             img = None
+        if not img:
+            raise _InputError("الصورة المحددة غير صالحة.", "invalid_image")
 
     last = TeamMember.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
@@ -97,61 +319,56 @@ def admin_team_create(request: HttpRequest) -> JsonResponse:
     m = TeamMember.objects.create(
         sort_order=sort_order,
         name=name,
-        position=str(data.get("position") or ""),
-        specialization=str(data.get("specialization") or ""),
-        experience=str(data.get("experience") or ""),
-        bio=str(data.get("bio") or ""),
+        position=_text(data.get("position"), "المنصب"),
+        specialization=_text(data.get("specialization"), "التخصص"),
+        experience=_text(data.get("experience"), "الخبرة"),
+        bio=_long_text(data.get("bio"), "نبذة"),
         image=img,
     )
     return _api_ok({"id": m.id})
 
 
 @require_POST
+@_validated
 def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
     if not m:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
 
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            m.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        m.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
 
     if data.get("name") is not None:
-        name = str(data.get("name") or "").strip()
+        name = _text(data.get("name"), "الاسم")
         if not name:
-            return _api_error("missing_name", status=400)
+            return _err("missing_name", status=400)
         m.name = name
 
-    for key, attr in [
-        ("position", "position"),
-        ("specialization", "specialization"),
-        ("experience", "experience"),
-        ("bio", "bio"),
+    for key, attr, label in [
+        ("position", "position", "المنصب"),
+        ("specialization", "specialization", "التخصص"),
+        ("experience", "experience", "الخبرة"),
+        ("bio", "bio", "نبذة"),
     ]:
         if data.get(key) is not None:
-            setattr(m, attr, str(data.get(key) or ""))
+            if key == "bio":
+                setattr(m, attr, _long_text(data.get(key), label))
+            else:
+                setattr(m, attr, _text(data.get(key), label))
 
     if data.get("imageId") is not None:
         image_id_raw = data.get("imageId")
-        image_id: int | None = None
-        if isinstance(image_id_raw, int):
-            image_id = image_id_raw
-        elif isinstance(image_id_raw, str) and image_id_raw.strip():
-            try:
-                image_id = int(image_id_raw)
-            except Exception:
-                image_id = None
-
-        if image_id is None:
+        if image_id_raw is None or image_id_raw == "":
             m.image = None
         else:
+            image_id = _integer(image_id_raw, "الصورة", low=1, high=_MAX_PK)
             try:
                 from wagtail.images import get_image_model
 
@@ -160,7 +377,7 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
             except Exception:
                 img = None
             if not img:
-                return _api_error("invalid_image", status=400)
+                raise _InputError("الصورة المحددة غير صالحة.", "invalid_image")
             m.image = img
 
     m.save()
@@ -173,36 +390,27 @@ def admin_team_update(request: HttpRequest, member_id: int) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_team_delete(request: HttpRequest, member_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     m = TeamMember.objects.filter(pk=member_id).first()
     if not m:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     m.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_team_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
-
+    cleaned = _id_list(data.get("ids"))
     members = TeamMember.objects.filter(pk__in=cleaned)
     by_id = {m.id: m for m in members}
     with transaction.atomic():
@@ -235,26 +443,23 @@ def admin_testimonials(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
-    text = str(data.get("text") or "").strip()
+    name = _text(data.get("name"), "الاسم")
+    text = _long_text(data.get("text"), "النص")
     if not name:
-        return _api_error("missing_name", status=400)
+        return _err("missing_name", status=400)
     if not text:
-        return _api_error("missing_text", status=400)
+        return _err("missing_text", status=400)
 
     rating_raw = data.get("rating")
     rating = 5
     if rating_raw is not None and rating_raw != "":
-        try:
-            rating = int(rating_raw)
-        except Exception:
-            return _api_error("invalid_rating", status=400)
-        rating = max(1, min(5, rating))
+        rating = _integer(rating_raw, "التقييم", low=1, high=5)
 
     last = Testimonial.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
@@ -262,7 +467,7 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
     t = Testimonial.objects.create(
         sort_order=sort_order,
         name=name,
-        project=str(data.get("project") or ""),
+        project=_text(data.get("project"), "المشروع"),
         text=text,
         rating=rating,
     )
@@ -270,6 +475,7 @@ def admin_testimonials_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_testimonials_update(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -278,44 +484,40 @@ def admin_testimonials_update(
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
     if not t:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
 
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            t.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        t.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
 
     if data.get("name") is not None:
-        name = str(data.get("name") or "").strip()
+        name = _text(data.get("name"), "الاسم")
         if not name:
-            return _api_error("missing_name", status=400)
+            return _err("missing_name", status=400)
         t.name = name
 
     if data.get("text") is not None:
-        text = str(data.get("text") or "").strip()
+        text = _long_text(data.get("text"), "النص")
         if not text:
-            return _api_error("missing_text", status=400)
+            return _err("missing_text", status=400)
         t.text = text
 
     if data.get("project") is not None:
-        t.project = str(data.get("project") or "")
+        t.project = _text(data.get("project"), "المشروع")
 
     rating_raw = data.get("rating")
     if rating_raw is not None:
-        try:
-            rating = int(rating_raw)
-        except Exception:
-            return _api_error("invalid_rating", status=400)
-        t.rating = max(1, min(5, rating))
+        t.rating = _integer(rating_raw, "التقييم", low=1, high=5)
 
     t.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_testimonials_delete(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -324,28 +526,20 @@ def admin_testimonials_delete(
         return forbidden
     t = Testimonial.objects.filter(pk=item_id).first()
     if not t:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     t.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_testimonials_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = Testimonial.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -377,27 +571,29 @@ def admin_home_trust_badges(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_trust_badges_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    title = str(data.get("title") or "").strip()
+    title = _text(data.get("title"), "العنوان")
     if not title:
-        return _api_error("missing_title", status=400)
+        return _err("missing_title", status=400)
     last = HomeTrustBadge.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     b = HomeTrustBadge.objects.create(
         sort_order=sort_order,
         title=title,
-        description=str(data.get("description") or ""),
-        icon_class=str(data.get("iconClass") or "fas fa-shield-alt")
+        description=_text(data.get("description"), "الوصف"),
+        icon_class=_text(data.get("iconClass"), "الأيقونة", max_len=64)
         or "fas fa-shield-alt",
     )
     return _api_ok({"id": b.id}, status=201)
 
 
 @require_POST
+@_validated
 def admin_home_trust_badges_update(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -406,28 +602,28 @@ def admin_home_trust_badges_update(
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
     if not b:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            b.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        b.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
     if data.get("title") is not None:
-        title = str(data.get("title") or "").strip()
+        title = _text(data.get("title"), "العنوان")
         if not title:
-            return _api_error("missing_title", status=400)
+            return _err("missing_title", status=400)
         b.title = title
     if data.get("description") is not None:
-        b.description = str(data.get("description") or "")
+        b.description = _text(data.get("description"), "الوصف")
     if data.get("iconClass") is not None:
-        b.icon_class = str(data.get("iconClass") or "")
+        b.icon_class = _text(data.get("iconClass"), "الأيقونة", max_len=64)
     b.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_trust_badges_delete(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -436,28 +632,20 @@ def admin_home_trust_badges_delete(
         return forbidden
     b = HomeTrustBadge.objects.filter(pk=item_id).first()
     if not b:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     b.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_trust_badges_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = HomeTrustBadge.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -490,89 +678,83 @@ def admin_home_stats(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_stats_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    label = str(data.get("label") or "").strip()
-    value = str(data.get("value") or "").strip()
+    label = _text(data.get("label"), "التسمية")
+    value = _text(data.get("value"), "القيمة", max_len=64)
     if not label:
-        return _api_error("missing_label", status=400)
+        return _err("missing_label", status=400)
     if not value:
-        return _api_error("missing_value", status=400)
+        return _err("missing_value", status=400)
     last = HomeStat.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     s = HomeStat.objects.create(
         sort_order=sort_order,
         label=label,
         value=value,
-        icon_class=str(data.get("iconClass") or "fas fa-building")
+        icon_class=_text(data.get("iconClass"), "الأيقونة", max_len=64)
         or "fas fa-building",
     )
     return _api_ok({"id": s.id})
 
 
 @require_POST
+@_validated
 def admin_home_stats_update(request: HttpRequest, item_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
     if not s:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            s.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        s.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
     if data.get("label") is not None:
-        label = str(data.get("label") or "").strip()
+        label = _text(data.get("label"), "التسمية")
         if not label:
-            return _api_error("missing_label", status=400)
+            return _err("missing_label", status=400)
         s.label = label
     if data.get("value") is not None:
-        value = str(data.get("value") or "").strip()
+        value = _text(data.get("value"), "القيمة", max_len=64)
         if not value:
-            return _api_error("missing_value", status=400)
+            return _err("missing_value", status=400)
         s.value = value
     if data.get("iconClass") is not None:
-        s.icon_class = str(data.get("iconClass") or "")
+        s.icon_class = _text(data.get("iconClass"), "الأيقونة", max_len=64)
     s.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_stats_delete(request: HttpRequest, item_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     s = HomeStat.objects.filter(pk=item_id).first()
     if not s:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     s.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_stats_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = HomeStat.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -605,27 +787,29 @@ def admin_home_timeline(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_timeline_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    title = str(data.get("title") or "").strip()
+    title = _text(data.get("title"), "العنوان")
     if not title:
-        return _api_error("missing_title", status=400)
+        return _err("missing_title", status=400)
     last = HomeTimelineStep.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     st = HomeTimelineStep.objects.create(
         sort_order=sort_order,
         title=title,
-        description=str(data.get("description") or ""),
-        icon_class=str(data.get("iconClass") or "fas fa-file-search")
+        description=_text(data.get("description"), "الوصف"),
+        icon_class=_text(data.get("iconClass"), "الأيقونة", max_len=64)
         or "fas fa-file-search",
     )
     return _api_ok({"id": st.id})
 
 
 @require_POST
+@_validated
 def admin_home_timeline_update(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -634,28 +818,28 @@ def admin_home_timeline_update(
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
     if not st:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            st.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        st.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
     if data.get("title") is not None:
-        title = str(data.get("title") or "").strip()
+        title = _text(data.get("title"), "العنوان")
         if not title:
-            return _api_error("missing_title", status=400)
+            return _err("missing_title", status=400)
         st.title = title
     if data.get("description") is not None:
-        st.description = str(data.get("description") or "")
+        st.description = _text(data.get("description"), "الوصف")
     if data.get("iconClass") is not None:
-        st.icon_class = str(data.get("iconClass") or "")
+        st.icon_class = _text(data.get("iconClass"), "الأيقونة", max_len=64)
     st.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_timeline_delete(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -664,28 +848,20 @@ def admin_home_timeline_delete(
         return forbidden
     st = HomeTimelineStep.objects.filter(pk=item_id).first()
     if not st:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     st.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_timeline_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = HomeTimelineStep.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -718,26 +894,28 @@ def admin_home_ai_features(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_ai_features_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    title = str(data.get("title") or "").strip()
+    title = _text(data.get("title"), "العنوان")
     if not title:
-        return _api_error("missing_title", status=400)
+        return _err("missing_title", status=400)
     last = HomeAIFeature.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     f = HomeAIFeature.objects.create(
         sort_order=sort_order,
         title=title,
-        description=str(data.get("description") or ""),
-        badge_text=str(data.get("badgeText") or "AI") or "AI",
+        description=_text(data.get("description"), "الوصف"),
+        badge_text=_text(data.get("badgeText"), "الشارة", max_len=16) or "AI",
     )
     return _api_ok({"id": f.id})
 
 
 @require_POST
+@_validated
 def admin_home_ai_features_update(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -746,28 +924,28 @@ def admin_home_ai_features_update(
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
     if not f:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            f.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        f.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
     if data.get("title") is not None:
-        title = str(data.get("title") or "").strip()
+        title = _text(data.get("title"), "العنوان")
         if not title:
-            return _api_error("missing_title", status=400)
+            return _err("missing_title", status=400)
         f.title = title
     if data.get("description") is not None:
-        f.description = str(data.get("description") or "")
+        f.description = _text(data.get("description"), "الوصف")
     if data.get("badgeText") is not None:
-        f.badge_text = str(data.get("badgeText") or "")
+        f.badge_text = _text(data.get("badgeText"), "الشارة", max_len=16)
     f.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_ai_features_delete(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -776,28 +954,20 @@ def admin_home_ai_features_delete(
         return forbidden
     f = HomeAIFeature.objects.filter(pk=item_id).first()
     if not f:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     f.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_ai_features_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = HomeAIFeature.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -829,17 +999,18 @@ def admin_home_ai_metrics(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_ai_metrics_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    value = str(data.get("value") or "").strip()
-    label = str(data.get("label") or "").strip()
+    value = _text(data.get("value"), "القيمة", max_len=64)
+    label = _text(data.get("label"), "التسمية")
     if not value:
-        return _api_error("missing_value", status=400)
+        return _err("missing_value", status=400)
     if not label:
-        return _api_error("missing_label", status=400)
+        return _err("missing_label", status=400)
     last = HomeAIMetric.objects.order_by("-sort_order", "-id").first()
     sort_order = int(getattr(last, "sort_order", 0) or 0) + 1 if last else 0
     m = HomeAIMetric.objects.create(
@@ -849,6 +1020,7 @@ def admin_home_ai_metrics_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_ai_metrics_update(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -857,29 +1029,29 @@ def admin_home_ai_metrics_update(
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
     if not m:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
     sort_order_raw = data.get("sortOrder")
     if sort_order_raw is not None:
-        try:
-            m.sort_order = int(sort_order_raw)
-        except Exception:
-            return _api_error("invalid_sortOrder", status=400)
+        m.sort_order = _integer(
+            sort_order_raw, "الترتيب", low=0, high=_MAX_SORT_ORDER
+        )
     if data.get("value") is not None:
-        value = str(data.get("value") or "").strip()
+        value = _text(data.get("value"), "القيمة", max_len=64)
         if not value:
-            return _api_error("missing_value", status=400)
+            return _err("missing_value", status=400)
         m.value = value
     if data.get("label") is not None:
-        label = str(data.get("label") or "").strip()
+        label = _text(data.get("label"), "التسمية")
         if not label:
-            return _api_error("missing_label", status=400)
+            return _err("missing_label", status=400)
         m.label = label
     m.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_ai_metrics_delete(
     request: HttpRequest, item_id: int
 ) -> JsonResponse:
@@ -888,28 +1060,20 @@ def admin_home_ai_metrics_delete(
         return forbidden
     m = HomeAIMetric.objects.filter(pk=item_id).first()
     if not m:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     m.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_home_ai_metrics_reorder(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    ids = data.get("ids")
-    if not isinstance(ids, list):
-        return _api_error("invalid_ids", status=400)
-    cleaned: list[int] = []
-    for x in ids:
-        try:
-            cleaned.append(int(x))
-        except Exception:
-            continue
-    if not cleaned:
-        return _api_error("invalid_ids", status=400)
+    cleaned = _id_list(data.get("ids"))
     items = HomeAIMetric.objects.filter(pk__in=cleaned)
     by_id = {i.id: i for i in items}
     with transaction.atomic():
@@ -929,7 +1093,7 @@ def admin_services(request: HttpRequest) -> JsonResponse:
     idx = _services_index(request)
     if not idx:
         return _api_ok({"items": []})
-    pages = Page.objects.child_of(idx).type(ServicePage).specific()
+    pages = ServicePage.objects.child_of(idx).select_related("cover_image")
     items: list[dict[str, Any]] = []
     for p in pages:
         cover = getattr(p, "cover_image", None)
@@ -957,9 +1121,13 @@ def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
-    page = ServicePage.objects.filter(pk=service_id).specific().first()
+    page = (
+        ServicePage.objects.filter(pk=service_id)
+        .select_related("cover_image")
+        .first()
+    )
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     cover = getattr(page, "cover_image", None)
     return _api_ok(
         {
@@ -982,20 +1150,21 @@ def admin_service_detail(request: HttpRequest, service_id: int) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_service_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _services_index(request)
     if not idx:
-        return _api_error("services_index_missing", status=400)
+        return _err("services_index_missing", status=400)
     data = _read_json(request)
-    title = str(data.get("title") or "").strip() or "Ø®Ø¯Ù…Ø©"
-    base_slug = slugify(str(data.get("slug") or title)) or "service"
+    title = _text(data.get("title"), "العنوان") or "Ø®Ø¯Ù…Ø©"
+    base_slug = _slug(data.get("slug") or title, fallback="service")
     page = ServicePage(
         title=title,
         slug=_unique_child_slug(idx, base_slug),
-        short_description=str(data.get("shortDescription") or ""),
+        short_description=_text(data.get("shortDescription"), "وصف مختصر"),
     )
 
     body_html = data.get("bodyHtml")
@@ -1003,23 +1172,17 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
         setattr(
             page,
             "body",
-            _replace_streamfield_html(page.body, str(body_html or "")),
+            _replace_streamfield_html(
+                page.body, _long_text(body_html, "المحتوى")
+            ),
         )
 
-    cover_image_id = data.get("coverImageId")
-    if cover_image_id not in {None, ""} and hasattr(page, "cover_image"):
-        try:
-            from wagtail.images import get_image_model
-
-            ImageModel = get_image_model()
-            img = ImageModel.objects.filter(pk=int(str(cover_image_id))).first()
-        except Exception:
-            img = None
-        if img:
-            setattr(page, "cover_image", img)
+    img = _image(data.get("coverImageId"))
+    if img and hasattr(page, "cover_image"):
+        setattr(page, "cover_image", img)
 
     idx.add_child(instance=page)
-    if bool(data.get("live", True)):
+    if _bool(data.get("live"), "الحالة", default=True):
         page.save_revision().publish()
     else:
         page.save_revision().save()
@@ -1027,22 +1190,28 @@ def admin_service_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
 
     if data.get("title") is not None:
-        page.title = str(data.get("title") or "")
+        title = _text(data.get("title"), "العنوان")
+        if not title:
+            raise _InputError("يرجى إدخال العنوان.", "missing_title")
+        page.title = title
     if data.get("shortDescription") is not None:
-        page.short_description = str(data.get("shortDescription") or "")
+        page.short_description = _text(
+            data.get("shortDescription"), "وصف مختصر"
+        )
 
     if data.get("slug") is not None:
-        new_slug = slugify(str(data.get("slug") or ""))[:60]
+        new_slug = _slug(data.get("slug"), fallback="")
         if new_slug:
             parent = page.get_parent()
             page.slug = _unique_child_slug(parent, new_slug)
@@ -1052,31 +1221,19 @@ def admin_service_update(request: HttpRequest, service_id: int) -> JsonResponse:
             page,
             "body",
             _replace_streamfield_html(
-                page.body, str(data.get("bodyHtml") or "")
+                page.body, _long_text(data.get("bodyHtml"), "المحتوى")
             ),
         )
 
     if data.get("coverImageId") is not None and hasattr(page, "cover_image"):
-        val = data.get("coverImageId")
-        if val in {"", None}:
-            setattr(page, "cover_image", None)
-        else:
-            try:
-                from wagtail.images import get_image_model
-
-                ImageModel = get_image_model()
-                img = ImageModel.objects.filter(pk=int(str(val))).first()
-            except Exception:
-                img = None
-            if not img:
-                return _api_error("invalid_image", status=400)
-            setattr(page, "cover_image", img)
+        setattr(page, "cover_image", _image(data.get("coverImageId")))
 
     page.save_revision().publish() if page.live else page.save_revision().save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_service_publish(
     request: HttpRequest, service_id: int
 ) -> JsonResponse:
@@ -1085,12 +1242,13 @@ def admin_service_publish(
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     page.save_revision().publish()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_service_unpublish(
     request: HttpRequest, service_id: int
 ) -> JsonResponse:
@@ -1099,7 +1257,7 @@ def admin_service_unpublish(
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
@@ -1109,13 +1267,17 @@ def admin_service_unpublish(
 
 
 @require_POST
+@_validated
 def admin_service_delete(request: HttpRequest, service_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ServicePage.objects.filter(pk=service_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    data = _read_json(request)
+    _require_confirmation(data)
+    _require_children_confirmation(data, page)
     page.delete()
     return _api_ok()
 
@@ -1134,13 +1296,30 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
 
     parent: Page | None = None
     if parent_id:
-        parent = Page.objects.filter(pk=parent_id).first()
+        parent = (
+            Page.objects.filter(pk=parent_id)
+            .select_related("content_type")
+            .first()
+        )
     if not parent:
         parent = _site_root(request)
     if not parent:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
 
-    children = Page.objects.child_of(parent).order_by("path")
+    children = list(
+        Page.objects.child_of(parent)
+        .order_by("path")
+        .select_related("content_type")
+    )
+    # One query for every grandchild instead of one "hasChildren" query per
+    # child. Paths of direct descendants are prefixed by the parent path.
+    descendant_paths: set[str] = set()
+    if children:
+        descendant_paths = set(
+            Page.objects.filter(
+                depth=parent.depth + 2, path__startswith=parent.path
+            ).values_list("path", flat=True)
+        )
     items: list[dict[str, Any]] = []
     for p in children:
         items.append(
@@ -1152,8 +1331,10 @@ def admin_pages_tree(request: HttpRequest) -> JsonResponse:
                 "type": _page_type_label(p),
                 "typeName": _page_type_name(p),
                 "url": getattr(p, "url", "") or "",
-                "parentId": p.get_parent().id if p.get_parent() else None,
-                "hasChildren": bool(p.get_children().exists()),
+                "parentId": parent.id,
+                "hasChildren": any(
+                    path.startswith(p.path) for path in descendant_paths
+                ),
                 "depth": int(getattr(p, "depth", 0) or 0),
             }
         )
@@ -1179,15 +1360,15 @@ def admin_pages_allowed_types(request: HttpRequest) -> JsonResponse:
         return forbidden
     parent_id_raw = request.GET.get("parentId")
     if not parent_id_raw:
-        return _api_error("missing_parentId", status=400)
+        return _err("missing_parentId", status=400)
     try:
         parent_id = int(str(parent_id_raw))
     except Exception:
-        return _api_error("invalid_parentId", status=400)
+        return _err("invalid_parentId", status=400)
 
     parent = Page.objects.filter(pk=parent_id).specific().first()
     if not parent:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
 
     allowed = _allowed_page_models()
     items: list[dict[str, Any]] = []
@@ -1215,13 +1396,19 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
-    page = Page.objects.filter(pk=page_id).specific().first()
+    page = (
+        Page.objects.filter(pk=page_id)
+        .specific()
+        .select_related("content_type")
+        .first()
+    )
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
 
     body_html = ""
     if hasattr(page, "body"):
         body_html = _streamfield_first_html(getattr(page, "body", None))
+    parent = page.get_parent()
 
     data: dict[str, Any] = {
         "id": page.id,
@@ -1231,7 +1418,7 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
         "type": _page_type_label(page),
         "typeName": _page_type_name(page),
         "url": getattr(page, "url", "") or "",
-        "parentId": page.get_parent().id if page.get_parent() else None,
+        "parentId": parent.id if parent else None,
         "searchDescription": str(getattr(page, "search_description", "") or ""),
         "bodyHtml": body_html,
     }
@@ -1285,41 +1472,44 @@ def admin_page_detail(request: HttpRequest, page_id: int) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_page_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
     parent_id_raw = data.get("parentId")
-    type_raw = str(data.get("type") or "").strip()
-    title = str(data.get("title") or "").strip() or "ØµÙØ­Ø©"
-    slug_raw = str(data.get("slug") or title).strip()
-    live = bool(data.get("live", True))
+    type_raw = _text(data.get("type"), "نوع الصفحة")
+    title = _text(data.get("title"), "العنوان") or "ØµÙØ­Ø©"
+    live = _bool(data.get("live"), "الحالة", default=True)
 
-    if parent_id_raw in {None, ""}:
-        return _api_error("invalid_parentId", status=400)
-    try:
-        parent_id = int(str(parent_id_raw))
-    except Exception:
-        return _api_error("invalid_parentId", status=400)
+    if parent_id_raw is None or parent_id_raw == "":
+        return _err("invalid_parentId", status=400)
+    parent_id = _integer(
+        parent_id_raw,
+        "الصفحة الأم",
+        low=1,
+        high=_MAX_PK,
+        code="invalid_parentId",
+    )
 
     parent = Page.objects.filter(pk=parent_id).specific().first()
     if not parent:
-        return _api_error("parent_not_found", status=404)
+        return _err("parent_not_found", status=404)
 
     allowed = _allowed_page_models()
     Model = allowed.get(type_raw)
     if not Model:
-        return _api_error("invalid_type", status=400)
+        return _err("invalid_type", status=400)
 
     try:
         allowed_models = parent.get_allowed_subpage_models()
     except Exception:
         allowed_models = []
     if Model not in allowed_models:
-        return _api_error("type_not_allowed_here", status=400)
+        return _err("type_not_allowed_here", status=400)
 
-    base_slug = slugify(slug_raw) or "page"
+    base_slug = _slug(data.get("slug") or title, fallback="page")
     page = Model(title=title, slug=_unique_child_slug(parent, base_slug))
 
     parent.add_child(instance=page)
@@ -1331,20 +1521,24 @@ def admin_page_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
 
     if data.get("title") is not None:
-        page.title = str(data.get("title") or "")
+        title = _text(data.get("title"), "العنوان")
+        if not title:
+            raise _InputError("يرجى إدخال العنوان.", "missing_title")
+        page.title = title
 
     if data.get("slug") is not None:
-        new_slug = slugify(str(data.get("slug") or ""))[:60]
+        new_slug = _slug(data.get("slug"), fallback="")
         if new_slug:
             parent = page.get_parent()
             page.slug = _unique_child_slug(parent, new_slug)
@@ -1353,7 +1547,9 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
         page, "search_description"
     ):
         setattr(
-            page, "search_description", str(data.get("searchDescription") or "")
+            page,
+            "search_description",
+            _text(data.get("searchDescription"), "وصف البحث"),
         )
 
     if data.get("bodyHtml") is not None and hasattr(page, "body"):
@@ -1361,78 +1557,82 @@ def admin_page_update(request: HttpRequest, page_id: int) -> JsonResponse:
             page,
             "body",
             _replace_streamfield_html(
-                page.body, str(data.get("bodyHtml") or "")
+                page.body, _long_text(data.get("bodyHtml"), "المحتوى")
             ),
         )
 
     if isinstance(page, ServicePage):
         if data.get("shortDescription") is not None:
-            page.short_description = str(data.get("shortDescription") or "")
+            page.short_description = _text(
+                data.get("shortDescription"), "وصف مختصر"
+            )
         if data.get("coverImageId") is not None and hasattr(
             page, "cover_image"
         ):
-            val = data.get("coverImageId")
-            if val in {"", None}:
-                setattr(page, "cover_image", None)
-            else:
-                try:
-                    from wagtail.images import get_image_model
-
-                    ImageModel = get_image_model()
-                    img = ImageModel.objects.filter(pk=int(str(val))).first()
-                except Exception:
-                    img = None
-                if not img:
-                    return _api_error("invalid_image", status=400)
-                setattr(page, "cover_image", img)
+            setattr(page, "cover_image", _image(data.get("coverImageId")))
 
     if isinstance(page, CertificationPage):
         if data.get("issuer") is not None:
-            page.issuer = str(data.get("issuer") or "")
+            page.issuer = _text(data.get("issuer"), "جهة الإصدار")
         if data.get("certificateId") is not None:
-            page.certificate_id = str(data.get("certificateId") or "")
+            page.certificate_id = _text(
+                data.get("certificateId"), "رقم الشهادة"
+            )
         if data.get("issuedYear") is not None:
             val = data.get("issuedYear")
-            if val in {"", None}:
+            if val is None or val == "":
                 page.issued_year = None
             else:
-                try:
-                    page.issued_year = int(str(val))
-                except Exception:
-                    return _api_error("invalid_issuedYear", status=400)
+                page.issued_year = _integer(
+                    val,
+                    "سنة الإصدار",
+                    low=1900,
+                    high=2100,
+                    code="invalid_issuedYear",
+                )
 
     if isinstance(page, (ContactPage, QuoteRequestPage)):
         if data.get("toAddress") is not None:
-            setattr(page, "to_address", str(data.get("toAddress") or ""))
+            setattr(
+                page,
+                "to_address",
+                _text(data.get("toAddress"), "البريد المستلم"),
+            )
         if data.get("subject") is not None:
-            setattr(page, "subject", str(data.get("subject") or ""))
+            setattr(page, "subject", _text(data.get("subject"), "العنوان"))
         if data.get("replyAddress") is not None:
-            setattr(page, "reply_address", str(data.get("replyAddress") or ""))
+            setattr(
+                page,
+                "reply_address",
+                _text(data.get("replyAddress"), "بريد الرد"),
+            )
 
     page.save_revision().publish() if page.live else page.save_revision().save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_page_publish(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     page.save_revision().publish()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_page_unpublish(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
@@ -1442,13 +1642,17 @@ def admin_page_unpublish(request: HttpRequest, page_id: int) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_page_delete(request: HttpRequest, page_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = Page.objects.filter(pk=page_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    data = _read_json(request)
+    _require_confirmation(data)
+    _require_children_confirmation(data, page)
     page.delete()
     return _api_ok()
 
@@ -1460,7 +1664,7 @@ def admin_articles(request: HttpRequest) -> JsonResponse:
     idx = _articles_index(request)
     if not idx:
         return _api_ok({"items": []})
-    pages = Page.objects.child_of(idx).type(ArticlePage).specific()
+    pages = ArticlePage.objects.child_of(idx).select_related("cover_image")
     items: list[dict[str, Any]] = []
     for p in pages:
         cover = getattr(p, "cover_image", None)
@@ -1487,9 +1691,13 @@ def admin_article_detail(request: HttpRequest, article_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
-    page = ArticlePage.objects.filter(pk=article_id).specific().first()
+    page = (
+        ArticlePage.objects.filter(pk=article_id)
+        .select_related("cover_image")
+        .first()
+    )
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     cover = getattr(page, "cover_image", None)
     return _api_ok(
         {
@@ -1511,40 +1719,35 @@ def admin_article_detail(request: HttpRequest, article_id: int) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_article_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     idx = _articles_index(request)
     if not idx:
-        return _api_error("articles_index_missing", status=400)
+        return _err("articles_index_missing", status=400)
     data = _read_json(request)
-    title = str(data.get("title") or "").strip() or "Ù…Ù‚Ø§Ù„"
-    base_slug = slugify(str(data.get("slug") or title)) or "article"
+    title = _text(data.get("title"), "العنوان") or "Ù…Ù‚Ø§Ù„"
+    base_slug = _slug(data.get("slug") or title, fallback="article")
     page = ArticlePage(
         title=title,
         slug=_unique_child_slug(idx, base_slug),
-        search_description=str(data.get("searchDescription") or ""),
+        search_description=_text(data.get("searchDescription"), "وصف البحث"),
     )
 
     body_html = data.get("bodyHtml")
     if body_html is not None:
-        page.body = _replace_streamfield_html(page.body, str(body_html or ""))
+        page.body = _replace_streamfield_html(
+            page.body, _long_text(body_html, "المحتوى")
+        )
 
-    cover_image_id = data.get("coverImageId")
-    if cover_image_id not in {None, ""}:
-        try:
-            from wagtail.images import get_image_model
-
-            ImageModel = get_image_model()
-            img = ImageModel.objects.filter(pk=int(str(cover_image_id))).first()
-        except Exception:
-            img = None
-        if img and hasattr(page, "cover_image"):
-            setattr(page, "cover_image", img)
+    img = _image(data.get("coverImageId"))
+    if img and hasattr(page, "cover_image"):
+        setattr(page, "cover_image", img)
 
     idx.add_child(instance=page)
-    if bool(data.get("live", True)):
+    if _bool(data.get("live"), "الحالة", default=True):
         page.save_revision().publish()
     else:
         page.save_revision().save()
@@ -1552,55 +1755,47 @@ def admin_article_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_article_update(request: HttpRequest, article_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     data = _read_json(request)
 
-    for key, attr in [
-        ("title", "title"),
-        ("searchDescription", "search_description"),
+    for key, attr, label in [
+        ("title", "title", "العنوان"),
+        ("searchDescription", "search_description", "وصف البحث"),
     ]:
         if data.get(key) is None:
             continue
-        setattr(page, attr, str(data.get(key) or ""))
+        value = _text(data.get(key), label)
+        if key == "title" and not value:
+            raise _InputError("يرجى إدخال العنوان.", "missing_title")
+        setattr(page, attr, value)
 
     if data.get("slug") is not None:
-        new_slug = slugify(str(data.get("slug") or ""))[:60]
+        new_slug = _slug(data.get("slug"), fallback="")
         if new_slug:
             parent = page.get_parent()
             page.slug = _unique_child_slug(parent, new_slug)
 
     if data.get("bodyHtml") is not None:
         page.body = _replace_streamfield_html(
-            page.body, str(data.get("bodyHtml") or "")
+            page.body, _long_text(data.get("bodyHtml"), "المحتوى")
         )
 
     if data.get("coverImageId") is not None and hasattr(page, "cover_image"):
-        val = data.get("coverImageId")
-        if val in {"", None}:
-            setattr(page, "cover_image", None)
-        else:
-            try:
-                from wagtail.images import get_image_model
-
-                ImageModel = get_image_model()
-                img = ImageModel.objects.filter(pk=int(str(val))).first()
-            except Exception:
-                img = None
-            if not img:
-                return _api_error("invalid_image", status=400)
-            setattr(page, "cover_image", img)
+        setattr(page, "cover_image", _image(data.get("coverImageId")))
 
     page.save_revision().publish() if page.live else page.save_revision().save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_article_publish(
     request: HttpRequest, article_id: int
 ) -> JsonResponse:
@@ -1609,12 +1804,13 @@ def admin_article_publish(
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     page.save_revision().publish()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_article_unpublish(
     request: HttpRequest, article_id: int
 ) -> JsonResponse:
@@ -1623,7 +1819,7 @@ def admin_article_unpublish(
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).specific().first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     try:
         page.unpublish()
     except Exception:
@@ -1633,13 +1829,17 @@ def admin_article_unpublish(
 
 
 @require_POST
+@_validated
 def admin_article_delete(request: HttpRequest, article_id: int) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     page = ArticlePage.objects.filter(pk=article_id).first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    data = _read_json(request)
+    _require_confirmation(data)
+    _require_children_confirmation(data, page)
     page.delete()
     return _api_ok()
 
@@ -1673,7 +1873,7 @@ def admin_rfq_document_detail(
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     return _api_ok(
         {
             "id": d.id,
@@ -1689,16 +1889,24 @@ def admin_rfq_document_detail(
 
 
 @require_POST
+@_validated
 def admin_rfq_document_create(request: HttpRequest) -> JsonResponse:
     forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
-    title = str(data.get("title") or "").strip()
-    template_key = str(data.get("templateKey") or "").strip()
-    currency = str(data.get("currency") or "ILS").strip()[:8] or "ILS"
+    title = _text(data.get("title"), "العنوان")
+    template_key = _text(data.get("templateKey"), "مفتاح النموذج", max_len=64)
+    currency = _text(data.get("currency") or "ILS", "العملة", max_len=8).upper()
+    if not re.fullmatch(r"[A-Z]{3}", currency):
+        raise _InputError("العملة المحددة غير صالحة.")
     payload = data.get("data")
-    payload_dict = payload if isinstance(payload, dict) else {}
+    if payload is None:
+        payload_dict: dict[str, Any] = {}
+    elif isinstance(payload, dict):
+        payload_dict = payload
+    else:
+        raise _InputError("بيانات النموذج غير صالحة.")
 
     d = RFQDocument.objects.create(
         title=title,
@@ -1716,6 +1924,7 @@ def admin_rfq_document_create(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_rfq_document_update(
     request: HttpRequest, doc_id: int
 ) -> JsonResponse:
@@ -1724,23 +1933,33 @@ def admin_rfq_document_update(
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
 
     data = _read_json(request)
     if data.get("title") is not None:
-        d.title = str(data.get("title") or "").strip()
+        d.title = _text(data.get("title"), "العنوان")
     if data.get("templateKey") is not None:
-        d.template_key = str(data.get("templateKey") or "").strip()
+        d.template_key = _text(
+            data.get("templateKey"), "مفتاح النموذج", max_len=64
+        )
     if data.get("currency") is not None:
-        d.currency = str(data.get("currency") or "ILS").strip()[:8] or "ILS"
+        currency = _text(
+            data.get("currency") or "ILS", "العملة", max_len=8
+        ).upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise _InputError("العملة المحددة غير صالحة.")
+        d.currency = currency
     if data.get("data") is not None:
         payload = data.get("data")
-        d.data = payload if isinstance(payload, dict) else {}
+        if not isinstance(payload, dict):
+            raise _InputError("بيانات النموذج غير صالحة.")
+        d.data = payload
     d.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_rfq_document_delete(
     request: HttpRequest, doc_id: int
 ) -> JsonResponse:
@@ -1749,19 +1968,21 @@ def admin_rfq_document_delete(
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
+    _require_confirmation(_read_json(request))
     d.delete()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_rfq_document_pdf(request: HttpRequest, doc_id: int) -> HttpResponse:
     forbidden = _require_rfq_management(request)
     if forbidden:
         return forbidden
     d = RFQDocument.objects.filter(pk=doc_id).first()
     if not d:
-        return _api_error("not_found", status=404)
+        return _err("not_found", status=404)
     site = _get_site(request)
     company = CompanySettings.for_site(site) if site else None
     payload = d.data if isinstance(d.data, dict) else {}

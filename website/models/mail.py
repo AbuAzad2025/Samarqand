@@ -3,6 +3,11 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
+from ._formatting import admin_change_url as _admin_change_url
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_datetime as _format_datetime
+from ._formatting import format_file_size as _format_file_size
+
 
 class EmailMessage(models.Model):
     FOLDER_INBOX = "inbox"
@@ -59,7 +64,32 @@ class EmailMessage(models.Model):
         verbose_name_plural = "رسائل البريد"
 
     def __str__(self) -> str:
+        return self.subject_display
+
+    @property
+    def subject_display(self) -> str:
         return self.subject or f"رسالة #{self.pk}"
+
+    @property
+    def folder_label(self) -> str:
+        return _format_choice(self, "folder")
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
+
+    @property
+    def updated_at_ar(self) -> str:
+        return _format_datetime(self.updated_at)
+
+    @property
+    def recipients_display(self) -> str:
+        if not isinstance(self.recipients, list) or not self.recipients:
+            return "—"
+        return "، ".join(str(item) for item in self.recipients)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
 
 class EmailAttachment(models.Model):
@@ -93,3 +123,7 @@ class EmailAttachment(models.Model):
 
     def __str__(self) -> str:
         return self.filename or f"مرفق #{self.pk}"
+
+    @property
+    def size_display(self) -> str:
+        return _format_file_size(self.file_size)

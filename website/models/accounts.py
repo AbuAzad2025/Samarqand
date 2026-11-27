@@ -23,6 +23,13 @@ from django.utils import timezone
 
 from website.constants import ACCOUNT_CODES
 
+from ._formatting import EMPTY_VALUE as _EMPTY_VALUE
+from ._formatting import admin_change_url as _admin_change_url
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_date as _format_date
+from ._formatting import format_number as _format_number
+from ._formatting import format_percent as _format_percent
+from ._formatting import validate_date_range as _validate_date_range
 from .pages import ProjectPage
 
 
@@ -86,6 +93,24 @@ class Account(models.Model):
     def __str__(self) -> str:
         label = self.name_ar or self.name
         return f"{self.code} — {label}"
+
+    @property
+    def display_name(self) -> str:
+        """تسمية الحساب المفضّلة: الاسم العربي إن وُجد."""
+        return self.name_ar or self.name or _EMPTY_VALUE
+
+    @property
+    def type_label(self) -> str:
+        """اسم نوع الحساب بالعربية (آمن حتى لقيمة غير معروفة)."""
+        return _format_choice(self, "account_type")
+
+    @property
+    def balance_display(self) -> str:
+        """الرصيد الحالي بصيغة عربية."""
+        return _format_number(self.balance())
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
     def clean(self) -> None:
         if self.parent and self.parent.pk == self.pk:
@@ -217,6 +242,29 @@ class JournalEntry(models.Model):
     def __str__(self) -> str:
         return self.number
 
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def type_label(self) -> str:
+        return _format_choice(self, "entry_type")
+
+    @property
+    def posted_label(self) -> str:
+        return "مرحّل" if self.is_posted else "غير مرحّل"
+
+    @property
+    def total_debit_ar(self) -> str:
+        return _format_number(self.total_debit)
+
+    @property
+    def total_credit_ar(self) -> str:
+        return _format_number(self.total_credit)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
+
     def clean(self) -> None:
         if self.is_posted and self.total_debit != self.total_credit:
             raise ValidationError(
@@ -314,7 +362,19 @@ class JournalEntryLine(models.Model):
         verbose_name_plural = "بنود القيد"
 
     def __str__(self) -> str:
-        return f"{self.account.code} — مدين {self.debit} / دائن {self.credit}"
+        return f"{self.account.code} — مدين {self.debit_ar} / دائن {self.credit_ar}"
+
+    @property
+    def account_label(self) -> str:
+        return self.account.display_name if self.account_id else _EMPTY_VALUE
+
+    @property
+    def debit_ar(self) -> str:
+        return _format_number(self.debit)
+
+    @property
+    def credit_ar(self) -> str:
+        return _format_number(self.credit)
 
     def clean(self) -> None:
         if self.debit < 0 or self.credit < 0:
@@ -379,6 +439,25 @@ class BankAccount(models.Model):
 
     def __str__(self) -> str:
         return f"{self.bank_name} — {self.account_number} ({self.currency})"
+
+    @property
+    def currency_label(self) -> str:
+        return _format_choice(self, "currency")
+
+    @property
+    def opening_balance_ar(self) -> str:
+        return _format_number(self.opening_balance)
+
+    @property
+    def opening_date_ar(self) -> str:
+        return _format_date(self.opening_date)
+
+    @property
+    def active_label(self) -> str:
+        return "نشط" if self.is_active else "غير نشط"
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
     def book_balance(self, as_of: date | None = None) -> Decimal:
         qs = JournalEntryLine.objects.filter(
@@ -509,17 +588,54 @@ class Check(models.Model):
             "صادر" if self.direction == Check.DIRECTION_ISSUED else "وارد"
         )
         return (
-            f"{direction} {self.check_number} — {self.amount} {self.currency}"
+            f"{direction} {self.check_number} — {self.amount_ar} "
+            f"{self.currency} ({self.status_label})"
         )
 
+    @property
+    def direction_label(self) -> str:
+        return _format_choice(self, "direction")
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def amount_ar(self) -> str:
+        return _format_number(self.amount)
+
+    @property
+    def issue_date_ar(self) -> str:
+        return _format_date(self.issue_date)
+
+    @property
+    def maturity_date_ar(self) -> str:
+        return _format_date(self.maturity_date)
+
+    @property
+    def cleared_date_ar(self) -> str:
+        return _format_date(self.cleared_date)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
+
     def clean(self) -> None:
-        if (
-            self.maturity_date
-            and self.issue_date
-            and self.maturity_date < self.issue_date
-        ):
-            raise ValidationError(
-                "تاريخ الاستحقاق يجب أن يكون بعد تاريخ الإصدار."
+        # These are expected, field-bound form errors (not crashes from
+        # save()); django admin displays them next to the offending field.
+        _validate_date_range(
+            self.issue_date,
+            self.maturity_date,
+            "maturity_date",
+            "تاريخ الإصدار",
+            "تاريخ الاستحقاق",
+        )
+        if self.status == Check.STATUS_CLEARED and self.cleared_date:
+            _validate_date_range(
+                self.issue_date,
+                self.cleared_date,
+                "cleared_date",
+                "تاريخ الإصدار",
+                "تاريخ الصرف",
             )
 
     @transaction.atomic
@@ -690,7 +806,52 @@ class TaxRecord(models.Model):
         verbose_name_plural = "السجلات الضريبية"
 
     def __str__(self) -> str:
-        return f"{self.get_tax_type_display()} — {self.tax_amount} ({self.return_period})"
+        return (
+            f"{self.tax_type_label} — {self.tax_amount_ar} "
+            f"({self.return_period or _EMPTY_VALUE})"
+        )
+
+    @property
+    def tax_type_label(self) -> str:
+        return _format_choice(self, "tax_type")
+
+    @property
+    def tax_amount_ar(self) -> str:
+        return _format_number(self.tax_amount)
+
+    @property
+    def gross_amount_ar(self) -> str:
+        return _format_number(self.gross_amount)
+
+    @property
+    def net_amount_ar(self) -> str:
+        return _format_number(self.net_amount)
+
+    @property
+    def tax_rate_ar(self) -> str:
+        # tax_rate is stored as a ratio (0.16), not as 16.
+        return _format_percent(self.tax_rate, as_fraction=True, decimals=2)
+
+    @property
+    def transaction_date_ar(self) -> str:
+        return _format_date(self.transaction_date)
+
+    @property
+    def paid_date_ar(self) -> str:
+        return _format_date(self.paid_date)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
+
+    def clean(self) -> None:
+        if self.paid_date:
+            _validate_date_range(
+                self.transaction_date,
+                self.paid_date,
+                "paid_date",
+                "تاريخ العملية",
+                "تاريخ الدفع",
+            )
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.tax_rate:

@@ -1,8 +1,14 @@
 """URL routes: admin_ops."""
 
 from django.urls import path
+from django.views.decorators.http import require_POST
 
 from website import api as api_views
+
+# This endpoint writes payroll entries; require POST at the URL layer too.
+admin_ops_payroll_generate_from_attendance = require_POST(
+    api_views.admin_ops_payroll_generate_from_attendance
+)
 
 urlpatterns = [
     path("api/admin/ops/clients", api_views.admin_ops_clients),
@@ -171,7 +177,7 @@ urlpatterns = [
     path("api/admin/ops/payroll", api_views.admin_ops_payroll),
     path(
         "api/admin/ops/payroll/generate-from-attendance",
-        api_views.admin_ops_payroll_generate_from_attendance,
+        admin_ops_payroll_generate_from_attendance,
     ),
     path("api/admin/ops/payroll/create", api_views.admin_ops_payroll_create),
     path(

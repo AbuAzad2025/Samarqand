@@ -12,9 +12,11 @@ from typing import Any
 
 from django.core.wsgi import get_wsgi_application
 
+# A WSGI server must never fall back to DEBUG=True development settings.
+# Local development sets this explicitly (manage.py / run_local.ps1).
 os.environ.setdefault(
     "DJANGO_SETTINGS_MODULE",
-    "contracting_site.settings.dev",
+    "contracting_site.settings.prod",
 )
 
 application = get_wsgi_application()
@@ -35,8 +37,11 @@ def _auto_migrate_if_enabled() -> None:
 
     fcntl_any: Any = _fcntl
 
+    # App-specific lock path: no shared /tmp name that another Django app on
+    # the same server could collide with.
     lock_path = (
-        os.environ.get("AUTO_MIGRATE_LOCK_PATH") or "/tmp/django_migrate.lock"
+        os.environ.get("AUTO_MIGRATE_LOCK_PATH")
+        or "/srv/apps/samarqand/shared/run/samarqand_migrate.lock"
     )
     try:
         fh = open(lock_path, "w", encoding="utf-8")

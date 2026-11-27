@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -23,6 +24,44 @@ from website.models import VariationOrderItem
 logger = logging.getLogger(__name__)
 
 from .common import *
+
+_ZERO = Decimal("0")
+_HUNDRED = Decimal("100")
+
+
+def _parse_int(raw: Any, *, default: int | None = None) -> int | None:
+    if raw in {"", None}:
+        return default
+    return int(str(raw))
+
+
+def _parse_decimal(
+    raw: Any,
+    *,
+    default: Decimal | None = None,
+    allow_negative: bool = True,
+) -> Decimal | None:
+    if raw in {"", None}:
+        return default
+    value = Decimal(str(raw))
+    if not value.is_finite() or (value < _ZERO and not allow_negative):
+        raise ValueError
+    return value
+
+
+def _parse_percent(raw: Any, default: Decimal) -> Decimal:
+    if raw in {"", None}:
+        return default
+    value = Decimal(str(raw))
+    if not value.is_finite() or not _ZERO <= value <= _HUNDRED:
+        raise ValueError
+    return value
+
+
+def _parse_date(raw: Any) -> date | None:
+    if raw in {"", None}:
+        return None
+    return date.fromisoformat(str(raw).strip())
 
 
 @require_GET
@@ -48,6 +87,9 @@ def admin_boq_items(request: HttpRequest, project_id: int) -> JsonResponse:
     for it in ProjectBOQItem.objects.filter(project=project).select_related(
         "account"
     ):
+        # executed_quantity() runs an aggregate query; compute it once per row
+        # instead of twice (the old remaining_quantity() recomputed it).
+        executed = it.executed_quantity()
         items.append(
             {
                 "id": it.id,
@@ -59,8 +101,8 @@ def admin_boq_items(request: HttpRequest, project_id: int) -> JsonResponse:
                 "unitPrice": float(it.unit_price),
                 "totalPrice": float(it.total_price),
                 "accountId": it.account_id,
-                "executedQuantity": float(it.executed_quantity()),
-                "remainingQuantity": float(it.remaining_quantity()),
+                "executedQuantity": float(executed),
+                "remainingQuantity": float(it.quantity - executed),
                 "notes": it.notes,
             }
         )
@@ -84,22 +126,41 @@ def admin_boq_items_create(
     unit = str(data.get("unit") or "").strip()
     if not description or not unit:
         return _api_error("missing_description_or_unit", status=400)
-    quantity = _to_dec(data.get("quantity"))
-    unit_price = _to_dec(data.get("unitPrice"))
-    if quantity is None or quantity < 0 or unit_price is None or unit_price < 0:
-        return _api_error("invalid_quantity_or_price", status=400)
-    account_id = data.get("accountId")
+    try:
+        quantity = _parse_decimal(data.get("quantity"), allow_negative=False)
+        unit_price = _parse_decimal(data.get("unitPrice"), allow_negative=False)
+    except Exception:
+        return _api_error(
+            "invalid_quantity_or_price",
+            status=400,
+            message="الكمية أو سعر الوحدة غير صالح.",
+        )
+    if quantity is None or unit_price is None:
+        return _api_error(
+            "invalid_quantity_or_price",
+            status=400,
+            message="الكمية وسعر الوحدة مطلوبان.",
+        )
+    try:
+        sort_order = _parse_int(data.get("sortOrder"), default=0, minimum=0)
+        account_pk = _parse_int(data.get("accountId"), default=0) or 0
+    except Exception:
+        return _api_error(
+            "invalid_sortOrder",
+            status=400,
+            message="الترتيب أو الحساب غير صالح.",
+        )
     account = None
-    if account_id:
+    if account_pk:
         from website.models import Account
 
-        account = Account.objects.filter(pk=int(account_id)).first()
+        account = Account.objects.filter(pk=account_pk).first()
     it = ProjectBOQItem.objects.create(
         project=project,
-        sort_order=int(data.get("sortOrder") or 0),
-        item_code=str(data.get("itemCode") or "").strip(),
+        sort_order=sort_order,
+        item_code=str(data.get("itemCode") or "").strip()[:32],
         description=description,
-        unit=unit,
+        unit=unit[:32],
         quantity=quantity,
         unit_price=unit_price,
         account=account,
@@ -133,23 +194,45 @@ def admin_boq_items_update(
     unit = str(data.get("unit") or "").strip()
     if not description or not unit:
         return _api_error("missing_description_or_unit", status=400)
-    quantity = _to_dec(data.get("quantity"))
-    unit_price = _to_dec(data.get("unitPrice"))
-    if quantity is None or quantity < 0 or unit_price is None or unit_price < 0:
-        return _api_error("invalid_quantity_or_price", status=400)
-    it.sort_order = int(data.get("sortOrder") or it.sort_order)
-    it.item_code = str(data.get("itemCode") or "").strip()
+    try:
+        quantity = _parse_decimal(data.get("quantity"), allow_negative=False)
+        unit_price = _parse_decimal(data.get("unitPrice"), allow_negative=False)
+    except Exception:
+        return _api_error(
+            "invalid_quantity_or_price",
+            status=400,
+            message="الكمية أو سعر الوحدة غير صالح.",
+        )
+    if quantity is None or unit_price is None:
+        return _api_error(
+            "invalid_quantity_or_price",
+            status=400,
+            message="الكمية وسعر الوحدة مطلوبان.",
+        )
+    try:
+        sort_order = _parse_int(
+            data.get("sortOrder"), default=it.sort_order, minimum=0
+        )
+        account_id = data.get("accountId")
+        account_pk = _parse_int(account_id, default=0) if account_id else 0
+    except Exception:
+        return _api_error(
+            "invalid_sortOrder",
+            status=400,
+            message="الترتيب أو الحساب غير صالح.",
+        )
+    it.sort_order = int(sort_order or 0)
+    it.item_code = str(data.get("itemCode") or "").strip()[:32]
     it.description = description
-    it.unit = unit
+    it.unit = unit[:32]
     it.quantity = quantity
     it.unit_price = unit_price
-    account_id = data.get("accountId")
     if account_id is not None:
         from website.models import Account
 
         it.account = (
-            Account.objects.filter(pk=int(account_id)).first()
-            if account_id
+            Account.objects.filter(pk=account_pk).first()
+            if account_pk
             else None
         )
     it.notes = str(data.get("notes") or "").strip()
@@ -299,26 +382,55 @@ def admin_boq_payment_applications_create(
     if not project:
         return _api_error("project_not_found", status=404)
     data = _read_json(request)
-    app_number = str(data.get("applicationNumber") or "").strip()
-    app_date = _to_date(data.get("applicationDate"))
+    app_number = str(data.get("applicationNumber") or "").strip()[:32]
+    try:
+        app_date = _parse_date(data.get("applicationDate"))
+        period_from = _parse_date(data.get("periodFrom"))
+        period_to = _parse_date(data.get("periodTo"))
+        previous_total = _parse_decimal(
+            data.get("previousApplicationsTotal"),
+            default=_ZERO,
+            allow_negative=False,
+        )
+        retention_percent = _parse_percent(
+            data.get("retentionPercent"), Decimal("10")
+        )
+        withholding_percent = _parse_percent(
+            data.get("withholdingTaxPercent"), Decimal("10")
+        )
+        previous_deductions = _parse_decimal(
+            data.get("previousDeductions"),
+            default=_ZERO,
+            allow_negative=False,
+        )
+    except Exception:
+        return _api_error(
+            "invalid_application_data",
+            status=400,
+            message="تاريخ أو مبلغ أو نسبة غير صالح في المستخلص.",
+        )
     if not app_number or not app_date:
-        return _api_error("missing_number_or_date", status=400)
+        return _api_error(
+            "missing_number_or_date",
+            status=400,
+            message="رقم المستخلص وتاريخه مطلوبان.",
+        )
+    if period_from and period_to and period_to < period_from:
+        return _api_error(
+            "invalid_date_range",
+            status=400,
+            message="تاريخ نهاية الفترة يجب ألا يسبق بدايتها.",
+        )
     pa = PaymentApplication.objects.create(
         project=project,
         application_number=app_number,
         application_date=app_date,
-        period_from=_to_date(data.get("periodFrom")),
-        period_to=_to_date(data.get("periodTo")),
-        previous_applications_total=_to_dec(
-            data.get("previousApplicationsTotal")
-        )
-        or Decimal("0"),
-        retention_percent=_to_dec(data.get("retentionPercent"))
-        or Decimal("10"),
-        withholding_tax_percent=_to_dec(data.get("withholdingTaxPercent"))
-        or Decimal("10"),
-        previous_deductions=_to_dec(data.get("previousDeductions"))
-        or Decimal("0"),
+        period_from=period_from,
+        period_to=period_to,
+        previous_applications_total=previous_total,
+        retention_percent=retention_percent,
+        withholding_tax_percent=withholding_percent,
+        previous_deductions=previous_deductions,
         created_by=request.user if request.user.is_authenticated else None,
     )
     _audit_ops(
@@ -349,27 +461,49 @@ def admin_boq_payment_applications_update(
     ):
         return _api_error("approved_application_locked", status=400)
     data = _read_json(request)
+    try:
+        app_date = _parse_date(data.get("applicationDate"))
+        period_from = _parse_date(data.get("periodFrom"))
+        period_to = _parse_date(data.get("periodTo"))
+        previous_total = _parse_decimal(
+            data.get("previousApplicationsTotal"),
+            default=pa.previous_applications_total,
+            allow_negative=False,
+        )
+        retention_percent = _parse_percent(
+            data.get("retentionPercent"), pa.retention_percent
+        )
+        withholding_percent = _parse_percent(
+            data.get("withholdingTaxPercent"), pa.withholding_tax_percent
+        )
+        previous_deductions = _parse_decimal(
+            data.get("previousDeductions"),
+            default=pa.previous_deductions,
+            allow_negative=False,
+        )
+    except Exception:
+        return _api_error(
+            "invalid_application_data",
+            status=400,
+            message="تاريخ أو مبلغ أو نسبة غير صالح في المستخلص.",
+        )
     pa.application_number = str(
         data.get("applicationNumber") or pa.application_number
-    ).strip()
-    app_date = _to_date(data.get("applicationDate"))
+    ).strip()[:32]
     if app_date:
         pa.application_date = app_date
-    pa.period_from = _to_date(data.get("periodFrom")) or pa.period_from
-    pa.period_to = _to_date(data.get("periodTo")) or pa.period_to
-    pa.previous_applications_total = (
-        _to_dec(data.get("previousApplicationsTotal"))
-        or pa.previous_applications_total
-    )
-    pa.retention_percent = (
-        _to_dec(data.get("retentionPercent")) or pa.retention_percent
-    )
-    pa.withholding_tax_percent = (
-        _to_dec(data.get("withholdingTaxPercent")) or pa.withholding_tax_percent
-    )
-    pa.previous_deductions = (
-        _to_dec(data.get("previousDeductions")) or pa.previous_deductions
-    )
+    pa.period_from = period_from or pa.period_from
+    pa.period_to = period_to or pa.period_to
+    if pa.period_from and pa.period_to and pa.period_to < pa.period_from:
+        return _api_error(
+            "invalid_date_range",
+            status=400,
+            message="تاريخ نهاية الفترة يجب ألا يسبق بدايتها.",
+        )
+    pa.previous_applications_total = previous_total
+    pa.retention_percent = retention_percent
+    pa.withholding_tax_percent = withholding_percent
+    pa.previous_deductions = previous_deductions
     pa.consultant_notes = str(data.get("consultantNotes") or "").strip()
     pa.save()
     _audit_ops(
@@ -427,21 +561,35 @@ def admin_boq_payment_applications_add_item(
     data = _read_json(request)
     boq_item_id = data.get("boqItemId")
     if not boq_item_id:
-        return _api_error("missing_boq_item", status=400)
+        return _api_error(
+            "missing_boq_item", status=400, message="رقم بند الكميات مطلوب."
+        )
+    try:
+        boq_pk = _parse_int(boq_item_id)
+        current_quantity = _parse_decimal(
+            data.get("currentQuantity"),
+            default=_ZERO,
+            allow_negative=False,
+        )
+        previously_done = _parse_decimal(
+            data.get("previouslyDoneQuantity"),
+            default=_ZERO,
+            allow_negative=False,
+        )
+        previously_certified = _parse_decimal(
+            data.get("previouslyCertified"),
+            default=_ZERO,
+            allow_negative=False,
+        )
+    except Exception:
+        return _api_error(
+            "invalid_quantity", status=400, message="كمية أو مبلغ غير صالح."
+        )
     boq_item = ProjectBOQItem.objects.filter(
-        pk=int(boq_item_id), project_id=project_id
+        pk=boq_pk, project_id=project_id
     ).first()
     if not boq_item:
         return _api_error("boq_item_not_found", status=404)
-    current_quantity = _to_dec(data.get("currentQuantity")) or Decimal("0")
-    if current_quantity < 0:
-        return _api_error("invalid_quantity", status=400)
-    previously_done = _to_dec(data.get("previouslyDoneQuantity")) or Decimal(
-        "0"
-    )
-    previously_certified = _to_dec(data.get("previouslyCertified")) or Decimal(
-        "0"
-    )
     PaymentApplicationItem.objects.create(
         payment=pa,
         boq_item=boq_item,
@@ -483,15 +631,24 @@ def admin_boq_payment_applications_update_item(
     if not item:
         return _api_error("item_not_found", status=404)
     data = _read_json(request)
-    current_quantity = _to_dec(data.get("currentQuantity"))
+    try:
+        current_quantity = _parse_decimal(
+            data.get("currentQuantity"), allow_negative=False
+        )
+        previously_done = _parse_decimal(
+            data.get("previouslyDoneQuantity"), allow_negative=False
+        )
+        previously_certified = _parse_decimal(
+            data.get("previouslyCertified"), allow_negative=False
+        )
+    except Exception:
+        return _api_error(
+            "invalid_quantity", status=400, message="كمية أو مبلغ غير صالح."
+        )
     if current_quantity is not None:
-        if current_quantity < 0:
-            return _api_error("invalid_quantity", status=400)
         item.current_quantity = current_quantity
-    previously_done = _to_dec(data.get("previouslyDoneQuantity"))
     if previously_done is not None:
         item.previously_done_quantity = previously_done
-    previously_certified = _to_dec(data.get("previouslyCertified"))
     if previously_certified is not None:
         item.previously_certified = previously_certified
     item.save()
@@ -729,21 +886,38 @@ def admin_boq_variation_orders_create(
     if not project:
         return _api_error("project_not_found", status=404)
     data = _read_json(request)
-    number = str(data.get("variationNumber") or "").strip()
-    title = str(data.get("title") or "").strip()
+    number = str(data.get("variationNumber") or "").strip()[:32]
+    title = str(data.get("title") or "").strip()[:255]
     if not number or not title:
-        return _api_error("missing_number_or_title", status=400)
+        return _api_error(
+            "missing_number_or_title",
+            status=400,
+            message="الرقم والعنوان مطلوبان.",
+        )
     reason = str(data.get("reason") or VariationOrder.REASON_OTHER).strip()
     if reason not in dict(VariationOrder.REASON_CHOICES):
-        return _api_error("invalid_reason", status=400)
+        return _api_error(
+            "invalid_reason", status=400, message="سبب التغيير غير صالح."
+        )
+    try:
+        cost_impact = _parse_decimal(data.get("costImpact"), default=_ZERO)
+        schedule_days = _parse_int(data.get("scheduleImpactDays"), default=0)
+        if schedule_days is None or schedule_days < 0:
+            raise ValueError
+    except Exception:
+        return _api_error(
+            "invalid_variation_data",
+            status=400,
+            message="الأثر المالي أو تأثير الجدولة غير صالح.",
+        )
     vo = VariationOrder.objects.create(
         project=project,
         variation_number=number,
         title=title,
         reason=reason,
         description=str(data.get("description") or "").strip(),
-        cost_impact=_to_dec(data.get("costImpact")) or Decimal("0"),
-        schedule_impact_days=int(data.get("scheduleImpactDays") or 0),
+        cost_impact=cost_impact,
+        schedule_impact_days=schedule_days,
         submitted_by=request.user if request.user.is_authenticated else None,
     )
     _audit_ops(
@@ -771,19 +945,34 @@ def admin_boq_variation_orders_update(
     if vo.status == VariationOrder.STATUS_IMPLEMENTED:
         return _api_error("implemented_variation_locked", status=400)
     data = _read_json(request)
+    try:
+        cost_impact = _parse_decimal(
+            data.get("costImpact"), default=vo.cost_impact
+        )
+        schedule_days = _parse_int(
+            data.get("scheduleImpactDays"), default=vo.schedule_impact_days
+        )
+        if schedule_days is None or schedule_days < 0:
+            raise ValueError
+    except Exception:
+        return _api_error(
+            "invalid_variation_data",
+            status=400,
+            message="الأثر المالي أو تأثير الجدولة غير صالح.",
+        )
     vo.variation_number = str(
         data.get("variationNumber") or vo.variation_number
-    ).strip()
-    vo.title = str(data.get("title") or vo.title).strip()
+    ).strip()[:32]
+    vo.title = str(data.get("title") or vo.title).strip()[:255]
     reason = str(data.get("reason") or vo.reason).strip()
     if reason not in dict(VariationOrder.REASON_CHOICES):
-        return _api_error("invalid_reason", status=400)
+        return _api_error(
+            "invalid_reason", status=400, message="سبب التغيير غير صالح."
+        )
     vo.reason = reason
     vo.description = str(data.get("description") or "").strip()
-    vo.cost_impact = _to_dec(data.get("costImpact")) or vo.cost_impact
-    vo.schedule_impact_days = int(
-        data.get("scheduleImpactDays") or vo.schedule_impact_days
-    )
+    vo.cost_impact = cost_impact
+    vo.schedule_impact_days = schedule_days
     vo.save()
     _audit_ops(
         request,
@@ -862,18 +1051,34 @@ def admin_boq_variation_orders_add_item(
     if not vo:
         return _api_error("not_found", status=404)
     data = _read_json(request)
-    boq_item_id = data.get("boqItemId")
+    try:
+        boq_pk = _parse_int(data.get("boqItemId"), default=0) or 0
+        # A variation may reduce a quantity, so a negative change is valid.
+        quantity_change = _parse_decimal(
+            data.get("quantityChange"), default=_ZERO
+        )
+        unit_price = _parse_decimal(
+            data.get("unitPrice"), default=_ZERO, allow_negative=False
+        )
+    except Exception:
+        return _api_error(
+            "invalid_variation_item",
+            status=400,
+            message="كمية أو سعر غير صالح.",
+        )
     boq_item = None
-    if boq_item_id:
+    if boq_pk:
         boq_item = ProjectBOQItem.objects.filter(
-            pk=int(boq_item_id), project_id=project_id
+            pk=boq_pk, project_id=project_id
         ).first()
     description = str(data.get("description") or "").strip()
-    unit = str(data.get("unit") or "").strip()
-    quantity_change = _to_dec(data.get("quantityChange")) or Decimal("0")
-    unit_price = _to_dec(data.get("unitPrice")) or Decimal("0")
+    unit = str(data.get("unit") or "").strip()[:32]
     if not description or not unit:
-        return _api_error("missing_description_or_unit", status=400)
+        return _api_error(
+            "missing_description_or_unit",
+            status=400,
+            message="الوصف والوحدة مطلوبان.",
+        )
     VariationOrderItem.objects.create(
         variation=vo,
         boq_item=boq_item,
@@ -907,12 +1112,19 @@ def admin_boq_variation_orders_update_item(
     if not item:
         return _api_error("not_found", status=404)
     data = _read_json(request)
+    try:
+        quantity_change = _parse_decimal(data.get("quantityChange"))
+        unit_price = _parse_decimal(data.get("unitPrice"), allow_negative=False)
+    except Exception:
+        return _api_error(
+            "invalid_variation_item",
+            status=400,
+            message="كمية أو سعر غير صالح.",
+        )
     item.description = str(data.get("description") or item.description).strip()
-    item.unit = str(data.get("unit") or item.unit).strip()
-    quantity_change = _to_dec(data.get("quantityChange"))
+    item.unit = str(data.get("unit") or item.unit).strip()[:32]
     if quantity_change is not None:
         item.quantity_change = quantity_change
-    unit_price = _to_dec(data.get("unitPrice"))
     if unit_price is not None:
         item.unit_price = unit_price
     item.save()
@@ -1000,23 +1212,49 @@ def admin_boq_final_account_create_or_update(
     if not project:
         return _api_error("project_not_found", status=404)
     data = _read_json(request)
+    # Validate everything before get_or_create so a bad request cannot create
+    # an empty final-account row.
+    existing = FinalAccount.objects.filter(project=project).first()
+    try:
+        contract_amount = _parse_decimal(
+            data.get("contractAmount"),
+            default=existing.contract_amount if existing else _ZERO,
+            allow_negative=False,
+        )
+        total_variations = _parse_decimal(
+            data.get("totalVariations"),
+            default=existing.total_variations if existing else _ZERO,
+        )
+        retention_released = _parse_decimal(
+            data.get("totalRetentionReleased"),
+            default=(existing.total_retention_released if existing else _ZERO),
+            allow_negative=False,
+        )
+        withholding_tax = _parse_decimal(
+            data.get("totalWithholdingTax"),
+            default=existing.total_withholding_tax if existing else _ZERO,
+            allow_negative=False,
+        )
+    except Exception:
+        return _api_error(
+            "invalid_final_account_data",
+            status=400,
+            message="أحد المبالغ غير صالح؛ استخدم رقماً صحيحاً.",
+        )
     fa, _ = FinalAccount.objects.get_or_create(project=project)
-    fa.contract_amount = (
-        _to_dec(data.get("contractAmount")) or fa.contract_amount
-    )
-    fa.total_variations = (
-        _to_dec(data.get("totalVariations")) or fa.total_variations
-    )
-    fa.total_retention_released = (
-        _to_dec(data.get("totalRetentionReleased"))
-        or fa.total_retention_released
-    )
-    fa.total_withholding_tax = (
-        _to_dec(data.get("totalWithholdingTax")) or fa.total_withholding_tax
-    )
+    fa.contract_amount = contract_amount
+    fa.total_variations = total_variations
+    fa.total_retention_released = retention_released
+    fa.total_withholding_tax = withholding_tax
     fa.notes = str(data.get("notes") or "").strip()
     status = str(data.get("status") or "").strip()
-    if status in dict(FinalAccount.STATUS_CHOICES):
+    if status:
+        if status not in dict(FinalAccount.STATUS_CHOICES):
+            return _api_error(
+                "invalid_status",
+                status=400,
+                message="حالة الحساب الختامي غير صالحة.",
+            )
         fa.status = status
     if status == FinalAccount.STATUS_CLOSED:
         fa.closed_at = timezone.now()

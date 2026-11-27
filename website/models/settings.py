@@ -13,6 +13,12 @@ from wagtail.contrib.settings.models import BaseSiteSetting
 from wagtail.contrib.settings.models import register_setting
 from wagtail.images import get_image_model_string
 
+from ._formatting import format_bool as _format_bool
+from ._formatting import format_integer as _format_integer
+from ._formatting import format_number as _format_number
+from ._formatting import format_percent as _format_percent
+from ._formatting import format_url as _format_url
+
 
 @register_setting
 class CompanySettings(BaseSiteSetting):
@@ -115,6 +121,23 @@ class CompanySettings(BaseSiteSetting):
         ),
     ]
 
+    @property
+    def founded_year_ar(self) -> str:
+        return _format_number(self.founded_year, decimals=0)
+
+    @property
+    def primary_phone(self) -> str:
+        return _format_url(self.phone_1 or self.phone_2)
+
+    @property
+    def social_links(self) -> dict[str, str]:
+        """Rendered links; empty values become ``—`` instead of broken hrefs."""
+        return {
+            "facebook": _format_url(self.facebook_url),
+            "instagram": _format_url(self.instagram_url),
+            "linkedin": _format_url(self.linkedin_url),
+        }
+
 
 @register_setting
 class HomePageSettings(BaseSiteSetting):
@@ -177,6 +200,14 @@ class HomePageSettings(BaseSiteSetting):
             heading="النشرة",
         ),
     ]
+
+    @property
+    def hero_primary_url_display(self) -> str:
+        return _format_url(self.hero_primary_cta_url)
+
+    @property
+    def hero_secondary_url_display(self) -> str:
+        return _format_url(self.hero_secondary_cta_url)
 
 
 @register_setting
@@ -329,6 +360,18 @@ class AISettings(BaseSiteSetting):
         ),
     ]
 
+    @property
+    def temperature_ar(self) -> str:
+        return _format_number(self.temperature, decimals=2)
+
+    @property
+    def max_output_tokens_ar(self) -> str:
+        return _format_integer(self.max_output_tokens)
+
+    @property
+    def enabled_label(self) -> str:
+        return _format_bool(self.gemini_enabled)
+
 
 @register_setting
 class CalculatorSettings(BaseSiteSetting):
@@ -385,6 +428,34 @@ class CalculatorSettings(BaseSiteSetting):
             heading="أسعار ومعاملات الحاسبة",
         )
     ]
+
+    @property
+    def labor_percent_ar(self) -> str:
+        return _format_percent(self.labor_percent, as_fraction=True)
+
+    @property
+    def overhead_percent_ar(self) -> str:
+        return _format_percent(self.overhead_percent, as_fraction=True)
+
+    @property
+    def profit_percent_ar(self) -> str:
+        return _format_percent(self.profit_percent, as_fraction=True)
+
+    @property
+    def contingency_percent_ar(self) -> str:
+        return _format_percent(self.contingency_percent, as_fraction=True)
+
+    @property
+    def vat_percent_ar(self) -> str:
+        return _format_percent(self.vat_percent, as_fraction=True)
+
+    @property
+    def usd_to_ils_rate_ar(self) -> str:
+        return _format_number(self.usd_to_ils_rate, decimals=2)
+
+    @property
+    def vat_included_label(self) -> str:
+        return _format_bool(self.include_vat)
 
 
 def default_company_values() -> list[str]:

@@ -12,6 +12,15 @@ from django.db import models
 
 from website.constants import ACCOUNT_CODES
 
+from ._formatting import admin_change_url as _admin_change_url
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_date as _format_date
+from ._formatting import format_datetime as _format_datetime
+from ._formatting import format_integer as _format_integer
+from ._formatting import format_number as _format_number
+from ._formatting import format_url as _format_url
+from ._formatting import related_label as _related_label
+from ._formatting import validate_date_range as _validate_date_range
 from .accounts import Account
 from .accounts import BankAccount
 from .accounts import JournalEntry
@@ -41,6 +50,21 @@ class RFQDocument(models.Model):
 
     def __str__(self) -> str:
         return self.title or self.number or str(self.pk or "")
+
+    @property
+    def title_display(self) -> str:
+        return self.title or self.number or str(self.pk or "")
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
+
+    @property
+    def updated_at_ar(self) -> str:
+        return _format_datetime(self.updated_at)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
 
 class CompanyDocument(models.Model):
@@ -89,6 +113,29 @@ class CompanyDocument(models.Model):
 
     def __str__(self) -> str:
         return self.title or str(self.pk or "")
+
+    @property
+    def category_label(self) -> str:
+        return _format_choice(self, "category")
+
+    @property
+    def title_display(self) -> str:
+        return self.title or self.category_label
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
+
+    @property
+    def file_link(self) -> str:
+        """Optional attachment rendered as a safe label (never a broken URL)."""
+        if not self.document_id:
+            return _format_url(None)
+        title = getattr(self.document, "title", "") or ""
+        return _format_url(title or self.title or self.document_id)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
 
 class Client(models.Model):
@@ -146,7 +193,17 @@ class ClientContactLog(models.Model):
         verbose_name_plural = "سجل التواصل"
 
     def __str__(self) -> str:
-        return self.subject or f"{self.get_kind_display()} - {self.client.name}"
+        return self.subject or (
+            f"{self.kind_label} — {_related_label(self, 'client')}"
+        )
+
+    @property
+    def kind_label(self) -> str:
+        return _format_choice(self, "kind")
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
 
 
 class Supplier(models.Model):
@@ -240,7 +297,42 @@ class ProjectContract(models.Model):
         verbose_name_plural = "العقود"
 
     def __str__(self) -> str:
-        return self.title or self.number or str(self.pk or "")
+        return (
+            f"{self.title or self.number or str(self.pk or '')} "
+            f"({self.status_label})"
+        )
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def end_date_ar(self) -> str:
+        return _format_date(self.end_date)
+
+    @property
+    def period_label(self) -> str:
+        return f"{self.start_date_ar} — {self.end_date_ar}"
+
+    @property
+    def amount_ar(self) -> str:
+        return _format_number(self.amount)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.start_date,
+            self.end_date,
+            "end_date",
+            "تاريخ بداية العقد",
+            "تاريخ نهاية العقد",
+        )
 
 
 class ContractAddendum(models.Model):
@@ -268,6 +360,27 @@ class ContractAddendum(models.Model):
 
     def __str__(self) -> str:
         return self.title or str(self.pk or "")
+
+    @property
+    def amount_delta_ar(self) -> str:
+        return _format_number(self.amount_delta)
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def end_date_ar(self) -> str:
+        return _format_date(self.end_date)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.start_date,
+            self.end_date,
+            "end_date",
+            "تاريخ بداية الملحق",
+            "تاريخ نهاية الملحق",
+        )
 
 
 class ContractPayment(models.Model):
@@ -329,7 +442,30 @@ class ContractPayment(models.Model):
         verbose_name_plural = "الدفعات/المستخلصات"
 
     def __str__(self) -> str:
-        return self.title or str(self.pk or "")
+        return f"{self.title or str(self.pk or '')} ({self.status_label})"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def amount_ar(self) -> str:
+        return _format_number(self.amount)
+
+    @property
+    def paid_amount_ar(self) -> str:
+        return _format_number(self.paid_amount)
+
+    @property
+    def due_date_ar(self) -> str:
+        return _format_date(self.due_date)
+
+    @property
+    def paid_date_ar(self) -> str:
+        return _format_date(self.paid_date)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
     def generate_journal_entry(self) -> "JournalEntry":
         from decimal import Decimal
@@ -439,7 +575,22 @@ class PurchaseOrder(models.Model):
         verbose_name_plural = "أوامر الشراء"
 
     def __str__(self) -> str:
-        return self.number or str(self.pk or "")
+        return f"{self.number or str(self.pk or '')} ({self.status_label})"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def total_amount_ar(self) -> str:
+        return _format_number(self.total_amount)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)
 
     def generate_journal_entry(self) -> "JournalEntry":
         from decimal import Decimal
@@ -500,6 +651,24 @@ class InventoryItem(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def current_qty_ar(self) -> str:
+        return _format_number(self.current_qty, decimals=3)
+
+    @property
+    def reorder_level_ar(self) -> str:
+        return _format_number(self.reorder_level, decimals=3)
+
+    @property
+    def needs_reorder(self) -> bool:
+        try:
+            return bool(
+                self.reorder_level is not None
+                and float(self.current_qty or 0) <= float(self.reorder_level)
+            )
+        except (TypeError, ValueError):
+            return False
+
 
 class InventoryTransaction(models.Model):
     KIND_IN = "in"
@@ -554,6 +723,18 @@ class InventoryTransaction(models.Model):
     def __str__(self) -> str:
         return self.reference or str(self.pk or "")
 
+    @property
+    def kind_label(self) -> str:
+        return _format_choice(self, "kind")
+
+    @property
+    def quantity_ar(self) -> str:
+        return _format_number(self.quantity, decimals=3)
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
 
 class Equipment(models.Model):
     STATUS_AVAILABLE = "available"
@@ -584,6 +765,14 @@ class Equipment(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def hourly_cost_ar(self) -> str:
+        return _format_number(self.hourly_cost)
 
 
 class Vehicle(models.Model):
@@ -677,6 +866,22 @@ class Vehicle(models.Model):
     def __str__(self) -> str:
         return f"{self.name} ({self.plate_number})"
 
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def vehicle_type_label(self) -> str:
+        return _format_choice(self, "vehicle_type")
+
+    @property
+    def insurance_expiry_ar(self) -> str:
+        return _format_date(self.insurance_expiry)
+
+    @property
+    def registration_expiry_ar(self) -> str:
+        return _format_date(self.registration_expiry)
+
 
 class FuelLog(models.Model):
     created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
@@ -712,7 +917,23 @@ class FuelLog(models.Model):
         verbose_name_plural = "تعبيئة الوقود"
 
     def __str__(self) -> str:
-        return f"{self.vehicle.plate_number} - {self.date.isoformat()}"
+        return f"{_related_label(self, 'vehicle', 'plate_number')} — {_format_date(self.date)}"
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def liters_ar(self) -> str:
+        return _format_number(self.liters, decimals=2)
+
+    @property
+    def cost_ar(self) -> str:
+        return _format_number(self.cost)
+
+    @property
+    def odometer_ar(self) -> str:
+        return _format_integer(self.odometer_km)
 
 
 class VehicleMaintenance(models.Model):
@@ -759,7 +980,26 @@ class VehicleMaintenance(models.Model):
         verbose_name_plural = "صيانات المركبات"
 
     def __str__(self) -> str:
-        return f"{self.vehicle.plate_number} - {self.maintenance_type}"
+        return (
+            f"{_related_label(self, 'vehicle', 'plate_number')} — "
+            f"{self.maintenance_type_label}"
+        )
+
+    @property
+    def maintenance_type_label(self) -> str:
+        return _format_choice(self, "maintenance_type")
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def cost_ar(self) -> str:
+        return _format_number(self.cost)
+
+    @property
+    def next_due_date_ar(self) -> str:
+        return _format_date(self.next_due_date)
 
 
 class Worker(models.Model):
@@ -804,6 +1044,18 @@ class Worker(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def kind_label(self) -> str:
+        return _format_choice(self, "kind")
+
+    @property
+    def daily_cost_ar(self) -> str:
+        return _format_number(self.daily_cost)
+
+    @property
+    def monthly_salary_ar(self) -> str:
+        return _format_number(self.monthly_salary)
 
 
 class WorkerAttendance(models.Model):
@@ -889,7 +1141,27 @@ class WorkerAttendance(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.worker.name} - {self.date.isoformat()}"
+        return f"{_related_label(self, 'worker')} — {_format_date(self.date)}"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def state_label(self) -> str:
+        return _format_choice(self, "state")
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def hours_ar(self) -> str:
+        return _format_number(self.hours)
+
+    @property
+    def approved_at_ar(self) -> str:
+        return _format_datetime(self.approved_at)
 
 
 class WorkerPayrollEntry(models.Model):
@@ -1000,7 +1272,23 @@ class WorkerPayrollEntry(models.Model):
         verbose_name_plural = "دفعات الرواتب"
 
     def __str__(self) -> str:
-        return f"{self.worker.name} - {self.year}/{self.month}"
+        return f"{_related_label(self, 'worker')} — {self.period_label}"
+
+    @property
+    def period_label(self) -> str:
+        return f"{_format_integer(self.year, grouping=False)}/{_format_integer(self.month, grouping=False)}"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def kind_label(self) -> str:
+        return _format_choice(self, "kind")
+
+    @property
+    def net_salary_ar(self) -> str:
+        return _format_number(self.net_salary)
 
     def calculate_net_salary(self) -> "Decimal":
         from decimal import Decimal
@@ -1146,6 +1434,35 @@ class LeaveRequest(models.Model):
         verbose_name = "طلب إجازة"
         verbose_name_plural = "طلبات الإجازات"
 
+    @property
+    def leave_type_label(self) -> str:
+        return _format_choice(self, "leave_type")
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def end_date_ar(self) -> str:
+        return _format_date(self.end_date)
+
+    @property
+    def total_days_ar(self) -> str:
+        return _format_integer(self.total_days)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.start_date,
+            self.end_date,
+            "end_date",
+            "تاريخ بداية الإجازة",
+            "تاريخ نهاية الإجازة",
+        )
+
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.start_date and self.end_date:
             delta = (self.end_date - self.start_date).days
@@ -1153,7 +1470,7 @@ class LeaveRequest(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.worker.name} — {self.get_leave_type_display()}"
+        return f"{_related_label(self, 'worker')} — {self.leave_type_label}"
 
 
 class EmployeeContract(models.Model):
@@ -1222,7 +1539,32 @@ class EmployeeContract(models.Model):
         verbose_name_plural = "عقود الموظفين"
 
     def __str__(self) -> str:
-        return f"{self.contract_number} — {self.worker.name}"
+        return f"{self.contract_number} — {_related_label(self, 'worker')}"
+
+    @property
+    def contract_type_label(self) -> str:
+        return _format_choice(self, "contract_type")
+
+    @property
+    def basic_salary_ar(self) -> str:
+        return _format_number(self.basic_salary)
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def end_date_ar(self) -> str:
+        return _format_date(self.end_date)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.start_date,
+            self.end_date,
+            "end_date",
+            "تاريخ بداية العقد",
+            "تاريخ نهاية العقد",
+        )
 
 
 class OvertimeRecord(models.Model):
@@ -1298,7 +1640,19 @@ class OvertimeRecord(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.worker.name} — {self.date}"
+        return f"{_related_label(self, 'worker')} — {_format_date(self.date)}"
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def amount_ar(self) -> str:
+        return _format_number(self.amount)
+
+    @property
+    def hours_ar(self) -> str:
+        return _format_number(self.hours)
 
 
 class SocialSecurityRecord(models.Model):
@@ -1347,7 +1701,19 @@ class SocialSecurityRecord(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.worker.name} — {self.year}/{self.month}"
+        return f"{_related_label(self, 'worker')} — {self.period_label}"
+
+    @property
+    def period_label(self) -> str:
+        return f"{_format_integer(self.year, grouping=False)}/{_format_integer(self.month, grouping=False)}"
+
+    @property
+    def total_ar(self) -> str:
+        return _format_number(self.total)
+
+    @property
+    def paid_date_ar(self) -> str:
+        return _format_date(self.paid_date)
 
 
 class ResourceAssignment(models.Model):
@@ -1406,7 +1772,34 @@ class ResourceAssignment(models.Model):
         verbose_name_plural = "تعيينات الموارد"
 
     def __str__(self) -> str:
-        return str(self.pk or "")
+        if self.resource_type == ResourceAssignment.RESOURCE_EQUIPMENT:
+            resource = _related_label(self, "equipment")
+        else:
+            resource = _related_label(self, "worker")
+        if resource == "—" and not self.pk:
+            resource = str(self.pk or "")
+        return f"{self.resource_type_label} — {resource}"
+
+    @property
+    def resource_type_label(self) -> str:
+        return _format_choice(self, "resource_type")
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def end_date_ar(self) -> str:
+        return _format_date(self.end_date)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.start_date,
+            self.end_date,
+            "end_date",
+            "تاريخ بداية التعيين",
+            "تاريخ نهاية التعيين",
+        )
 
 
 class OpsAuditLog(models.Model):
@@ -1434,7 +1827,11 @@ class OpsAuditLog(models.Model):
         verbose_name_plural = "سجل التدقيق"
 
     def __str__(self) -> str:
-        return f"{self.action} - {self.entity_type}:{self.entity_id}"
+        return f"{self.action} — {self.entity_type}:{self.entity_id}"
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
 
 
 class OpsPermissionRule(models.Model):
@@ -1503,7 +1900,31 @@ class OpsTimeclockImportRun(models.Model):
         verbose_name_plural = "استيرادات ساعة الدوام"
 
     def __str__(self) -> str:
-        return f"{self.created_at.isoformat()} - {self.source}"
+        return f"{_format_datetime(self.created_at)} — {self.source_label}"
+
+    @property
+    def source_label(self) -> str:
+        return _format_choice(self, "source")
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
+
+    @property
+    def items_count_ar(self) -> str:
+        return _format_integer(self.items_count)
+
+    @property
+    def created_count_ar(self) -> str:
+        return _format_integer(self.created_count)
+
+    @property
+    def updated_count_ar(self) -> str:
+        return _format_integer(self.updated_count)
+
+    @property
+    def error_count_ar(self) -> str:
+        return _format_integer(self.error_count)
 
 
 class Lead(models.Model):
@@ -1561,4 +1982,19 @@ class Lead(models.Model):
         verbose_name_plural = "العملاء المحتملون"
 
     def __str__(self) -> str:
-        return f"{self.name} - {self.phone}"
+        return f"{self.name} — {self.phone} ({self.status_label})"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def source_label(self) -> str:
+        return _format_choice(self, "source")
+
+    @property
+    def created_at_ar(self) -> str:
+        return _format_datetime(self.created_at)
+
+    def get_absolute_url(self) -> str:
+        return _admin_change_url(self)

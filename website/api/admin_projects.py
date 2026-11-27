@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,99 @@ logger = logging.getLogger(__name__)
 
 
 from .common import *
+
+_PROJECT_YEAR_MIN = 1900
+_PROJECT_YEAR_MAX = 2100
+
+
+def _upload_max_bytes(setting_name: str, default: int) -> int:
+    """Read an explicit server-side cap; never trust a malformed setting."""
+    try:
+        return max(1, int(getattr(settings, setting_name, default)))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _validate_uploaded_file(
+    uploaded: Any,
+    *,
+    max_bytes: int,
+    allowed_exts: set[str],
+    allowed_mimes: set[str] | None = None,
+) -> JsonResponse | None:
+    """Check size/type before saving; errors carry safe Arabic messages."""
+    try:
+        size = int(getattr(uploaded, "size", 0) or 0)
+    except (TypeError, ValueError):
+        size = 0
+    if size <= 0:
+        return _api_error(
+            "empty_file", status=400, message="الملف فارغ أو غير صالح."
+        )
+    if size > max_bytes:
+        return _api_error(
+            "file_too_large",
+            status=413,
+            message=(
+                "حجم الملف يتجاوز الحد المسموح "
+                f"({max_bytes / (1024 * 1024):g} ميغابايت)."
+            ),
+            details={"maxBytes": max_bytes},
+        )
+    original_name = str(getattr(uploaded, "name", "") or "")
+    ext = Path(original_name.lower()).suffix.lower()
+    if ext not in allowed_exts:
+        return _api_error(
+            "invalid_file_type",
+            status=400,
+            message="امتداد الملف غير مسموح به.",
+            details={"allowedExtensions": sorted(allowed_exts)},
+        )
+    if allowed_mimes:
+        content_type = str(getattr(uploaded, "content_type", "") or "").lower()
+        if content_type and content_type not in allowed_mimes:
+            return _api_error(
+                "invalid_file_type",
+                status=400,
+                message="نوع محتوى الملف غير مسموح به.",
+                details={"allowedMimeTypes": sorted(allowed_mimes)},
+            )
+    return None
+
+
+def _clean_uploaded_name(
+    uploaded: Any, allowed_exts: set[str]
+) -> JsonResponse | None:
+    """Never keep an attacker-controlled filename if sanitising fails."""
+    try:
+        uploaded.name = _safe_uploaded_filename(
+            str(getattr(uploaded, "name", "") or ""), allowed_exts=allowed_exts
+        )
+    except Exception:
+        logger.exception("Failed to sanitize uploaded filename")
+        return _api_error(
+            "invalid_file_name", status=400, message="اسم الملف غير صالح."
+        )
+    return None
+
+
+def _unsafe_media_path_error(file_obj: Any) -> JsonResponse | None:
+    """Guard deletions: the resolved path must stay inside MEDIA_ROOT."""
+    name = str(getattr(file_obj, "name", "") or "")
+    if not name:
+        return None
+    try:
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        candidate = (media_root / name).resolve()
+        candidate.relative_to(media_root)
+    except Exception:
+        logger.warning("Refusing media operation outside MEDIA_ROOT: %s", name)
+        return _api_error(
+            "unsafe_media_path",
+            status=400,
+            message="مسار المرفق غير آمن؛ لم يتم تنفيذ العملية.",
+        )
+    return None
 
 
 def admin_projects(request: HttpRequest) -> JsonResponse:
@@ -116,7 +211,12 @@ def admin_project_detail(request: HttpRequest, project_id: int) -> JsonResponse:
     forbidden = _require_projects_management(request)
     if forbidden:
         return forbidden
-    page = ProjectPage.objects.filter(pk=project_id).specific().first()
+    page = (
+        ProjectPage.objects.filter(pk=project_id)
+        .specific()
+        .prefetch_related("gallery_images__image")
+        .first()
+    )
     if not page:
         return _api_error("not_found", status=404)
     gallery = []
@@ -180,8 +280,14 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
     if cy not in {None, ""}:
         try:
             completion_year = int(str(cy))
+            if not (_PROJECT_YEAR_MIN <= completion_year <= _PROJECT_YEAR_MAX):
+                raise ValueError
         except Exception:
-            return _api_error("invalid_completion_year", status=400)
+            return _api_error(
+                "invalid_completion_year",
+                status=400,
+                message="سنة الإنجاز غير صالحة.",
+            )
     status = (
         str(data.get("status") or "").strip() or ProjectPage.STATUS_COMPLETED
     )
@@ -190,7 +296,11 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
         ProjectPage.STATUS_COMPLETED,
         ProjectPage.STATUS_ARCHIVED,
     }:
-        return _api_error("invalid_project_status", status=400)
+        return _api_error(
+            "invalid_project_status",
+            status=400,
+            message="حالة المشروع غير صالحة.",
+        )
 
     pmp_phase = (
         str(data.get("pmpPhase") or "").strip() or ProjectPage.PHASE_PLANNING
@@ -202,16 +312,26 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
         ProjectPage.PHASE_MONITORING,
         ProjectPage.PHASE_CLOSING,
     }:
-        return _api_error("invalid_pmp_phase", status=400)
+        return _api_error(
+            "invalid_pmp_phase", status=400, message="مرحلة المشروع غير صالحة."
+        )
     progress_percent_raw = data.get("progressPercent")
     progress_percent = 0
     if progress_percent_raw not in {None, ""}:
         try:
             progress_percent = int(str(progress_percent_raw))
         except Exception:
-            return _api_error("invalid_progress_percent", status=400)
-    if progress_percent < 0 or progress_percent > 100:
-        return _api_error("invalid_progress_percent", status=400)
+            return _api_error(
+                "invalid_progress_percent",
+                status=400,
+                message="نسبة الإنجاز غير صالحة.",
+            )
+    if not 0 <= progress_percent <= 100:
+        return _api_error(
+            "invalid_progress_percent",
+            status=400,
+            message="نسبة الإنجاز يجب أن تكون بين 0 و 100.",
+        )
 
     start_date_raw = str(data.get("startDate") or "").strip()
     target_end_date_raw = str(data.get("targetEndDate") or "").strip()
@@ -219,28 +339,42 @@ def admin_project_create(request: HttpRequest) -> JsonResponse:
     target_end_date = None
     if start_date_raw:
         try:
-            from datetime import date
-
             start_date = date.fromisoformat(start_date_raw)
         except Exception:
-            return _api_error("invalid_start_date", status=400)
+            return _api_error(
+                "invalid_start_date",
+                status=400,
+                message="تاريخ البداية غير صالح؛ استخدم الصيغة YYYY-MM-DD.",
+            )
     if target_end_date_raw:
         try:
-            from datetime import date
-
             target_end_date = date.fromisoformat(target_end_date_raw)
         except Exception:
-            return _api_error("invalid_target_end_date", status=400)
+            return _api_error(
+                "invalid_target_end_date",
+                status=400,
+                message="تاريخ الانتهاء غير صالح؛ استخدم الصيغة YYYY-MM-DD.",
+            )
+    if start_date and target_end_date and target_end_date < start_date:
+        return _api_error(
+            "invalid_date_range",
+            status=400,
+            message="تاريخ الانتهاء يجب ألا يسبق تاريخ البداية.",
+        )
 
     budget_amount_raw = data.get("budgetAmount")
     budget_amount = None
     if budget_amount_raw not in {None, ""}:
         try:
-            from decimal import Decimal
-
             budget_amount = Decimal(str(budget_amount_raw))
+            if not budget_amount.is_finite() or budget_amount < 0:
+                raise ValueError
         except Exception:
-            return _api_error("invalid_budget_amount", status=400)
+            return _api_error(
+                "invalid_budget_amount",
+                status=400,
+                message="الميزانية غير صالحة؛ يجب أن تكون رقماً غير سالب.",
+            )
     page = ProjectPage(
         title=title,
         slug=_unique_child_slug(idx, base_slug),
@@ -312,7 +446,11 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
             ProjectPage.STATUS_COMPLETED,
             ProjectPage.STATUS_ARCHIVED,
         }:
-            return _api_error("invalid_project_status", status=400)
+            return _api_error(
+                "invalid_project_status",
+                status=400,
+                message="حالة المشروع غير صالحة.",
+            )
         page.status = status
         new_status = status
     if data.get("pmpPhase") is not None:
@@ -324,16 +462,24 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
             ProjectPage.PHASE_MONITORING,
             ProjectPage.PHASE_CLOSING,
         }:
-            return _api_error("invalid_pmp_phase", status=400)
+            return _api_error(
+                "invalid_pmp_phase",
+                status=400,
+                message="مرحلة المشروع غير صالحة.",
+            )
         page.pmp_phase = pmp_phase
     if data.get("progressPercent") is not None:
         progress_val = data.get("progressPercent")
         try:
             progress_percent = int(str(progress_val))
+            if not 0 <= progress_percent <= 100:
+                raise ValueError
         except Exception:
-            return _api_error("invalid_progress_percent", status=400)
-        if progress_percent < 0 or progress_percent > 100:
-            return _api_error("invalid_progress_percent", status=400)
+            return _api_error(
+                "invalid_progress_percent",
+                status=400,
+                message="نسبة الإنجاز يجب أن تكون بين 0 و 100.",
+            )
         page.progress_percent = progress_percent
     if data.get("startDate") is not None:
         start_date_raw = str(data.get("startDate") or "").strip()
@@ -341,33 +487,51 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
             page.start_date = None
         else:
             try:
-                from datetime import date
-
                 page.start_date = date.fromisoformat(start_date_raw)
             except Exception:
-                return _api_error("invalid_start_date", status=400)
+                return _api_error(
+                    "invalid_start_date",
+                    status=400,
+                    message="تاريخ البداية غير صالح؛ استخدم الصيغة YYYY-MM-DD.",
+                )
     if data.get("targetEndDate") is not None:
         target_end_date_raw = str(data.get("targetEndDate") or "").strip()
         if not target_end_date_raw:
             page.target_end_date = None
         else:
             try:
-                from datetime import date
-
                 page.target_end_date = date.fromisoformat(target_end_date_raw)
             except Exception:
-                return _api_error("invalid_target_end_date", status=400)
+                return _api_error(
+                    "invalid_target_end_date",
+                    status=400,
+                    message="تاريخ الانتهاء غير صالح؛ استخدم الصيغة YYYY-MM-DD.",
+                )
+    if (
+        page.start_date
+        and page.target_end_date
+        and page.target_end_date < page.start_date
+    ):
+        return _api_error(
+            "invalid_date_range",
+            status=400,
+            message="تاريخ الانتهاء يجب ألا يسبق تاريخ البداية.",
+        )
     if data.get("budgetAmount") is not None:
         budget_amount_raw = data.get("budgetAmount")
         if budget_amount_raw in {"", None}:
             page.budget_amount = None
         else:
             try:
-                from decimal import Decimal
-
                 page.budget_amount = Decimal(str(budget_amount_raw))
+                if not page.budget_amount.is_finite() or page.budget_amount < 0:
+                    raise ValueError
             except Exception:
-                return _api_error("invalid_budget_amount", status=400)
+                return _api_error(
+                    "invalid_budget_amount",
+                    status=400,
+                    message="الميزانية غير صالحة؛ يجب أن تكون رقماً غير سالب.",
+                )
     for key, attr in [
         ("scopeStatement", "scope_statement"),
         ("keyDeliverables", "key_deliverables"),
@@ -384,14 +548,26 @@ def admin_project_update(request: HttpRequest, project_id: int) -> JsonResponse:
             page.completion_year = None
         else:
             try:
-                page.completion_year = int(str(val))
+                completion_year = int(str(val))
+                if not (
+                    _PROJECT_YEAR_MIN <= completion_year <= _PROJECT_YEAR_MAX
+                ):
+                    raise ValueError
+                page.completion_year = completion_year
             except Exception:
-                return _api_error("invalid_completion_year", status=400)
+                return _api_error(
+                    "invalid_completion_year",
+                    status=400,
+                    message="سنة الإنجاز غير صالحة.",
+                )
     if data.get("slug") is not None:
-        new_slug = slugify(str(data.get("slug") or ""))[:60]
-        if new_slug:
-            parent = page.get_parent()
-            page.slug = _unique_child_slug(parent, new_slug)
+        new_slug = slugify(str(data.get("slug") or ""))[:60].strip("-")
+        if not new_slug:
+            return _api_error(
+                "invalid_slug", status=400, message="الرابط (Slug) غير صالح."
+            )
+        parent = page.get_parent()
+        page.slug = _unique_child_slug(parent, new_slug)
     rev = page.save_revision()
     should_publish = (
         bool(page.live) and new_status != ProjectPage.STATUS_ARCHIVED
@@ -530,7 +706,9 @@ def admin_project_documents(
     if not page:
         return _api_error("not_found", status=404)
     items: list[dict[str, Any]] = []
-    for row in page.project_documents.all().order_by("sort_order", "id"):
+    for row in page.project_documents.select_related("document").order_by(
+        "sort_order", "id"
+    ):
         doc = getattr(row, "document", None)
         url = ""
         download_url = _abs_url(
@@ -641,52 +819,13 @@ def admin_project_documents_upload(
         return _api_error("not_found", status=404)
     f = request.FILES.get("file")
     if not f:
-        return _api_error("missing_file", status=400)
-    max_bytes = int(
-        getattr(
-            settings,
-            "ADMIN_PROJECT_DOCUMENT_UPLOAD_MAX_BYTES",
-            25 * 1024 * 1024,
+        return _api_error(
+            "missing_file", status=400, message="لم يتم اختيار ملف للرفع."
         )
+    max_bytes = _upload_max_bytes(
+        "ADMIN_PROJECT_DOCUMENT_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
     )
-    if int(getattr(f, "size", 0) or 0) <= 0:
-        return _api_error("empty_file", status=400)
-    if int(getattr(f, "size", 0) or 0) > max_bytes:
-        return _api_error(
-            "file_too_large", status=413, details={"maxBytes": max_bytes}
-        )
-
-    original_name = str(getattr(f, "name", "") or "")
-    filename = original_name.lower()
-    blocked_exts = {
-        ".exe",
-        ".bat",
-        ".cmd",
-        ".ps1",
-        ".psm1",
-        ".sh",
-        ".php",
-        ".py",
-        ".js",
-        ".html",
-        ".htm",
-        ".vbs",
-        ".wsf",
-        ".jar",
-        ".dll",
-        ".com",
-        ".scr",
-    }
-    ext = Path(filename).suffix.lower()
-    if ext in blocked_exts:
-        return _api_error("invalid_file_type", status=400)
     allowed_exts = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-    if ext not in allowed_exts:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedExtensions": sorted(allowed_exts)},
-        )
     allowed_mimes = {
         "application/pdf",
         "image/jpeg",
@@ -695,20 +834,17 @@ def admin_project_documents_upload(
         "image/heic",
         "image/heif",
     }
-    content_type = str(getattr(f, "content_type", "") or "").lower()
-    if content_type and content_type not in allowed_mimes:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedMimeTypes": sorted(allowed_mimes)},
-        )
-
-    try:
-        f.name = _safe_uploaded_filename(
-            original_name, allowed_exts=allowed_exts
-        )
-    except Exception:
-        pass
+    invalid = _validate_uploaded_file(
+        f,
+        max_bytes=max_bytes,
+        allowed_exts=allowed_exts,
+        allowed_mimes=allowed_mimes,
+    )
+    if invalid:
+        return invalid
+    invalid = _clean_uploaded_name(f, allowed_exts)
+    if invalid:
+        return invalid
 
     title = str(
         request.POST.get("title") or getattr(f, "name", "") or "document"
@@ -1003,45 +1139,12 @@ def admin_company_documents_upload(request: HttpRequest) -> JsonResponse:
 
     f = request.FILES.get("file")
     if not f:
-        return _api_error("missing_file", status=400)
-    max_bytes = int(
-        getattr(
-            settings,
-            "ADMIN_COMPANY_DOCUMENT_UPLOAD_MAX_BYTES",
-            25 * 1024 * 1024,
-        )
-    )
-    if int(getattr(f, "size", 0) or 0) <= 0:
-        return _api_error("empty_file", status=400)
-    if int(getattr(f, "size", 0) or 0) > max_bytes:
         return _api_error(
-            "file_too_large", status=413, details={"maxBytes": max_bytes}
+            "missing_file", status=400, message="لم يتم اختيار ملف للرفع."
         )
-
-    original_name = str(getattr(f, "name", "") or "")
-    filename = original_name.lower()
-    blocked_exts = {
-        ".exe",
-        ".bat",
-        ".cmd",
-        ".ps1",
-        ".psm1",
-        ".sh",
-        ".php",
-        ".py",
-        ".js",
-        ".html",
-        ".htm",
-        ".vbs",
-        ".wsf",
-        ".jar",
-        ".dll",
-        ".com",
-        ".scr",
-    }
-    ext = Path(filename).suffix.lower()
-    if ext in blocked_exts:
-        return _api_error("invalid_file_type", status=400)
+    max_bytes = _upload_max_bytes(
+        "ADMIN_COMPANY_DOCUMENT_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
+    )
     allowed_exts = {
         ".pdf",
         ".doc",
@@ -1081,26 +1184,17 @@ def admin_company_documents_upload(request: HttpRequest) -> JsonResponse:
         "image/png",
         "image/webp",
     }
-    if ext not in allowed_exts:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedExtensions": sorted(allowed_exts)},
-        )
-    content_type = str(getattr(f, "content_type", "") or "").lower()
-    if content_type and content_type not in allowed_mimes:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedMimeTypes": sorted(allowed_mimes)},
-        )
-
-    try:
-        f.name = _safe_uploaded_filename(
-            original_name, allowed_exts=allowed_exts
-        )
-    except Exception:
-        pass
+    invalid = _validate_uploaded_file(
+        f,
+        max_bytes=max_bytes,
+        allowed_exts=allowed_exts,
+        allowed_mimes=allowed_mimes,
+    )
+    if invalid:
+        return invalid
+    invalid = _clean_uploaded_name(f, allowed_exts)
+    if invalid:
+        return invalid
 
     title = str(
         request.POST.get("title") or getattr(f, "name", "") or "document"
@@ -1267,41 +1361,25 @@ def admin_image_upload(request: HttpRequest) -> JsonResponse:
         return forbidden
     f = request.FILES.get("file")
     if not f:
-        return _api_error("missing_file", status=400)
-    max_bytes = int(
-        getattr(settings, "ADMIN_IMAGE_UPLOAD_MAX_BYTES", 5 * 1024 * 1024)
-    )
-    if int(getattr(f, "size", 0) or 0) <= 0:
-        return _api_error("empty_file", status=400)
-    if int(getattr(f, "size", 0) or 0) > max_bytes:
         return _api_error(
-            "file_too_large", status=413, details={"maxBytes": max_bytes}
+            "missing_file", status=400, message="لم يتم اختيار صورة للرفع."
         )
-
+    max_bytes = _upload_max_bytes(
+        "ADMIN_IMAGE_UPLOAD_MAX_BYTES", 5 * 1024 * 1024
+    )
     allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
     allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
-    original_name = str(getattr(f, "name", "") or "")
-    ext = Path(original_name).suffix.lower()
-    content_type = str(getattr(f, "content_type", "") or "").lower()
-    if ext not in allowed_exts:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedExtensions": sorted(allowed_exts)},
-        )
-    if content_type and content_type not in allowed_mimes:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedMimeTypes": sorted(allowed_mimes)},
-        )
-
-    try:
-        f.name = _safe_uploaded_filename(
-            original_name, allowed_exts=allowed_exts
-        )
-    except Exception:
-        pass
+    invalid = _validate_uploaded_file(
+        f,
+        max_bytes=max_bytes,
+        allowed_exts=allowed_exts,
+        allowed_mimes=allowed_mimes,
+    )
+    if invalid:
+        return invalid
+    invalid = _clean_uploaded_name(f, allowed_exts)
+    if invalid:
+        return invalid
 
     title = str(request.POST.get("title") or getattr(f, "name", "") or "image")
     try:
@@ -1316,7 +1394,9 @@ def admin_image_upload(request: HttpRequest) -> JsonResponse:
         except Exception:
             pass
     except Exception:
-        return _api_error("invalid_image", status=400)
+        return _api_error(
+            "invalid_image", status=400, message="الصورة غير صالحة أو تالفة."
+        )
     try:
         from wagtail.images import get_image_model
         from wagtail.models import Collection
@@ -1416,10 +1496,15 @@ def admin_media_images_delete(
         img = None
     if not img:
         return _api_error("not_found", status=404)
+    unsafe = _unsafe_media_path_error(getattr(img, "file", None))
+    if unsafe:
+        return unsafe
     try:
         img.delete()
     except Exception:
-        return _api_error("delete_failed", status=400)
+        return _api_error(
+            "delete_failed", status=400, message="تعذّر حذف الصورة."
+        )
     return _api_ok()
 
 
@@ -1492,41 +1577,12 @@ def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
         return forbidden
     f = request.FILES.get("file")
     if not f:
-        return _api_error("missing_file", status=400)
-    max_bytes = int(
-        getattr(settings, "ADMIN_DOCUMENT_UPLOAD_MAX_BYTES", 20 * 1024 * 1024)
-    )
-    if int(getattr(f, "size", 0) or 0) <= 0:
-        return _api_error("empty_file", status=400)
-    if int(getattr(f, "size", 0) or 0) > max_bytes:
         return _api_error(
-            "file_too_large", status=413, details={"maxBytes": max_bytes}
+            "missing_file", status=400, message="لم يتم اختيار ملف للرفع."
         )
-    original_name = str(getattr(f, "name", "") or "")
-    filename = original_name.lower()
-    blocked_exts = {
-        ".exe",
-        ".bat",
-        ".cmd",
-        ".ps1",
-        ".psm1",
-        ".sh",
-        ".php",
-        ".py",
-        ".js",
-        ".html",
-        ".htm",
-        ".vbs",
-        ".wsf",
-        ".jar",
-        ".dll",
-        ".com",
-        ".scr",
-    }
-    ext = Path(filename).suffix.lower()
-    if ext in blocked_exts:
-        return _api_error("invalid_file_type", status=400)
-
+    max_bytes = _upload_max_bytes(
+        "ADMIN_DOCUMENT_UPLOAD_MAX_BYTES", 20 * 1024 * 1024
+    )
     allowed_exts = {
         ".pdf",
         ".doc",
@@ -1559,26 +1615,17 @@ def admin_media_documents_upload(request: HttpRequest) -> JsonResponse:
         "application/vnd.oasis.opendocument.presentation",
         "application/zip",
     }
-    if ext not in allowed_exts:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedExtensions": sorted(allowed_exts)},
-        )
-    content_type = str(getattr(f, "content_type", "") or "").lower()
-    if content_type and content_type not in allowed_mimes:
-        return _api_error(
-            "invalid_file_type",
-            status=400,
-            details={"allowedMimeTypes": sorted(allowed_mimes)},
-        )
-
-    try:
-        f.name = _safe_uploaded_filename(
-            original_name, allowed_exts=allowed_exts
-        )
-    except Exception:
-        pass
+    invalid = _validate_uploaded_file(
+        f,
+        max_bytes=max_bytes,
+        allowed_exts=allowed_exts,
+        allowed_mimes=allowed_mimes,
+    )
+    if invalid:
+        return invalid
+    invalid = _clean_uploaded_name(f, allowed_exts)
+    if invalid:
+        return invalid
 
     title = str(
         request.POST.get("title") or getattr(f, "name", "") or "document"
@@ -1621,8 +1668,13 @@ def admin_media_documents_delete(
         doc = None
     if not doc:
         return _api_error("not_found", status=404)
+    unsafe = _unsafe_media_path_error(getattr(doc, "file", None))
+    if unsafe:
+        return unsafe
     try:
         doc.delete()
     except Exception:
-        return _api_error("delete_failed", status=400)
+        return _api_error(
+            "delete_failed", status=400, message="تعذّر حذف المرفق."
+        )
     return _api_ok()

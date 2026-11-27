@@ -28,6 +28,12 @@ from wagtail.images import get_image_model_string
 from wagtail.models import Orderable
 from wagtail.models import Page
 
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_date as _format_date
+from ._formatting import format_number as _format_number
+from ._formatting import format_percent as _format_percent
+from ._formatting import validate_date_range as _validate_date_range
+from ._formatting import validate_percent as _validate_percent
 from .snippets import HomeAIFeature
 from .snippets import HomeAIMetric
 from .snippets import HomeStat
@@ -430,6 +436,48 @@ class ProjectPage(CoderedWebPage):
         ),
         InlinePanel("gallery_images", label="صور المشروع"),
     ]
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def phase_label(self) -> str:
+        return _format_choice(self, "pmp_phase")
+
+    @property
+    def progress_percent_ar(self) -> str:
+        return _format_percent(self.progress_percent)
+
+    @property
+    def start_date_ar(self) -> str:
+        return _format_date(self.start_date)
+
+    @property
+    def target_end_date_ar(self) -> str:
+        return _format_date(self.target_end_date)
+
+    @property
+    def budget_amount_ar(self) -> str:
+        return _format_number(self.budget_amount)
+
+    @property
+    def completion_year_ar(self) -> str:
+        return _format_number(self.completion_year, decimals=0)
+
+    def clean(self):
+        # Keep Wagtail's own page validation (slug uniqueness, etc.).
+        super().clean()
+        _validate_percent(
+            self.progress_percent, "progress_percent", "نسبة الإنجاز"
+        )
+        _validate_date_range(
+            self.start_date,
+            self.target_end_date,
+            "target_end_date",
+            "تاريخ بداية المشروع",
+            "تاريخ النهاية المستهدف",
+        )
 
 
 class ProjectGalleryImage(Orderable):

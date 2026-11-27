@@ -8,18 +8,19 @@ from django.urls import re_path
 from ._views import spa_shell
 
 urlpatterns = [
-    path("admin/", spa_shell),
-    re_path("^control/.*$", spa_shell),
-    path("services/", spa_shell),
-    path("tools/", spa_shell),
-    path("showcase/", spa_shell),
-    path("request-quote/", spa_shell),
-    re_path("^blog(/.*)?$", spa_shell),
-    re_path("^events(/.*)?$", spa_shell),
-    re_path("^locations(/.*)?$", spa_shell),
+    path("admin/", spa_shell, name="spa_admin"),
+    re_path(r"^control/.*$", spa_shell, name="spa_control"),
+    path("services/", spa_shell, name="spa_services"),
+    path("tools/", spa_shell, name="spa_tools"),
+    path("showcase/", spa_shell, name="spa_showcase"),
+    path("request-quote/", spa_shell, name="spa_request_quote"),
+    re_path(r"^blog(/.*)?$", spa_shell, name="spa_blog"),
+    re_path(r"^events(/.*)?$", spa_shell, name="spa_events"),
+    re_path(r"^locations(/.*)?$", spa_shell, name="spa_locations"),
     path("", include(crx_urls)),
     re_path(
-        "^(?!cms/|api/|docs/|search/|static/|media/).*$",
+        r"^(?!cms/|api/|docs/|search/|static/|media/|django-admin/).*$",
         spa_shell,
+        name="spa_catchall",
     ),
 ]

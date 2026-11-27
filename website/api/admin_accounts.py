@@ -30,6 +30,66 @@ from website.models.accounts import _next_entry_number
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Shared input-validation helpers.
+#
+# Defined here (the first admin API module imported by ``admin.py``) and
+# re-used by the sibling admin modules.  They keep malformed client input from
+# becoming a 500 response or reaching the ORM with an unexpected type, while
+# leaving every existing response shape untouched.
+# ---------------------------------------------------------------------------
+from django.core.exceptions import ValidationError as _DjangoValidationError
+from django.core.validators import validate_email as _django_validate_email
+
+
+def _safe_date(value: Any):
+    """Parse an ISO date without ever raising on malformed user input."""
+    if value in {"", None}:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _clean_text(
+    value: Any, max_len: int = 4000, *, required: bool = False
+) -> str | None:
+    text = str(value or "").strip()
+    if required and not text:
+        return None
+    return text[:max_len]
+
+
+def _valid_email(value: Any) -> bool:
+    email = str(value or "").strip()
+    if not email:
+        return False
+    # Reject control characters up front (CRLF / header injection).
+    if any(ord(ch) < 33 or ord(ch) == 127 for ch in email):
+        return False
+    try:
+        _django_validate_email(email)
+    except _DjangoValidationError:
+        return False
+    return True
+
+
+def _bounded_search(value: Any, max_len: int = 120) -> str:
+    return str(value or "").strip()[:max_len]
+
+
 from .common import *
 
 
@@ -64,19 +124,25 @@ def admin_accounts_accounts_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    code = str(data.get("code") or "").strip()
-    name = str(data.get("name") or "").strip()
+    code = _clean_text(data.get("code"), 64, required=True)
+    name = _clean_text(data.get("name"), 255, required=True)
     if not code or not name:
-        return _api_error("missing_code_or_name", status=400)
+        return _api_error(
+            "missing_code_or_name",
+            status=400,
+            message="رقم الحساب والاسم مطلوبان.",
+        )
     if Account.objects.filter(code=code).exists():
-        return _api_error("code_exists", status=400)
+        return _api_error(
+            "code_exists", status=400, message="رقم الحساب مستخدم مسبقاً."
+        )
     account_type = str(data.get("accountType") or "").strip()
     if account_type not in dict(Account.TYPE_CHOICES):
         return _api_error("invalid_account_type", status=400)
-    parent_id = data.get("parentId")
+    parent_id = _safe_int(data.get("parentId"), 0)
     parent = None
     if parent_id:
-        parent = Account.objects.filter(pk=int(parent_id)).first()
+        parent = Account.objects.filter(pk=parent_id).first()
         if not parent:
             return _api_error("parent_not_found", status=404)
         parent.is_control = True
@@ -84,13 +150,13 @@ def admin_accounts_accounts_create(request: HttpRequest) -> JsonResponse:
     acc = Account.objects.create(
         code=code,
         name=name,
-        name_ar=str(data.get("nameAr") or "").strip(),
+        name_ar=_clean_text(data.get("nameAr"), 255) or "",
         account_type=account_type,
         parent=parent,
         is_active=bool(data.get("isActive", True)),
         is_control=bool(data.get("isControl", False)),
-        description=str(data.get("description") or "").strip(),
-        sort_order=int(data.get("sortOrder") or 0),
+        description=_clean_text(data.get("description"), 2000) or "",
+        sort_order=_safe_int(data.get("sortOrder"), 0),
     )
     _audit_ops(
         request,
@@ -113,30 +179,34 @@ def admin_accounts_accounts_update(
     if not acc:
         return _api_error("not_found", status=404)
     data = _read_json(request)
-    code = str(data.get("code") or "").strip()
-    name = str(data.get("name") or "").strip()
+    code = _clean_text(data.get("code"), 64, required=True)
+    name = _clean_text(data.get("name"), 255, required=True)
     if not code or not name:
-        return _api_error("missing_code_or_name", status=400)
+        return _api_error(
+            "missing_code_or_name",
+            status=400,
+            message="رقم الحساب والاسم مطلوبان.",
+        )
     if Account.objects.filter(code=code).exclude(pk=acc.pk).exists():
-        return _api_error("code_exists", status=400)
+        return _api_error(
+            "code_exists", status=400, message="رقم الحساب مستخدم مسبقاً."
+        )
     account_type = str(data.get("accountType") or "").strip()
     if account_type not in dict(Account.TYPE_CHOICES):
         return _api_error("invalid_account_type", status=400)
     before = {"code": acc.code, "name": acc.name}
     acc.code = code
     acc.name = name
-    acc.name_ar = str(data.get("nameAr") or "").strip()
+    acc.name_ar = _clean_text(data.get("nameAr"), 255) or ""
     acc.account_type = account_type
     acc.is_active = bool(data.get("isActive", acc.is_active))
     acc.is_control = bool(data.get("isControl", acc.is_control))
-    acc.description = str(data.get("description") or "").strip()
-    acc.sort_order = int(data.get("sortOrder") or acc.sort_order)
-    parent_id = data.get("parentId")
-    if parent_id is not None:
+    acc.description = _clean_text(data.get("description"), 2000) or ""
+    acc.sort_order = _safe_int(data.get("sortOrder"), acc.sort_order)
+    parent_id = _safe_int(data.get("parentId"), 0)
+    if data.get("parentId") is not None:
         parent = (
-            Account.objects.filter(pk=int(parent_id)).first()
-            if parent_id
-            else None
+            Account.objects.filter(pk=parent_id).first() if parent_id else None
         )
         if parent_id and not parent:
             return _api_error("parent_not_found", status=404)
@@ -189,22 +259,28 @@ def admin_accounts_journal_entries(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     entries: list[dict[str, Any]] = []
-    qs = JournalEntry.objects.all()
+    # ``project`` is read for every row below; select_related avoids one query
+    # per entry while keeping the response payload identical.
+    qs = JournalEntry.objects.select_related("project")
     from_date = request.GET.get("from")
     to_date = request.GET.get("to")
-    entry_type = request.GET.get("type")
+    entry_type = _bounded_search(request.GET.get("type"))
     is_posted = request.GET.get("posted")
-    project_id = request.GET.get("projectId")
+    project_id = _safe_int(request.GET.get("projectId"), 0)
     if from_date:
-        qs = qs.filter(date__gte=_to_date(from_date))
+        parsed = _safe_date(from_date)
+        if parsed:
+            qs = qs.filter(date__gte=parsed)
     if to_date:
-        qs = qs.filter(date__lte=_to_date(to_date))
+        parsed = _safe_date(to_date)
+        if parsed:
+            qs = qs.filter(date__lte=parsed)
     if entry_type:
         qs = qs.filter(entry_type=entry_type)
     if is_posted is not None:
-        qs = qs.filter(is_posted=is_posted.lower() == "true")
+        qs = qs.filter(is_posted=str(is_posted).lower() == "true")
     if project_id:
-        qs = qs.filter(project_id=int(project_id))
+        qs = qs.filter(project_id=project_id)
     for entry in qs[:500]:
         entries.append(
             {
@@ -234,7 +310,7 @@ def admin_accounts_journal_entries_detail(
         return forbidden
     entry = (
         JournalEntry.objects.filter(pk=entry_id)
-        .prefetch_related("lines")
+        .prefetch_related("lines__account")
         .first()
     )
     if not entry:
@@ -281,17 +357,19 @@ def admin_accounts_journal_entries_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    entry_date = _to_date(data.get("date"))
+    entry_date = _safe_date(data.get("date"))
     if not entry_date:
-        return _api_error("missing_date", status=400)
-    description = str(data.get("description") or "").strip()
+        return _api_error(
+            "missing_date", status=400, message="تاريخ القيد مطلوب."
+        )
+    description = _clean_text(data.get("description"), 2000) or ""
     entry_type = str(data.get("entryType") or JournalEntry.TYPE_JOURNAL).strip()
     if entry_type not in dict(JournalEntry.TYPE_CHOICES):
         return _api_error("invalid_entry_type", status=400)
-    project_id = data.get("projectId")
+    project_id = _safe_int(data.get("projectId"), 0)
     project = None
     if project_id:
-        project = ProjectPage.objects.filter(pk=int(project_id)).first()
+        project = ProjectPage.objects.filter(pk=project_id).first()
         if not project:
             return _api_error("project_not_found", status=404)
     lines_data = data.get("lines", [])
@@ -302,11 +380,11 @@ def admin_accounts_journal_entries_create(request: HttpRequest) -> JsonResponse:
         return error
     with transaction.atomic():
         entry = JournalEntry.objects.create(
-            number=data.get("number") or _next_entry_number(),
+            number=_clean_text(data.get("number"), 64) or _next_entry_number(),
             date=entry_date,
             description=description,
             entry_type=entry_type,
-            ref_number=str(data.get("refNumber") or "").strip(),
+            ref_number=_clean_text(data.get("refNumber"), 64) or "",
             project=project,
             created_by=request.user if request.user.is_authenticated else None,
         )
@@ -338,19 +416,19 @@ def admin_accounts_journal_entries_update(
     if entry.is_posted:
         return _api_error("posted_entry_cannot_edit", status=400)
     data = _read_json(request)
-    entry_date = _to_date(data.get("date"))
+    entry_date = _safe_date(data.get("date"))
     if entry_date:
         entry.date = entry_date
-    entry.description = str(data.get("description") or "").strip()
+    entry.description = _clean_text(data.get("description"), 2000) or ""
     entry_type = str(data.get("entryType") or entry.entry_type).strip()
     if entry_type not in dict(JournalEntry.TYPE_CHOICES):
         return _api_error("invalid_entry_type", status=400)
     entry.entry_type = entry_type
-    entry.ref_number = str(data.get("refNumber") or "").strip()
-    project_id = data.get("projectId")
-    if project_id is not None:
+    entry.ref_number = _clean_text(data.get("refNumber"), 64) or ""
+    project_id = _safe_int(data.get("projectId"), 0)
+    if data.get("projectId") is not None:
         project = (
-            ProjectPage.objects.filter(pk=int(project_id)).first()
+            ProjectPage.objects.filter(pk=project_id).first()
             if project_id
             else None
         )
@@ -468,9 +546,11 @@ def _validate_entry_lines(
     total_credit = Decimal("0")
     new_lines: list[JournalEntryLine] = []
     for line_data in lines_data:
-        account_id = line_data.get("accountId")
+        if not isinstance(line_data, dict):
+            return _api_error("invalid_lines", status=400), []
+        account_id = _safe_int(line_data.get("accountId"), 0)
         account = (
-            Account.objects.filter(pk=int(account_id)).first()
+            Account.objects.filter(pk=account_id).first()
             if account_id
             else None
         )
@@ -482,21 +562,24 @@ def _validate_entry_lines(
             return _api_error("negative_amount", status=400), []
         if debit > 0 and credit > 0:
             return _api_error("both_sides", status=400), []
-        project_id = line_data.get("projectId")
+        project_id = _safe_int(line_data.get("projectId"), 0)
         project = None
         if project_id:
-            project = ProjectPage.objects.filter(pk=int(project_id)).first()
+            project = ProjectPage.objects.filter(pk=project_id).first()
             if not project:
                 return _api_error("project_not_found", status=404), []
+        contact_type = _clean_text(line_data.get("contactType"), 32) or ""
+        contact_id = _safe_int(line_data.get("contactId"), 0) or None
         new_lines.append(
             JournalEntryLine(
                 account=account,
-                description=str(line_data.get("description") or "").strip(),
+                description=_clean_text(line_data.get("description"), 500)
+                or "",
                 debit=debit,
                 credit=credit,
                 project=project,
-                contact_type=str(line_data.get("contactType") or "").strip(),
-                contact_id=line_data.get("contactId"),
+                contact_type=contact_type,
+                contact_id=contact_id,
             )
         )
         total_debit += debit
@@ -542,18 +625,20 @@ def admin_accounts_bank_accounts_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    account_id = data.get("accountId")
+    account_id = _safe_int(data.get("accountId"), 0)
     account = (
-        Account.objects.filter(pk=int(account_id)).first()
-        if account_id
-        else None
+        Account.objects.filter(pk=account_id).first() if account_id else None
     )
     if not account:
         return _api_error("account_not_found", status=404)
-    bank_name = str(data.get("bankName") or "").strip()
-    account_number = str(data.get("accountNumber") or "").strip()
+    bank_name = _clean_text(data.get("bankName"), 255, required=True)
+    account_number = _clean_text(data.get("accountNumber"), 64, required=True)
     if not bank_name or not account_number:
-        return _api_error("missing_bank_or_number", status=400)
+        return _api_error(
+            "missing_bank_or_number",
+            status=400,
+            message="اسم البنك ورقم الحساب مطلوبان.",
+        )
     currency = str(data.get("currency") or BankAccount.CURRENCY_ILS).strip()
     if currency not in dict(BankAccount.CURRENCY_CHOICES):
         return _api_error("invalid_currency", status=400)
@@ -564,14 +649,14 @@ def admin_accounts_bank_accounts_create(request: HttpRequest) -> JsonResponse:
     ba = BankAccount.objects.create(
         account=account,
         bank_name=bank_name,
-        branch=str(data.get("branch") or "").strip(),
+        branch=_clean_text(data.get("branch"), 255) or "",
         account_number=account_number,
-        iban=str(data.get("iban") or "").strip(),
+        iban=_clean_text(data.get("iban"), 64) or "",
         currency=currency,
         opening_balance=_to_dec(data.get("openingBalance")) or Decimal("0"),
-        opening_date=_to_date(data.get("openingDate")),
+        opening_date=_safe_date(data.get("openingDate")),
         is_active=bool(data.get("isActive", True)),
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 2000) or "",
     )
     _audit_ops(
         request,
@@ -594,10 +679,14 @@ def admin_accounts_bank_accounts_update(
     if not ba:
         return _api_error("not_found", status=404)
     data = _read_json(request)
-    bank_name = str(data.get("bankName") or "").strip()
-    account_number = str(data.get("accountNumber") or "").strip()
+    bank_name = _clean_text(data.get("bankName"), 255, required=True)
+    account_number = _clean_text(data.get("accountNumber"), 64, required=True)
     if not bank_name or not account_number:
-        return _api_error("missing_bank_or_number", status=400)
+        return _api_error(
+            "missing_bank_or_number",
+            status=400,
+            message="اسم البنك ورقم الحساب مطلوبان.",
+        )
     currency = str(data.get("currency") or ba.currency).strip()
     if currency not in dict(BankAccount.CURRENCY_CHOICES):
         return _api_error("invalid_currency", status=400)
@@ -610,16 +699,16 @@ def admin_accounts_bank_accounts_update(
     ):
         return _api_error("bank_account_exists", status=400)
     ba.bank_name = bank_name
-    ba.branch = str(data.get("branch") or "").strip()
+    ba.branch = _clean_text(data.get("branch"), 255) or ""
     ba.account_number = account_number
-    ba.iban = str(data.get("iban") or "").strip()
+    ba.iban = _clean_text(data.get("iban"), 64) or ""
     ba.currency = currency
     ba.opening_balance = (
         _to_dec(data.get("openingBalance")) or ba.opening_balance
     )
-    ba.opening_date = _to_date(data.get("openingDate")) or ba.opening_date
+    ba.opening_date = _safe_date(data.get("openingDate")) or ba.opening_date
     ba.is_active = bool(data.get("isActive", ba.is_active))
-    ba.notes = str(data.get("notes") or "").strip()
+    ba.notes = _clean_text(data.get("notes"), 2000) or ""
     ba.save()
     _audit_ops(
         request,
@@ -661,8 +750,8 @@ def admin_accounts_checks(request: HttpRequest) -> JsonResponse:
         return forbidden
     items: list[dict[str, Any]] = []
     qs = Check.objects.select_related("account", "account__account", "project")
-    direction = request.GET.get("direction")
-    status = request.GET.get("status")
+    direction = _bounded_search(request.GET.get("direction"), 32)
+    status = _bounded_search(request.GET.get("status"), 32)
     if direction:
         qs = qs.filter(direction=direction)
     if status:
@@ -702,12 +791,16 @@ def admin_accounts_checks_create(request: HttpRequest) -> JsonResponse:
     direction = str(data.get("direction") or "").strip()
     if direction not in dict(Check.DIRECTION_CHOICES):
         return _api_error("invalid_direction", status=400)
-    check_number = str(data.get("checkNumber") or "").strip()
-    bank_name = str(data.get("bankName") or "").strip()
+    check_number = _clean_text(data.get("checkNumber"), 64, required=True)
+    bank_name = _clean_text(data.get("bankName"), 255, required=True)
     if not check_number or not bank_name:
-        return _api_error("missing_check_or_bank", status=400)
-    issue_date = _to_date(data.get("issueDate"))
-    maturity_date = _to_date(data.get("maturityDate"))
+        return _api_error(
+            "missing_check_or_bank",
+            status=400,
+            message="رقم الشيك والبنك مطلوبان.",
+        )
+    issue_date = _safe_date(data.get("issueDate"))
+    maturity_date = _safe_date(data.get("maturityDate"))
     if not issue_date or not maturity_date:
         return _api_error("missing_dates", status=400)
     if maturity_date < issue_date:
@@ -715,16 +808,16 @@ def admin_accounts_checks_create(request: HttpRequest) -> JsonResponse:
     amount = _to_dec(data.get("amount"))
     if not amount or amount <= 0:
         return _api_error("invalid_amount", status=400)
-    account_id = data.get("accountId")
+    account_id = _safe_int(data.get("accountId"), 0)
     account = (
-        BankAccount.objects.filter(pk=int(account_id)).first()
+        BankAccount.objects.filter(pk=account_id).first()
         if account_id
         else None
     )
-    project_id = data.get("projectId")
+    project_id = _safe_int(data.get("projectId"), 0)
     project = None
     if project_id:
-        project = ProjectPage.objects.filter(pk=int(project_id)).first()
+        project = ProjectPage.objects.filter(pk=project_id).first()
         if not project:
             return _api_error("project_not_found", status=404)
     currency = str(data.get("currency") or BankAccount.CURRENCY_ILS).strip()
@@ -739,11 +832,11 @@ def admin_accounts_checks_create(request: HttpRequest) -> JsonResponse:
         maturity_date=maturity_date,
         amount=amount,
         currency=currency,
-        payee=str(data.get("payee") or "").strip(),
-        payer=str(data.get("payer") or "").strip(),
+        payee=_clean_text(data.get("payee"), 255) or "",
+        payer=_clean_text(data.get("payer"), 255) or "",
         project=project,
         status=Check.STATUS_PENDING,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 2000) or "",
     )
     _audit_ops(
         request,
@@ -768,14 +861,18 @@ def admin_accounts_checks_update(
     if ch.status != Check.STATUS_PENDING:
         return _api_error("only_pending_editable", status=400)
     data = _read_json(request)
-    check_number = str(data.get("checkNumber") or "").strip()
-    bank_name = str(data.get("bankName") or "").strip()
+    check_number = _clean_text(data.get("checkNumber"), 64, required=True)
+    bank_name = _clean_text(data.get("bankName"), 255, required=True)
     if not check_number or not bank_name:
-        return _api_error("missing_check_or_bank", status=400)
+        return _api_error(
+            "missing_check_or_bank",
+            status=400,
+            message="رقم الشيك والبنك مطلوبان.",
+        )
     ch.check_number = check_number
     ch.bank_name = bank_name
-    ch.issue_date = _to_date(data.get("issueDate")) or ch.issue_date
-    ch.maturity_date = _to_date(data.get("maturityDate")) or ch.maturity_date
+    ch.issue_date = _safe_date(data.get("issueDate")) or ch.issue_date
+    ch.maturity_date = _safe_date(data.get("maturityDate")) or ch.maturity_date
     if ch.maturity_date < ch.issue_date:
         return _api_error("invalid_maturity", status=400)
     amount = _to_dec(data.get("amount"))
@@ -783,24 +880,24 @@ def admin_accounts_checks_update(
         if amount <= 0:
             return _api_error("invalid_amount", status=400)
         ch.amount = amount
-    account_id = data.get("accountId")
-    if account_id is not None:
+    account_id = _safe_int(data.get("accountId"), 0)
+    if data.get("accountId") is not None:
         ch.account = (
-            BankAccount.objects.filter(pk=int(account_id)).first()
+            BankAccount.objects.filter(pk=account_id).first()
             if account_id
             else None
         )
-    project_id = data.get("projectId")
-    if project_id is not None:
+    project_id = _safe_int(data.get("projectId"), 0)
+    if data.get("projectId") is not None:
         ch.project = (
-            ProjectPage.objects.filter(pk=int(project_id)).first()
+            ProjectPage.objects.filter(pk=project_id).first()
             if project_id
             else None
         )
     ch.currency = str(data.get("currency") or ch.currency).strip()
-    ch.payee = str(data.get("payee") or "").strip()
-    ch.payer = str(data.get("payer") or "").strip()
-    ch.notes = str(data.get("notes") or "").strip()
+    ch.payee = _clean_text(data.get("payee"), 255) or ""
+    ch.payer = _clean_text(data.get("payer"), 255) or ""
+    ch.notes = _clean_text(data.get("notes"), 2000) or ""
     ch.save()
     _audit_ops(
         request,
@@ -846,7 +943,7 @@ def admin_accounts_checks_clear(
     if not ch:
         return _api_error("not_found", status=404)
     data = _read_json(request)
-    cleared_date = _to_date(data.get("clearedDate")) or timezone.now().date()
+    cleared_date = _safe_date(data.get("clearedDate")) or timezone.now().date()
     try:
         entry = ch.mark_cleared(cleared_date)
     except Exception as exc:
@@ -916,8 +1013,8 @@ def admin_accounts_tax_records(request: HttpRequest) -> JsonResponse:
         return forbidden
     items: list[dict[str, Any]] = []
     qs = TaxRecord.objects.select_related("project")
-    tax_type = request.GET.get("type")
-    period = request.GET.get("period")
+    tax_type = _bounded_search(request.GET.get("type"), 32)
+    period = _bounded_search(request.GET.get("period"), 32)
     paid = request.GET.get("paid")
     if tax_type:
         qs = qs.filter(tax_type=tax_type)
@@ -955,30 +1052,34 @@ def admin_accounts_tax_records_create(request: HttpRequest) -> JsonResponse:
     tax_type = str(data.get("taxType") or "").strip()
     if tax_type not in dict(TaxRecord.TYPE_CHOICES):
         return _api_error("invalid_tax_type", status=400)
-    transaction_date = _to_date(data.get("transactionDate"))
+    transaction_date = _safe_date(data.get("transactionDate"))
     if not transaction_date:
         return _api_error("missing_date", status=400)
     gross_amount = _to_dec(data.get("grossAmount"))
     if gross_amount is None or gross_amount <= 0:
         return _api_error("invalid_gross_amount", status=400)
-    project_id = data.get("projectId")
+    project_id = _safe_int(data.get("projectId"), 0)
     project = None
     if project_id:
-        project = ProjectPage.objects.filter(pk=int(project_id)).first()
+        project = ProjectPage.objects.filter(pk=project_id).first()
         if not project:
             return _api_error("project_not_found", status=404)
     tax_rate = _to_dec(data.get("taxRate"))
     if tax_rate is None:
         tax_rate = TaxRecord.RATES.get(tax_type, Decimal("0"))
+    if tax_rate < 0 or tax_rate > 1:
+        return _api_error(
+            "invalid_tax_rate", status=400, message="نسبة الضريبة غير صالحة."
+        )
     tr = TaxRecord.objects.create(
         tax_type=tax_type,
         project=project,
         transaction_date=transaction_date,
-        description=str(data.get("description") or "").strip(),
+        description=_clean_text(data.get("description"), 2000) or "",
         gross_amount=gross_amount,
         tax_rate=tax_rate,
         paid=bool(data.get("paid", False)),
-        paid_date=_to_date(data.get("paidDate")),
+        paid_date=_safe_date(data.get("paidDate")),
         return_period=str(data.get("returnPeriod") or "").strip()
         or transaction_date.strftime("%Y-%m"),
     )
@@ -1008,10 +1109,10 @@ def admin_accounts_tax_records_update(
         return _api_error("invalid_tax_type", status=400)
     tr.tax_type = tax_type
     transaction_date = (
-        _to_date(data.get("transactionDate")) or tr.transaction_date
+        _safe_date(data.get("transactionDate")) or tr.transaction_date
     )
     tr.transaction_date = transaction_date
-    tr.description = str(data.get("description") or "").strip()
+    tr.description = _clean_text(data.get("description"), 2000) or ""
     gross_amount = _to_dec(data.get("grossAmount"))
     if gross_amount is not None:
         if gross_amount <= 0:
@@ -1019,16 +1120,22 @@ def admin_accounts_tax_records_update(
         tr.gross_amount = gross_amount
     tax_rate = _to_dec(data.get("taxRate"))
     if tax_rate is not None:
+        if tax_rate < 0 or tax_rate > 1:
+            return _api_error(
+                "invalid_tax_rate",
+                status=400,
+                message="نسبة الضريبة غير صالحة.",
+            )
         tr.tax_rate = tax_rate
     tr.paid = bool(data.get("paid", tr.paid))
-    tr.paid_date = _to_date(data.get("paidDate")) or tr.paid_date
+    tr.paid_date = _safe_date(data.get("paidDate")) or tr.paid_date
     tr.return_period = str(
         data.get("returnPeriod") or ""
     ).strip() or transaction_date.strftime("%Y-%m")
-    project_id = data.get("projectId")
-    if project_id is not None:
+    project_id = _safe_int(data.get("projectId"), 0)
+    if data.get("projectId") is not None:
         tr.project = (
-            ProjectPage.objects.filter(pk=int(project_id)).first()
+            ProjectPage.objects.filter(pk=project_id).first()
             if project_id
             else None
         )
@@ -1069,7 +1176,7 @@ def admin_accounts_reports_trial_balance(request: HttpRequest) -> JsonResponse:
     forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
-    as_of = _to_date(request.GET.get("asOf")) or timezone.now().date()
+    as_of = _safe_date(request.GET.get("asOf")) or timezone.now().date()
     items: list[dict[str, Any]] = []
     for acc in Account.objects.filter(is_active=True):
         balance = acc.balance(as_of=as_of)
@@ -1091,7 +1198,7 @@ def admin_accounts_reports_balance_sheet(request: HttpRequest) -> JsonResponse:
     forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
-    as_of = _to_date(request.GET.get("asOf")) or timezone.now().date()
+    as_of = _safe_date(request.GET.get("asOf")) or timezone.now().date()
     assets = Decimal("0")
     liabilities = Decimal("0")
     equity = Decimal("0")
@@ -1133,8 +1240,8 @@ def admin_accounts_reports_income_statement(
     forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
-    from_date = _to_date(request.GET.get("from"))
-    to_date = _to_date(request.GET.get("to")) or timezone.now().date()
+    from_date = _safe_date(request.GET.get("from"))
+    to_date = _safe_date(request.GET.get("to")) or timezone.now().date()
     if not from_date:
         from_date = date(to_date.year, 1, 1)
     income = Decimal("0")
@@ -1172,8 +1279,8 @@ def admin_accounts_reports_project_pl(
     project = ProjectPage.objects.filter(pk=project_id).first()
     if not project:
         return _api_error("project_not_found", status=404)
-    from_date = _to_date(request.GET.get("from"))
-    to_date = _to_date(request.GET.get("to")) or timezone.now().date()
+    from_date = _safe_date(request.GET.get("from"))
+    to_date = _safe_date(request.GET.get("to")) or timezone.now().date()
     income = Decimal("0")
     expenses = Decimal("0")
     qs = JournalEntryLine.objects.filter(entry__is_posted=True).filter(

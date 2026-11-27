@@ -36,6 +36,10 @@ from website.models import WorkerPayrollEntry
 logger = logging.getLogger(__name__)
 
 
+from .admin_accounts import _bounded_search
+from .admin_accounts import _clean_text
+from .admin_accounts import _safe_date
+from .admin_accounts import _safe_int
 from .common import *
 
 
@@ -100,9 +104,9 @@ def admin_ops_workers_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     kind = (
         str(data.get("kind") or Worker.KIND_WORKER).strip()
         or Worker.KIND_WORKER
@@ -118,12 +122,20 @@ def admin_ops_workers_create(request: HttpRequest) -> JsonResponse:
             and Worker.objects.filter(time_clock_id=time_clock_id).exists()
         ):
             return _api_error("duplicate_time_clock_id", status=409)
+    daily_cost = _to_dec(data.get("dailyCost"), allow_none=True)
+    monthly_salary = _to_dec(data.get("monthlySalary"), allow_none=True)
+    if (daily_cost is not None and daily_cost < 0) or (
+        monthly_salary is not None and monthly_salary < 0
+    ):
+        return _api_error(
+            "invalid_amount", status=400, message="الراتب أو التكلفة غير صالح."
+        )
     active_raw = data.get("active")
     active = bool(active_raw) if active_raw is not None else True
     user_obj = None
     if data.get("userId") is not None:
         try:
-            user_id = int(data.get("userId") or 0) or 0
+            user_id = _safe_int(data.get("userId"), 0) or 0
         except Exception:
             user_id = 0
         if user_id:
@@ -137,14 +149,14 @@ def admin_ops_workers_create(request: HttpRequest) -> JsonResponse:
         w = Worker.objects.create(
             user=user_obj,
             name=name,
-            role=str(data.get("role") or "").strip(),
-            phone=str(data.get("phone") or "").strip(),
+            role=_clean_text(data.get("role"), 255) or "",
+            phone=_clean_text(data.get("phone"), 64) or "",
             time_clock_id=time_clock_id,
             kind=kind,
             active=active,
-            daily_cost=_to_dec(data.get("dailyCost"), allow_none=True),
-            monthly_salary=_to_dec(data.get("monthlySalary"), allow_none=True),
-            notes=str(data.get("notes") or "").strip(),
+            daily_cost=daily_cost,
+            monthly_salary=monthly_salary,
+            notes=_clean_text(data.get("notes"), 4000) or "",
         )
     except IntegrityError:
         return _api_error("duplicate_time_clock_id", status=409)
@@ -192,11 +204,11 @@ def admin_ops_workers_update(
     }
     data = _read_json(request)
     if data.get("name") is not None:
-        w.name = str(data.get("name") or "").strip()
+        w.name = _clean_text(data.get("name"), 255) or ""
     if data.get("role") is not None:
-        w.role = str(data.get("role") or "").strip()
+        w.role = _clean_text(data.get("role"), 255) or ""
     if data.get("phone") is not None:
-        w.phone = str(data.get("phone") or "").strip()
+        w.phone = _clean_text(data.get("phone"), 64) or ""
     if data.get("timeClockId") is not None:
         raw = str(data.get("timeClockId") or "").strip()
         time_clock_id = raw or None
@@ -210,7 +222,7 @@ def admin_ops_workers_update(
         w.time_clock_id = time_clock_id
     if data.get("userId") is not None:
         try:
-            user_id = int(data.get("userId") or 0) or 0
+            user_id = _safe_int(data.get("userId"), 0) or 0
         except Exception:
             user_id = 0
         if not user_id:
@@ -232,10 +244,18 @@ def admin_ops_workers_update(
         w.active = bool(data.get("active"))
     if data.get("dailyCost") is not None:
         w.daily_cost = _to_dec(data.get("dailyCost"), allow_none=True)
+        if w.daily_cost is not None and w.daily_cost < 0:
+            return _api_error(
+                "invalid_amount", status=400, message="التكلفة غير صالحة."
+            )
     if data.get("monthlySalary") is not None:
         w.monthly_salary = _to_dec(data.get("monthlySalary"), allow_none=True)
+        if w.monthly_salary is not None and w.monthly_salary < 0:
+            return _api_error(
+                "invalid_amount", status=400, message="الراتب غير صالح."
+            )
     if data.get("notes") is not None:
-        w.notes = str(data.get("notes") or "").strip()
+        w.notes = _clean_text(data.get("notes"), 4000) or ""
     if not w.name:
         return _api_error("missing_name", status=400)
     try:
@@ -307,11 +327,11 @@ def admin_ops_attendance(request: HttpRequest) -> JsonResponse:
             return _api_ok({"items": []})
         qs = qs.filter(worker_id=linked_id)
     else:
-        worker_id = int(request.GET.get("workerId") or 0) or None
+        worker_id = _safe_int(request.GET.get("workerId"), 0) or None
         if worker_id:
             qs = qs.filter(worker_id=worker_id)
-    year = int(request.GET.get("year") or 0) or None
-    month = int(request.GET.get("month") or 0) or None
+    year = _safe_int(request.GET.get("year"), 0) or None
+    month = _safe_int(request.GET.get("month"), 0) or None
     if year and month and 1 <= month <= 12:
         qs = qs.filter(date__year=year, date__month=month)
     items: list[dict[str, Any]] = []
@@ -355,7 +375,7 @@ def admin_ops_attendance_create(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     user = getattr(request, "user", None)
     role = _user_role(user)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     if role == "employee":
         linked_id = 0
         try:
@@ -391,17 +411,22 @@ def admin_ops_attendance_create(request: HttpRequest) -> JsonResponse:
     }
     if status not in allowed_status:
         return _api_error("invalid_status", status=400)
-    project_id = int(data.get("projectId") or 0) or None
+    project_id = _safe_int(data.get("projectId"), 0) or None
     project = (
         ProjectPage.objects.filter(pk=project_id).specific().first()
         if project_id
         else None
     )
+    hours = _to_dec(data.get("hours"), allow_none=True)
+    if hours is not None and hours < 0:
+        return _api_error(
+            "invalid_hours", status=400, message="عدد الساعات غير صالح."
+        )
     defaults = {
         "status": status,
-        "hours": _to_dec(data.get("hours"), allow_none=True),
+        "hours": hours,
         "project": project,
-        "notes": str(data.get("notes") or "").strip(),
+        "notes": _clean_text(data.get("notes"), 4000) or "",
     }
     existing = WorkerAttendance.objects.filter(worker=w, date=att_date).first()
     if (
@@ -442,7 +467,7 @@ def admin_ops_timeclock_import(request: HttpRequest) -> JsonResponse:
     if not isinstance(raw_items, list) or not raw_items:
         return _api_error("missing_items", status=400)
     dry_run = bool(data.get("dryRun"))
-    default_project_id = int(data.get("defaultProjectId") or 0) or None
+    default_project_id = _safe_int(data.get("defaultProjectId"), 0) or None
     default_project = (
         ProjectPage.objects.filter(pk=default_project_id).specific().first()
         if default_project_id
@@ -507,7 +532,7 @@ def admin_ops_timeclock_import_from_folder(
 
     data = _read_json(request)
     dry_run = bool(data.get("dryRun"))
-    default_project_id = int(data.get("defaultProjectId") or 0) or None
+    default_project_id = _safe_int(data.get("defaultProjectId"), 0) or None
     default_project = (
         ProjectPage.objects.filter(pk=default_project_id).specific().first()
         if default_project_id
@@ -516,7 +541,7 @@ def admin_ops_timeclock_import_from_folder(
     if default_project_id and not default_project:
         return _api_error("default_project_not_found", status=404)
 
-    limit_files = int(data.get("limitFiles") or 5) or 5
+    limit_files = _safe_int(data.get("limitFiles"), 5) or 5
     limit_files = max(1, min(limit_files, 50))
 
     dir_raw = str(os.environ.get("TIME_CLOCK_IMPORT_DIR") or "").strip()
@@ -665,7 +690,7 @@ def admin_ops_attendance_update(
         return _api_error("attendance_locked", status=409)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         if role == "employee":
             return _api_error("forbidden", status=403)
         w = Worker.objects.filter(pk=worker_id).first()
@@ -699,15 +724,19 @@ def admin_ops_attendance_update(
         a.status = status
     if data.get("hours") is not None:
         a.hours = _to_dec(data.get("hours"), allow_none=True)
+        if a.hours is not None and a.hours < 0:
+            return _api_error(
+                "invalid_hours", status=400, message="عدد الساعات غير صالح."
+            )
     if data.get("projectId") is not None:
-        project_id = int(data.get("projectId") or 0) or None
+        project_id = _safe_int(data.get("projectId"), 0) or None
         a.project = (
             ProjectPage.objects.filter(pk=project_id).specific().first()
             if project_id
             else None
         )
     if data.get("notes") is not None:
-        a.notes = str(data.get("notes") or "").strip()
+        a.notes = _clean_text(data.get("notes"), 4000) or ""
     a.save()
     _audit_ops(
         request,
@@ -937,14 +966,14 @@ def admin_ops_payroll_generate_from_attendance(
 
     data = _read_json(request)
     dry_run = bool(data.get("dryRun"))
-    year = int(data.get("year") or 0) or 0
-    month = int(data.get("month") or 0) or 0
+    year = _safe_int(data.get("year"), 0) or 0
+    month = _safe_int(data.get("month"), 0) or 0
     if not (1900 <= year <= 2200):
         return _api_error("invalid_year", status=400)
     if not (1 <= month <= 12):
         return _api_error("invalid_month", status=400)
 
-    worker_id = int(data.get("workerId") or 0) or None
+    worker_id = _safe_int(data.get("workerId"), 0) or None
     workers_qs = Worker.objects.filter(active=True)
     if worker_id:
         workers_qs = workers_qs.filter(pk=worker_id)
@@ -1149,13 +1178,13 @@ def admin_ops_payroll(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = WorkerPayrollEntry.objects.select_related("worker")
-    worker_id = int(request.GET.get("workerId") or 0) or None
+    worker_id = _safe_int(request.GET.get("workerId"), 0) or None
     if worker_id:
         qs = qs.filter(worker_id=worker_id)
-    year = int(request.GET.get("year") or 0) or None
+    year = _safe_int(request.GET.get("year"), 0) or None
     if year:
         qs = qs.filter(year=year)
-    month = int(request.GET.get("month") or 0) or None
+    month = _safe_int(request.GET.get("month"), 0) or None
     if month and 1 <= month <= 12:
         qs = qs.filter(month=month)
     items: list[dict[str, Any]] = []
@@ -1204,12 +1233,12 @@ def admin_ops_payroll_create(request: HttpRequest) -> JsonResponse:
     from datetime import date as _date
 
     data = _read_json(request)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     w = Worker.objects.filter(pk=worker_id).first()
     if not w:
         return _api_error("worker_not_found", status=404)
-    year = int(data.get("year") or 0) or 0
-    month = int(data.get("month") or 0) or 0
+    year = _safe_int(data.get("year"), 0) or 0
+    month = _safe_int(data.get("month"), 0) or 0
     if not (1900 <= year <= 2200):
         return _api_error("invalid_year", status=400)
     if not (1 <= month <= 12):
@@ -1228,7 +1257,11 @@ def admin_ops_payroll_create(request: HttpRequest) -> JsonResponse:
         return _api_error("invalid_kind", status=400)
     amount = _to_dec(data.get("amount"), allow_none=True)
     if amount is None:
-        return _api_error("missing_amount", status=400)
+        return _api_error("missing_amount", status=400, message="المبلغ مطلوب.")
+    if amount < 0:
+        return _api_error(
+            "invalid_amount", status=400, message="المبلغ غير صالح."
+        )
     pay_date = None
     if data.get("date") is not None:
         try:
@@ -1258,7 +1291,7 @@ def admin_ops_payroll_create(request: HttpRequest) -> JsonResponse:
         allowances=allowances,
         deductions=deductions,
         date=pay_date,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     p.net_salary = p.calculate_net_salary()
     p.save(update_fields=["net_salary"])
@@ -1281,18 +1314,18 @@ def admin_ops_payroll_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         w = Worker.objects.filter(pk=worker_id).first()
         if not w:
             return _api_error("worker_not_found", status=404)
         p.worker = w
     if data.get("year") is not None:
-        year = int(data.get("year") or 0) or 0
+        year = _safe_int(data.get("year"), 0) or 0
         if not (1900 <= year <= 2200):
             return _api_error("invalid_year", status=400)
         p.year = year
     if data.get("month") is not None:
-        month = int(data.get("month") or 0) or 0
+        month = _safe_int(data.get("month"), 0) or 0
         if not (1 <= month <= 12):
             return _api_error("invalid_month", status=400)
         p.month = month
@@ -1310,10 +1343,22 @@ def admin_ops_payroll_update(
     if data.get("amount") is not None:
         amount = _to_dec(data.get("amount"), allow_none=True)
         if amount is None:
-            return _api_error("missing_amount", status=400)
+            return _api_error(
+                "missing_amount", status=400, message="المبلغ مطلوب."
+            )
+        if amount < 0:
+            return _api_error(
+                "invalid_amount", status=400, message="المبلغ غير صالح."
+            )
         p.amount = amount
     if data.get("overtimeAmount") is not None:
         p.overtime_amount = _to_dec(data.get("overtimeAmount"), allow_none=True)
+        if p.overtime_amount is not None and p.overtime_amount < 0:
+            return _api_error(
+                "invalid_amount",
+                status=400,
+                message="مبلغ الساعات الإضافية غير صالح.",
+            )
     if data.get("allowances") is not None:
         p.allowances = (
             data.get("allowances")
@@ -1333,7 +1378,7 @@ def admin_ops_payroll_update(
             return _api_error("invalid_date", status=400)
         p.date = pay_date
     if data.get("notes") is not None:
-        p.notes = str(data.get("notes") or "").strip()
+        p.notes = _clean_text(data.get("notes"), 4000) or ""
     if data.get("status") is not None:
         status = str(data.get("status") or "").strip()
         if status not in dict(WorkerPayrollEntry.STATUS_CHOICES):
@@ -1378,10 +1423,10 @@ def admin_hr_leave_requests(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = LeaveRequest.objects.select_related("worker")
-    worker_id = int(request.GET.get("workerId") or 0) or None
+    worker_id = _safe_int(request.GET.get("workerId"), 0) or None
     if worker_id:
         qs = qs.filter(worker_id=worker_id)
-    status = str(request.GET.get("status") or "").strip()
+    status = _bounded_search(request.GET.get("status"), 32)
     if status:
         qs = qs.filter(status=status)
     items: list[dict[str, Any]] = []
@@ -1410,12 +1455,12 @@ def admin_hr_leave_requests_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     w = Worker.objects.filter(pk=worker_id).first()
     if not w:
         return _api_error("worker_not_found", status=404)
-    start_date = _to_date(data.get("startDate"))
-    end_date = _to_date(data.get("endDate"))
+    start_date = _safe_date(data.get("startDate"))
+    end_date = _safe_date(data.get("endDate"))
     if not start_date or not end_date:
         return _api_error("missing_dates", status=400)
     if end_date < start_date:
@@ -1430,7 +1475,7 @@ def admin_hr_leave_requests_create(request: HttpRequest) -> JsonResponse:
         start_date=start_date,
         end_date=end_date,
         total_days=0,
-        reason=str(data.get("reason") or "").strip(),
+        reason=_clean_text(data.get("reason"), 2000) or "",
         created_by=(
             user if user and getattr(user, "is_authenticated", False) else None
         ),
@@ -1459,7 +1504,7 @@ def admin_hr_leave_requests_update(
         return _api_error("approved_leave_locked", status=409)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         w = Worker.objects.filter(pk=worker_id).first()
         if not w:
             return _api_error("worker_not_found", status=404)
@@ -1470,19 +1515,19 @@ def admin_hr_leave_requests_update(
             return _api_error("invalid_leave_type", status=400)
         lr.leave_type = leave_type
     if data.get("startDate") is not None:
-        start_date = _to_date(data.get("startDate"))
+        start_date = _safe_date(data.get("startDate"))
         if not start_date:
             return _api_error("missing_dates", status=400)
         lr.start_date = start_date
     if data.get("endDate") is not None:
-        end_date = _to_date(data.get("endDate"))
+        end_date = _safe_date(data.get("endDate"))
         if not end_date:
             return _api_error("missing_dates", status=400)
         lr.end_date = end_date
     if lr.end_date < lr.start_date:
         return _api_error("invalid_date_range", status=400)
     if data.get("reason") is not None:
-        lr.reason = str(data.get("reason") or "").strip()
+        lr.reason = _clean_text(data.get("reason"), 2000) or ""
     lr.total_days = 0
     lr.save()
     _audit_ops(
@@ -1589,7 +1634,7 @@ def admin_hr_leave_balance(
     forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
-    year = int(request.GET.get("year") or 0) or timezone.now().year
+    year = _safe_int(request.GET.get("year"), 0) or timezone.now().year
     approved_days = (
         LeaveRequest.objects.filter(
             worker_id=worker_id,
@@ -1619,7 +1664,7 @@ def admin_hr_contracts(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = EmployeeContract.objects.select_related("worker")
-    worker_id = int(request.GET.get("workerId") or 0) or None
+    worker_id = _safe_int(request.GET.get("workerId"), 0) or None
     if worker_id:
         qs = qs.filter(worker_id=worker_id)
     items: list[dict[str, Any]] = []
@@ -1653,11 +1698,11 @@ def admin_hr_contracts_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     w = Worker.objects.filter(pk=worker_id).first()
     if not w:
         return _api_error("worker_not_found", status=404)
-    start_date = _to_date(data.get("startDate"))
+    start_date = _safe_date(data.get("startDate"))
     if not start_date:
         return _api_error("missing_start_date", status=400)
     contract_type = str(
@@ -1665,23 +1710,38 @@ def admin_hr_contracts_create(request: HttpRequest) -> JsonResponse:
     ).strip()
     if contract_type not in dict(EmployeeContract.CONTRACT_CHOICES):
         return _api_error("invalid_contract_type", status=400)
+    basic_salary = _to_dec(
+        data.get("basicSalary"), allow_none=False
+    ) or Decimal("0")
+    transportation_allowance = _to_dec(
+        data.get("transportationAllowance"), allow_none=True
+    ) or Decimal("0")
+    housing_allowance = _to_dec(
+        data.get("housingAllowance"), allow_none=True
+    ) or Decimal("0")
+    probation_period_days = _safe_int(data.get("probationPeriodDays"), 90)
+    if min(basic_salary, transportation_allowance, housing_allowance) < 0:
+        return _api_error(
+            "invalid_amount", status=400, message="المبالغ غير صالحة."
+        )
+    if not 0 <= probation_period_days <= 3650:
+        return _api_error(
+            "invalid_probation_period",
+            status=400,
+            message="مدة التجربة غير صالحة.",
+        )
     c = EmployeeContract.objects.create(
         worker=w,
-        contract_number=str(data.get("contractNumber") or "").strip(),
+        contract_number=_clean_text(data.get("contractNumber"), 128) or "",
         contract_type=contract_type,
         start_date=start_date,
-        end_date=_to_date(data.get("endDate")),
-        basic_salary=_to_dec(data.get("basicSalary"), allow_none=False)
-        or Decimal("0"),
-        transportation_allowance=_to_dec(
-            data.get("transportationAllowance"), allow_none=True
-        )
-        or Decimal("0"),
-        housing_allowance=_to_dec(data.get("housingAllowance"), allow_none=True)
-        or Decimal("0"),
-        position=str(data.get("position") or "").strip(),
-        department=str(data.get("department") or "").strip(),
-        probation_period_days=int(data.get("probationPeriodDays") or 90),
+        end_date=_safe_date(data.get("endDate")),
+        basic_salary=basic_salary,
+        transportation_allowance=transportation_allowance,
+        housing_allowance=housing_allowance,
+        position=_clean_text(data.get("position"), 255) or "",
+        department=_clean_text(data.get("department"), 255) or "",
+        probation_period_days=probation_period_days,
         is_active=(
             bool(data.get("isActive"))
             if data.get("isActive") is not None
@@ -1710,25 +1770,25 @@ def admin_hr_contracts_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         w = Worker.objects.filter(pk=worker_id).first()
         if not w:
             return _api_error("worker_not_found", status=404)
         c.worker = w
     if data.get("contractNumber") is not None:
-        c.contract_number = str(data.get("contractNumber") or "").strip()
+        c.contract_number = _clean_text(data.get("contractNumber"), 128) or ""
     if data.get("contractType") is not None:
         contract_type = str(data.get("contractType") or "").strip()
         if contract_type not in dict(EmployeeContract.CONTRACT_CHOICES):
             return _api_error("invalid_contract_type", status=400)
         c.contract_type = contract_type
     if data.get("startDate") is not None:
-        start_date = _to_date(data.get("startDate"))
+        start_date = _safe_date(data.get("startDate"))
         if not start_date:
             return _api_error("missing_start_date", status=400)
         c.start_date = start_date
     if data.get("endDate") is not None:
-        c.end_date = _to_date(data.get("endDate"))
+        c.end_date = _safe_date(data.get("endDate"))
     if data.get("basicSalary") is not None:
         c.basic_salary = _to_dec(
             data.get("basicSalary"), allow_none=False
@@ -1742,11 +1802,28 @@ def admin_hr_contracts_update(
             data.get("housingAllowance"), allow_none=True
         ) or Decimal("0")
     if data.get("position") is not None:
-        c.position = str(data.get("position") or "").strip()
+        c.position = _clean_text(data.get("position"), 255) or ""
     if data.get("department") is not None:
-        c.department = str(data.get("department") or "").strip()
+        c.department = _clean_text(data.get("department"), 255) or ""
     if data.get("probationPeriodDays") is not None:
-        c.probation_period_days = int(data.get("probationPeriodDays") or 90)
+        c.probation_period_days = _safe_int(data.get("probationPeriodDays"), 90)
+        if not 0 <= c.probation_period_days <= 3650:
+            return _api_error(
+                "invalid_probation_period",
+                status=400,
+                message="مدة التجربة غير صالحة.",
+            )
+    if (
+        min(
+            c.basic_salary or Decimal("0"),
+            c.transportation_allowance or Decimal("0"),
+            c.housing_allowance or Decimal("0"),
+        )
+        < 0
+    ):
+        return _api_error(
+            "invalid_amount", status=400, message="المبالغ غير صالحة."
+        )
     if data.get("isActive") is not None:
         c.is_active = bool(data.get("isActive"))
     c.save()
@@ -1787,11 +1864,11 @@ def admin_hr_overtime(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = OvertimeRecord.objects.select_related("worker", "project")
-    worker_id = int(request.GET.get("workerId") or 0) or None
+    worker_id = _safe_int(request.GET.get("workerId"), 0) or None
     if worker_id:
         qs = qs.filter(worker_id=worker_id)
-    year = int(request.GET.get("year") or 0) or None
-    month = int(request.GET.get("month") or 0) or None
+    year = _safe_int(request.GET.get("year"), 0) or None
+    month = _safe_int(request.GET.get("month"), 0) or None
     if year:
         qs = qs.filter(date__year=year)
     if month and 1 <= month <= 12:
@@ -1833,14 +1910,14 @@ def admin_hr_overtime_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     w = Worker.objects.filter(pk=worker_id).first()
     if not w:
         return _api_error("worker_not_found", status=404)
-    date = _to_date(data.get("date"))
+    date = _safe_date(data.get("date"))
     if not date:
-        return _api_error("missing_date", status=400)
-    project_id = int(data.get("projectId") or 0) or None
+        return _api_error("missing_date", status=400, message="التاريخ مطلوب.")
+    project_id = _safe_int(data.get("projectId"), 0) or None
     project = (
         ProjectPage.objects.filter(pk=project_id).specific().first()
         if project_id
@@ -1852,7 +1929,15 @@ def admin_hr_overtime_create(request: HttpRequest) -> JsonResponse:
     multiplier = _to_dec(data.get("multiplier"), allow_none=True) or Decimal(
         "1.5"
     )
+    if multiplier <= 0:
+        return _api_error(
+            "invalid_multiplier", status=400, message="المعامل غير صالح."
+        )
     hourly_rate = _to_dec(data.get("hourlyRate"), allow_none=True)
+    if hourly_rate is not None and hourly_rate < 0:
+        return _api_error(
+            "invalid_hourly_rate", status=400, message="الأجر بالساعة غير صالح."
+        )
     if hourly_rate is None and w.monthly_salary:
         monthly = Decimal(str(w.monthly_salary))
         hourly_rate = (monthly / Decimal("30") / Decimal("8")).quantize(
@@ -1865,7 +1950,7 @@ def admin_hr_overtime_create(request: HttpRequest) -> JsonResponse:
         hours=hours,
         multiplier=multiplier,
         hourly_rate=hourly_rate,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -1889,22 +1974,24 @@ def admin_hr_overtime_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         w = Worker.objects.filter(pk=worker_id).first()
         if not w:
             return _api_error("worker_not_found", status=404)
         ot.worker = w
     if data.get("projectId") is not None:
-        project_id = int(data.get("projectId") or 0) or None
+        project_id = _safe_int(data.get("projectId"), 0) or None
         ot.project = (
             ProjectPage.objects.filter(pk=project_id).specific().first()
             if project_id
             else None
         )
     if data.get("date") is not None:
-        date = _to_date(data.get("date"))
+        date = _safe_date(data.get("date"))
         if not date:
-            return _api_error("missing_date", status=400)
+            return _api_error(
+                "missing_date", status=400, message="التاريخ مطلوب."
+            )
         ot.date = date
     if data.get("hours") is not None:
         hours = _to_dec(data.get("hours"), allow_none=False) or Decimal("0")
@@ -1915,10 +2002,20 @@ def admin_hr_overtime_update(
         ot.multiplier = _to_dec(
             data.get("multiplier"), allow_none=True
         ) or Decimal("1.5")
+        if ot.multiplier <= 0:
+            return _api_error(
+                "invalid_multiplier", status=400, message="المعامل غير صالح."
+            )
     if data.get("hourlyRate") is not None:
         ot.hourly_rate = _to_dec(data.get("hourlyRate"), allow_none=True)
+        if ot.hourly_rate is not None and ot.hourly_rate < 0:
+            return _api_error(
+                "invalid_hourly_rate",
+                status=400,
+                message="الأجر بالساعة غير صالح.",
+            )
     if data.get("notes") is not None:
-        ot.notes = str(data.get("notes") or "").strip()
+        ot.notes = _clean_text(data.get("notes"), 4000) or ""
     ot.save()
     _audit_ops(
         request,
@@ -1988,13 +2085,13 @@ def admin_hr_social_security(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = SocialSecurityRecord.objects.select_related("worker")
-    worker_id = int(request.GET.get("workerId") or 0) or None
+    worker_id = _safe_int(request.GET.get("workerId"), 0) or None
     if worker_id:
         qs = qs.filter(worker_id=worker_id)
-    year = int(request.GET.get("year") or 0) or None
+    year = _safe_int(request.GET.get("year"), 0) or None
     if year:
         qs = qs.filter(year=year)
-    month = int(request.GET.get("month") or 0) or None
+    month = _safe_int(request.GET.get("month"), 0) or None
     if month and 1 <= month <= 12:
         qs = qs.filter(month=month)
     items: list[dict[str, Any]] = []
@@ -2023,12 +2120,12 @@ def admin_hr_social_security_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    worker_id = int(data.get("workerId") or 0) or 0
+    worker_id = _safe_int(data.get("workerId"), 0) or 0
     w = Worker.objects.filter(pk=worker_id).first()
     if not w:
         return _api_error("worker_not_found", status=404)
-    year = int(data.get("year") or 0) or 0
-    month = int(data.get("month") or 0) or 0
+    year = _safe_int(data.get("year"), 0) or 0
+    month = _safe_int(data.get("month"), 0) or 0
     if not (1900 <= year <= 2200):
         return _api_error("invalid_year", status=400)
     if not (1 <= month <= 12):
@@ -2042,6 +2139,10 @@ def admin_hr_social_security_create(request: HttpRequest) -> JsonResponse:
     employer_share = _to_dec(
         data.get("employerShare"), allow_none=False
     ) or Decimal("0")
+    if min(gross_salary, employee_share, employer_share) < 0:
+        return _api_error(
+            "invalid_amount", status=400, message="المبالغ غير صالحة."
+        )
     ss = SocialSecurityRecord.objects.create(
         worker=w,
         year=year,
@@ -2050,7 +2151,7 @@ def admin_hr_social_security_create(request: HttpRequest) -> JsonResponse:
         employee_share=employee_share,
         employer_share=employer_share,
         paid=bool(data.get("paid")),
-        paid_date=_to_date(data.get("paidDate")),
+        paid_date=_safe_date(data.get("paidDate")),
     )
     _audit_ops(
         request,
@@ -2074,18 +2175,18 @@ def admin_hr_social_security_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("workerId") is not None:
-        worker_id = int(data.get("workerId") or 0) or 0
+        worker_id = _safe_int(data.get("workerId"), 0) or 0
         w = Worker.objects.filter(pk=worker_id).first()
         if not w:
             return _api_error("worker_not_found", status=404)
         ss.worker = w
     if data.get("year") is not None:
-        year = int(data.get("year") or 0) or 0
+        year = _safe_int(data.get("year"), 0) or 0
         if not (1900 <= year <= 2200):
             return _api_error("invalid_year", status=400)
         ss.year = year
     if data.get("month") is not None:
-        month = int(data.get("month") or 0) or 0
+        month = _safe_int(data.get("month"), 0) or 0
         if not (1 <= month <= 12):
             return _api_error("invalid_month", status=400)
         ss.month = month
@@ -2101,10 +2202,21 @@ def admin_hr_social_security_update(
         ss.employer_share = _to_dec(
             data.get("employerShare"), allow_none=False
         ) or Decimal("0")
+    if (
+        min(
+            ss.gross_salary or Decimal("0"),
+            ss.employee_share or Decimal("0"),
+            ss.employer_share or Decimal("0"),
+        )
+        < 0
+    ):
+        return _api_error(
+            "invalid_amount", status=400, message="المبالغ غير صالحة."
+        )
     if data.get("paid") is not None:
         ss.paid = bool(data.get("paid"))
     if data.get("paidDate") is not None:
-        ss.paid_date = _to_date(data.get("paidDate"))
+        ss.paid_date = _safe_date(data.get("paidDate"))
     ss.save()
     _audit_ops(
         request,
@@ -2153,7 +2265,7 @@ def admin_hr_social_security_mark_paid(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     ss.paid = True
-    ss.paid_date = _to_date(data.get("paidDate")) or timezone.localdate()
+    ss.paid_date = _safe_date(data.get("paidDate")) or timezone.localdate()
     ss.save()
     _audit_ops(
         request,

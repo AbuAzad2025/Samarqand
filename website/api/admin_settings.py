@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import math
+import os
 import re
+from functools import wraps
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -34,13 +37,253 @@ from website.models import Worker
 logger = logging.getLogger(__name__)
 
 
-def _setting_str(data: dict[str, Any], key: str, current: Any) -> str:
+from .common import *
+
+# ---------------------------------------------------------------------------
+# Strict input validation with short, non-technical Arabic messages.
+# ---------------------------------------------------------------------------
+
+_api_error_base = _api_error
+
+_SAFE_MESSAGES: dict[str, str] = {
+    "unauthorized": "يرجى تسجيل الدخول أولاً.",
+    "forbidden": "لا تملك صلاحية لتنفيذ هذا الإجراء.",
+    "not_found": "العنصر المطلوب غير موجود.",
+    "site_not_found": "تعذّر تحديد الموقع.",
+    "invalid_input": "البيانات المدخلة غير صالحة. يرجى مراجعتها والمحاولة مجدداً.",
+    "invalid_image": "الصورة المحددة غير صالحة.",
+    "invalid_env_var": "اسم متغير المفتاح غير صالح.",
+    "invalid_temperature": "قيمة الحرارة غير صالحة.",
+    "invalid_max_output_tokens": "الحد الأقصى للرموز غير صالح.",
+    "invalid_currencyDefault": "العملة المحددة غير صالحة.",
+    "invalid_items": "بيانات البنود غير صالحة.",
+    "invalid_value": "القيمة المدخلة غير صالحة.",
+    "missing_username": "يرجى إدخال اسم المستخدم.",
+    "invalid_role": "الدور المحدد غير صالح.",
+}
+
+
+def _err(
+    code: str,
+    *,
+    status: int = 400,
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> JsonResponse:
+    safe = (
+        message or _SAFE_MESSAGES.get(code) or _SAFE_MESSAGES["invalid_input"]
+    )
+    return _api_error_base(code, status=status, message=safe, details=details)
+
+
+class _InputError(Exception):
+    """A validation failure whose message is safe to display to an admin."""
+
+    def __init__(self, message: str, code: str = "invalid_input") -> None:
+        super().__init__(message)
+        self.message = message
+        self.code = code
+
+
+def _validated(view_func: Any) -> Any:
+    @wraps(view_func)
+    def _wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return view_func(request, *args, **kwargs)
+        except _InputError as exc:
+            return _err(exc.code, message=exc.message)
+
+    return _wrapped
+
+
+def _text(value: Any, label: str, *, max_len: int = 255) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.")
+    result = value.strip()
+    if len(result) > max_len:
+        raise _InputError(f"يجب ألا يتجاوز {label} {max_len} حرفاً.")
+    return result
+
+
+_LONG_TEXT = 100_000
+
+_LONG_SETTING_KEYS = {
+    "description",
+    "mission",
+    "vision",
+    "companyContext",
+    "designAnalyzerPrompt",
+    "contentGeneratorPrompt",
+    "chatPrompt",
+    "visualizerPrompt",
+    "heroLead",
+    "newsletterSubtitle",
+}
+
+_SETTING_LABELS = {
+    "name": "اسم الشركة",
+    "brandTitle": "عنوان العلامة",
+    "brandSubtitle": "عنوان العلامة الفرعي",
+    "slogan": "الشعار",
+    "description": "الوصف",
+    "mission": "الرسالة",
+    "vision": "الرؤية",
+    "topbarSlogan": "شعار الشريط العلوي",
+    "address": "العنوان",
+    "registrationStatus": "حالة التسجيل",
+    "chamberMembership": "العضوية في الغرفة",
+    "classification": "التصنيف",
+    "email": "البريد الإلكتروني",
+    "phone1": "الهاتف الأول",
+    "phone2": "الهاتف الثاني",
+    "facebookUrl": "رابط فيسبوك",
+    "instagramUrl": "رابط إنستغرام",
+    "linkedinUrl": "رابط لينكدإن",
+    "heroTitleLine1": "عنوان الهيرو الأول",
+    "heroTitleLine2": "عنوان الهيرو الثاني",
+    "heroLead": "مقدمة الهيرو",
+    "heroPrimaryCtaLabel": "نص الزر الأساسي",
+    "heroPrimaryCtaUrl": "رابط الزر الأساسي",
+    "heroSecondaryCtaLabel": "نص الزر الثانوي",
+    "heroSecondaryCtaUrl": "رابط الزر الثانوي",
+    "newsletterTitle": "عنوان النشرة",
+    "newsletterSubtitle": "وصف النشرة",
+    "geminiApiKeyEnvVar": "اسم متغير المفتاح",
+    "geminiModel": "النموذج",
+    "companyContext": "سياق الشركة",
+    "designAnalyzerPrompt": "برومبت تحليل التصميم",
+    "contentGeneratorPrompt": "برومبت توليد المحتوى",
+    "chatPrompt": "برومبت المحادثة",
+    "visualizerPrompt": "برومبت التخيل",
+    "visualizerDefaultStyle": "النمط الافتراضي",
+    "visualizerDefaultAspectRatio": "نسبة الأبعاد",
+    "visualizerPlaceholderPrimaryHex": "اللون الأساسي",
+    "visualizerPlaceholderSecondaryHex": "اللون الثانوي",
+    "visualizerPlaceholderFooterText": "نص التذييل",
+}
+
+
+def _setting_str(
+    data: dict[str, Any], key: str, current: Any, *, max_len: int | None = None
+) -> str:
     """Missing key keeps the old value; an explicit empty string clears it."""
     value = data.get(key)
-    return str(current) if value is None else str(value)
+    if value is None:
+        return str(current)
+    if max_len is None:
+        max_len = _LONG_TEXT if key in _LONG_SETTING_KEYS else 255
+    return _text(value, _SETTING_LABELS.get(key, "القيمة"), max_len=max_len)
 
 
-from .common import *
+def _bool(value: Any, label: str, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+    raise _InputError(f"قيمة {label} غير صالحة.")
+
+
+def _number(
+    value: Any,
+    label: str,
+    *,
+    low: float,
+    high: float,
+    code: str = "invalid_input",
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    try:
+        number = float(str(value).strip())
+    except (TypeError, ValueError):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    if not math.isfinite(number) or number < low or number > high:
+        raise _InputError(f"يجب أن يكون {label} بين {low} و {high}.", code)
+    return number
+
+
+def _safe_json(value: Any, *, depth: int = 0) -> None:
+    """Limit size and nesting of free-form settings without changing its shape."""
+    if depth > 4:
+        raise _InputError("البيانات المدخلة غير صالحة.", "invalid_value")
+    if isinstance(value, str):
+        if len(value) > 1000:
+            raise _InputError("أحد النصوص المدخلة طويل جداً.", "invalid_value")
+    elif isinstance(value, (int, float, bool)) or value is None:
+        return
+    elif isinstance(value, list):
+        if len(value) > 200:
+            raise _InputError("عدد العناصر كبير جداً.", "invalid_value")
+        for item in value:
+            _safe_json(item, depth=depth + 1)
+    elif isinstance(value, dict):
+        if len(value) > 200:
+            raise _InputError("عدد العناصر كبير جداً.", "invalid_value")
+        for key, item in value.items():
+            if not isinstance(key, str) or len(key) > 128:
+                raise _InputError("مفتاح العنصر غير صالح.", "invalid_value")
+            _safe_json(item, depth=depth + 1)
+    else:
+        raise _InputError("البيانات المدخلة غير صالحة.", "invalid_value")
+
+
+def _integer(
+    value: Any, label: str, *, low: int, high: int, code: str = "invalid_input"
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise _InputError(f"يرجى إدخال {label} بشكل صحيح.", code)
+    if number < low or number > high:
+        raise _InputError(f"يجب أن يكون {label} بين {low} و {high}.", code)
+    return number
+
+
+def _image(value: Any) -> Any:
+    """Resolve an image id, or None when the field is being cleared/omitted."""
+    if value is None or value == "":
+        return None
+    pk = _integer(value, "الصورة", low=1, high=9_223_372_036_854_775_807)
+    try:
+        from wagtail.images import get_image_model
+
+        ImageModel = get_image_model()
+        img = ImageModel.objects.filter(pk=pk).first()
+    except Exception:
+        img = None
+    if not img:
+        raise _InputError("الصورة المحددة غير صالحة.", "invalid_image")
+    return img
+
+
+def _gemini_key_available(s: Any) -> bool:
+    """Only report AI as active when an API key is actually configured."""
+    env_name = _text(
+        str(getattr(s, "gemini_api_key_env_var", "") or ""),
+        "اسم متغير المفتاح",
+        max_len=64,
+    )
+    if not re.fullmatch(r"GEMINI[A-Z0-9_]*", env_name):
+        return False
+    return bool(os.environ.get(env_name) or os.environ.get("GEMINI_API_KEY"))
+
+
+def _gemini_enabled_for(s: Any) -> bool:
+    return bool(getattr(s, "gemini_enabled", False)) and _gemini_key_available(
+        s
+    )
 
 
 def admin_summary(request: HttpRequest) -> JsonResponse:
@@ -50,7 +293,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
 
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
 
     company = CompanySettings.for_site(site)
     home = HomePageSettings.for_site(site)
@@ -65,7 +308,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
         warnings.append("البريد الإلكتروني غير محدد.")
     if not home.hero_background_image:
         warnings.append("خلفية الهيرو غير محددة.")
-    if ai and not ai.gemini_enabled:
+    if not (ai and _gemini_enabled_for(ai)):
         warnings.append("Gemini غير مفعل في إعدادات الذكاء الاصطناعي.")
 
     counts = {
@@ -101,7 +344,7 @@ def admin_company_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     logo_id = getattr(company.logo_image, "id", None)
     return _api_ok(
@@ -134,13 +377,14 @@ def admin_company_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     data = _read_json(request)
     company.name = _setting_str(data, "name", company.name)
@@ -179,20 +423,7 @@ def admin_company_settings_update(request: HttpRequest) -> JsonResponse:
     )
 
     if data.get("logoImageId") is not None:
-        val = data.get("logoImageId")
-        if val in {"", None}:
-            company.logo_image = None
-        else:
-            try:
-                from wagtail.images import get_image_model
-
-                ImageModel = get_image_model()
-                img = ImageModel.objects.filter(pk=int(str(val))).first()
-            except Exception:
-                img = None
-            if not img:
-                return _api_error("invalid_image", status=400)
-            company.logo_image = img
+        company.logo_image = _image(data.get("logoImageId"))
 
     company.save()
     return _api_ok()
@@ -204,7 +435,7 @@ def admin_home_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     hero_bg_id = getattr(home.hero_background_image, "id", None)
     hero_bg_url = _image_url(request, home.hero_background_image)
@@ -231,13 +462,14 @@ def admin_home_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     data = _read_json(request)
     home.hero_title_line_1 = _setting_str(
@@ -266,23 +498,8 @@ def admin_home_settings_update(request: HttpRequest) -> JsonResponse:
         data, "newsletterSubtitle", home.newsletter_subtitle
     )
 
-    hero_bg_id = data.get("heroBackgroundImageId")
-    if hero_bg_id is None:
-        pass
-    else:
-        if hero_bg_id in {"", None}:
-            home.hero_background_image = None
-        else:
-            try:
-                from wagtail.images import get_image_model
-
-                ImageModel = get_image_model()
-                img = ImageModel.objects.filter(pk=int(str(hero_bg_id))).first()
-            except Exception:
-                img = None
-            if not img:
-                return _api_error("invalid_image", status=400)
-            home.hero_background_image = img
+    if data.get("heroBackgroundImageId") is not None:
+        home.hero_background_image = _image(data.get("heroBackgroundImageId"))
 
     home.save()
     return _api_ok()
@@ -294,13 +511,13 @@ def admin_ai_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     s = AISettings.for_site(site)
     return _api_ok(
         {
             "geminiApiKeyEnvVar": s.gemini_api_key_env_var,
             "geminiModel": s.gemini_model,
-            "geminiEnabled": s.gemini_enabled,
+            "geminiEnabled": _gemini_enabled_for(s),
             "temperature": s.temperature,
             "maxOutputTokens": s.max_output_tokens,
             "companyContext": s.company_context,
@@ -318,45 +535,54 @@ def admin_ai_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     s = AISettings.for_site(site)
     data = _read_json(request)
     requested_env_var = _setting_str(
-        data, "geminiApiKeyEnvVar", s.gemini_api_key_env_var
+        data, "geminiApiKeyEnvVar", s.gemini_api_key_env_var, max_len=64
     ).strip()
     if requested_env_var != s.gemini_api_key_env_var:
         # Changing the env-var name could be used to read arbitrary secrets
         # from the process environment. Restrict it to Gemini names and to
         # superusers only.
         if not getattr(request.user, "is_superuser", False):
-            return _api_error("forbidden", status=403)
+            return _err("forbidden", status=403)
         if not re.fullmatch(r"GEMINI[A-Z0-9_]*", requested_env_var):
-            return _api_error("invalid_env_var", status=400)
+            return _err("invalid_env_var", status=400)
     s.gemini_api_key_env_var = requested_env_var
-    s.gemini_model = _setting_str(data, "geminiModel", s.gemini_model)
-    s.gemini_enabled = bool(
-        data.get("geminiEnabled")
-        if data.get("geminiEnabled") is not None
-        else s.gemini_enabled
+    s.gemini_model = _setting_str(
+        data, "geminiModel", s.gemini_model, max_len=64
     )
+    requested_enabled = _bool(
+        data.get("geminiEnabled"),
+        "حالة التفعيل",
+        default=bool(s.gemini_enabled),
+    )
+    # Do not persist a claim that AI is enabled unless a key is really present.
+    s.gemini_enabled = bool(requested_enabled) and _gemini_key_available(s)
     temp_val = data.get("temperature")
     if temp_val is not None:
-        try:
-            s.temperature = float(temp_val)
-        except Exception:
-            return _api_error("invalid_temperature", status=400)
+        s.temperature = _number(
+            temp_val, "الحرارة", low=0.0, high=2.0, code="invalid_temperature"
+        )
     max_val = data.get("maxOutputTokens")
     if max_val is not None:
-        try:
-            s.max_output_tokens = int(max_val)
-        except Exception:
-            return _api_error("invalid_max_output_tokens", status=400)
+        s.max_output_tokens = int(
+            _number(
+                max_val,
+                "الحد الأقصى للرموز",
+                low=1,
+                high=1_000_000,
+                code="invalid_max_output_tokens",
+            )
+        )
     s.company_context = _setting_str(data, "companyContext", s.company_context)
     s.design_analyzer_prompt = _setting_str(
         data, "designAnalyzerPrompt", s.design_analyzer_prompt
@@ -371,19 +597,28 @@ def admin_ai_settings_update(request: HttpRequest) -> JsonResponse:
     s.visualizer_default_style = _setting_str(
         data, "visualizerDefaultStyle", s.visualizer_default_style
     )
-    s.visualizer_default_aspect_ratio = _setting_str(
-        data, "visualizerDefaultAspectRatio", s.visualizer_default_aspect_ratio
-    )
-    s.visualizer_placeholder_primary_hex = _setting_str(
-        data,
-        "visualizerPlaceholderPrimaryHex",
-        s.visualizer_placeholder_primary_hex,
-    )
-    s.visualizer_placeholder_secondary_hex = _setting_str(
-        data,
-        "visualizerPlaceholderSecondaryHex",
-        s.visualizer_placeholder_secondary_hex,
-    )
+    if "visualizerDefaultAspectRatio" in data:
+        ratio = _text(
+            data.get("visualizerDefaultAspectRatio"), "نسبة الأبعاد", max_len=8
+        )
+        if ratio not in {"1:1", "4:3", "16:9", "9:16"}:
+            raise _InputError("نسبة الأبعاد غير صالحة.")
+        s.visualizer_default_aspect_ratio = ratio
+    for key, attr in (
+        (
+            "visualizerPlaceholderPrimaryHex",
+            "visualizer_placeholder_primary_hex",
+        ),
+        (
+            "visualizerPlaceholderSecondaryHex",
+            "visualizer_placeholder_secondary_hex",
+        ),
+    ):
+        if key in data:
+            color = _setting_str(data, key, getattr(s, attr), max_len=7)
+            if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
+                raise _InputError("اللون غير صالح؛ استخدم صيغة #RRGGBB.")
+            setattr(s, attr, color)
     s.visualizer_placeholder_footer_text = _setting_str(
         data,
         "visualizerPlaceholderFooterText",
@@ -399,7 +634,7 @@ def admin_calculator_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     s = CalculatorSettings.for_site(site)
     items = (
         s.items
@@ -434,81 +669,75 @@ def admin_calculator_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     s = CalculatorSettings.for_site(site)
     data = _read_json(request)
     if data.get("currencyDefault") is not None:
-        val = str(data.get("currencyDefault") or "").strip().upper()
+        val = _text(data.get("currencyDefault"), "العملة", max_len=8).upper()
         if val not in {"ILS", "USD"}:
-            return _api_error("invalid_currencyDefault", status=400)
+            raise _InputError(
+                "العملة المحددة غير صالحة.", "invalid_currencyDefault"
+            )
         s.currency_default = val
-    raw_usd_to_ils = data.get("usdToIlsRate")
-    if raw_usd_to_ils is not None:
-        try:
-            s.usd_to_ils_rate = float(raw_usd_to_ils)
-        except Exception:
-            return _api_error("invalid_usdToIlsRate", status=400)
-    raw_overhead = data.get("overheadPercent")
-    if raw_overhead is not None:
-        try:
-            s.overhead_percent = float(raw_overhead)
-        except Exception:
-            return _api_error("invalid_overheadPercent", status=400)
-    raw_profit = data.get("profitPercent")
-    if raw_profit is not None:
-        try:
-            s.profit_percent = float(raw_profit)
-        except Exception:
-            return _api_error("invalid_profitPercent", status=400)
-    raw_contingency = data.get("contingencyPercent")
-    if raw_contingency is not None:
-        try:
-            s.contingency_percent = float(raw_contingency)
-        except Exception:
-            return _api_error("invalid_contingencyPercent", status=400)
+    for key, attr, low, high in (
+        ("usdToIlsRate", "usd_to_ils_rate", 0.0001, 1_000_000),
+        ("overheadPercent", "overhead_percent", 0, 100),
+        ("profitPercent", "profit_percent", 0, 100),
+        ("contingencyPercent", "contingency_percent", 0, 100),
+        ("vatPercent", "vat_percent", 0, 100),
+    ):
+        raw_val = data.get(key)
+        if raw_val is not None:
+            setattr(s, attr, _number(raw_val, key, low=low, high=high))
     if data.get("includeVat") is not None:
-        s.include_vat = bool(data.get("includeVat"))
-    raw_vat = data.get("vatPercent")
-    if raw_vat is not None:
-        try:
-            s.vat_percent = float(raw_vat)
-        except Exception:
-            return _api_error("invalid_vatPercent", status=400)
+        s.include_vat = _bool(data.get("includeVat"), "ضريبة القيمة المضافة")
     if data.get("items") is not None:
         items = data.get("items")
-        if not isinstance(items, list):
-            return _api_error("invalid_items", status=400)
+        if not isinstance(items, list) or len(items) > 400:
+            raise _InputError("بيانات البنود غير صالحة.", "invalid_items")
         cleaned: list[dict[str, Any]] = []
-        for raw in items[:400]:
+        for raw in items:
             if not isinstance(raw, dict):
-                continue
-            key = str(raw.get("key") or "").strip()
+                raise _InputError("بيانات البنود غير صالحة.", "invalid_items")
+            key = _text(raw.get("key"), "مفتاح البند", max_len=64)
             if not key:
-                continue
-            label = str(raw.get("label") or "").strip()
-            category = str(raw.get("category") or "").strip()
-            unit = str(raw.get("unit") or "").strip()
-            basis = str(raw.get("basis") or "").strip()
-            try:
-                factor = float(raw.get("factor") or 0.0)
-                unit_price_ils = float(raw.get("unitPriceIls") or 0.0)
-            except Exception:
-                return _api_error("invalid_items", status=400)
-            enabled = bool(raw.get("enabled", True))
+                raise _InputError("بيانات البنود غير صالحة.", "invalid_items")
+            label = _text(raw.get("label"), "اسم البند", max_len=128)
+            category = _text(raw.get("category"), "الفئة", max_len=64)
+            unit = _text(raw.get("unit"), "الوحدة", max_len=16)
+            basis = _text(raw.get("basis"), "الأساس", max_len=32)
+            raw_factor = raw.get("factor")
+            raw_price = raw.get("unitPriceIls")
+            factor = _number(
+                0 if raw_factor is None else raw_factor,
+                "المعامل",
+                low=0,
+                high=1_000_000,
+                code="invalid_items",
+            )
+            unit_price_ils = _number(
+                0 if raw_price is None else raw_price,
+                "السعر",
+                low=0,
+                high=1_000_000_000,
+                code="invalid_items",
+            )
+            enabled = _bool(raw.get("enabled"), "التفعيل", default=True)
             if basis not in {"area_total", "area_per_floor"}:
                 basis = "area_total"
             cleaned.append(
                 {
-                    "key": key[:64],
-                    "label": label[:128] if label else key[:64],
-                    "category": category[:64] if category else "Ø£Ø®Ø±Ù‰",
-                    "unit": unit[:16] if unit else "Ù…Â²",
+                    "key": key,
+                    "label": label or key,
+                    "category": category or "Ø£Ø®Ø±Ù‰",
+                    "unit": unit or "Ù…Â²",
                     "basis": basis,
                     "factor": factor,
                     "unitPriceIls": unit_price_ils,
@@ -534,10 +763,17 @@ def admin_calculator_settings_update(request: HttpRequest) -> JsonResponse:
         raw_val: Any = data.get(key)
         if raw_val is None:
             continue
-        try:
-            setattr(s, attr, float(raw_val))
-        except Exception:
-            return _api_error(f"invalid_{key}", status=400)
+        setattr(
+            s,
+            attr,
+            _number(
+                raw_val,
+                key,
+                low=0,
+                high=1_000_000_000,
+                code=f"invalid_{key}",
+            ),
+        )
     s.save()
     return _api_ok()
 
@@ -548,7 +784,7 @@ def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
     return _api_ok(
         {
@@ -577,13 +813,14 @@ def admin_visibility_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
     data = _read_json(request)
     for key, attr in [
@@ -610,12 +847,13 @@ def admin_visibility_settings_update(request: HttpRequest) -> JsonResponse:
     ]:
         if data.get(key) is None:
             continue
-        setattr(v, attr, bool(data.get(key)))
+        setattr(v, attr, _bool(data.get(key), key))
     v.save()
     return _api_ok()
 
 
 @require_POST
+@_validated
 def admin_users(request: HttpRequest) -> JsonResponse:
     forbidden = _require_superuser(request)
     if forbidden:
@@ -627,12 +865,16 @@ def admin_users(request: HttpRequest) -> JsonResponse:
         return limited
 
     data = _read_json(request)
-    username = str(data.get("username") or "").strip()
-    password = str(data.get("password") or "").strip()
-    role = str(data.get("role") or "manager").strip()
+    username = _text(data.get("username"), "اسم المستخدم", max_len=150)
+    password = _text(data.get("password"), "كلمة المرور", max_len=128)
+    role = _text(data.get("role"), "الدور", max_len=32) or "manager"
 
     if not username:
-        return _api_error("missing_username", status=400)
+        return _err("missing_username", status=400)
+    if not re.fullmatch(r"[\w.@+-]+", username):
+        raise _InputError("اسم المستخدم غير صالح.")
+    if password and len(password) < 8:
+        raise _InputError("يجب ألا تقل كلمة المرور عن 8 أحرف.")
 
     allowed_roles = {
         "guest",
@@ -644,7 +886,7 @@ def admin_users(request: HttpRequest) -> JsonResponse:
         "superadmin",
     }
     if role not in allowed_roles:
-        return _api_error("invalid_role", status=400)
+        return _err("invalid_role", status=400)
 
     User = get_user_model()
     obj, created = User.objects.get_or_create(username=username)
@@ -698,7 +940,10 @@ def admin_users_list(request: HttpRequest) -> JsonResponse:
     forbidden = _require_superuser(request)
     if forbidden:
         return forbidden
-    limit = int(request.GET.get("limit") or 200) or 200
+    try:
+        limit = int(str(request.GET.get("limit") or "200").strip()) or 200
+    except (TypeError, ValueError):
+        limit = 200
     limit = max(1, min(limit, 500))
     User = get_user_model()
     qs = (
@@ -745,7 +990,7 @@ def admin_content_settings(request: HttpRequest) -> JsonResponse:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     from website.models import SiteContentSettings
 
     content = SiteContentSettings.for_site(site)
@@ -760,19 +1005,22 @@ def admin_content_settings(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST
+@_validated
 def admin_content_settings_update(request: HttpRequest) -> JsonResponse:
     forbidden = _require_manager(request)
     if forbidden:
         return forbidden
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _err("site_not_found", status=400)
     from website.models import SiteContentSettings
 
     data = _read_json(request)
     content = SiteContentSettings.for_site(site)
     if "workingHours" in data:
-        content.working_hours = str(data["workingHours"] or "")[:255]
+        content.working_hours = _text(
+            data["workingHours"], "ساعات العمل", max_len=255
+        )
     for field, key in (
         ("values", "values"),
         ("headings", "headings"),
@@ -781,7 +1029,8 @@ def admin_content_settings_update(request: HttpRequest) -> JsonResponse:
         if key in data:
             value = data[key]
             if not isinstance(value, (list, dict)):
-                return _api_error("invalid_value", status=400)
+                raise _InputError("القيمة المدخلة غير صالحة.", "invalid_value")
+            _safe_json(value)
             setattr(content, field, value)
     content.save()
     return _api_ok()

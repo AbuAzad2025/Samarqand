@@ -16,14 +16,18 @@
         p { margin: 0 0 10px; color: #374151; line-height: 1.6; }
         a { color: #2563eb; }
         code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+        .sq-skip-link { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+        .sq-skip-link:focus { position: fixed; top: 8px; right: 8px; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; padding: 8px 14px; border-radius: 8px; background: #007A3D; color: #fff; z-index: 100; font-weight: 700; }
+        #sq-main-content:focus { outline: none; }
       </style>
     </head>
     <body>
-      <div class="box">
+      <a class="sq-skip-link" href="#sq-main-content">تخطَّ إلى المحتوى الرئيسي</a>
+      <main class="box" id="sq-main-content" tabindex="-1">
         <h1>لم يتم بناء واجهة سمر قند بعد</h1>
         <p>شغّل <code>npm run build</code> داخل <code>frontend/samarqand</code>؛ سيكتب Vite الناتج مباشرة في <code>website/static/website/samarqand_spa/</code>.</p>
         <p>إدارة المحتوى متاحة من <a href="/control/dashboard">لوحة التحكم</a>.</p>
-      </div>
+      </main>
     </body>
   </html>
 {% endif %}

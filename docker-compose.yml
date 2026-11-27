@@ -24,6 +24,9 @@ services:
       DB_PORT: 5432
       SERVE_MEDIA: "false"
       AUTO_MIGRATE: "false"
+      # Containers keep the published port; bare-metal deployments use the
+      # app's private Unix socket (the gunicorn config default).
+      GUNICORN_BIND: "0.0.0.0:8000"
     ports:
       - "8000:8000"
     depends_on:

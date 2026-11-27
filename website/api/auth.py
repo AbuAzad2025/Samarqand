@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
@@ -20,6 +21,15 @@ from .two_factor import verify_totp
 
 logger = logging.getLogger(__name__)
 
+# One generic response for every credential failure, whether or not the
+# supplied username exists, is active or is allowed to use the control panel.
+_GENERIC_LOGIN_FAILURE_MESSAGE = (
+    "تعذّر تسجيل الدخول. تحقق من اسم المستخدم وكلمة المرور ثم حاول مرة أخرى."
+)
+# Short, uniform floor for credential checks; longer waits are enforced by
+# the lockout below (via Retry-After), not by blocking a server worker.
+_LOGIN_UNIFORM_DELAY_SECONDS = 0.05
+
 
 from .common import *
 
@@ -28,14 +38,14 @@ def csrf_failure(
     request: HttpRequest, reason: str = ""
 ) -> JsonResponse | HttpResponse:
     if str(getattr(request, "path", "") or "").startswith("/api/"):
-        msg = "فشل التحقق الأمني. حدّث الصفحة ثم أعد المحاولة."
+        # Django's reason may reveal trusted origins/configuration. Keep it in
+        # the server log only and always return the same opaque message.
         if reason:
-            return _api_error(
-                "csrf_failed",
-                status=403,
-                message=msg,
-                details={"reason": reason},
+            safe_reason = (
+                str(reason)[:200].replace("\r", " ").replace("\n", " ")
             )
+            logger.warning("CSRF failure on %s: %s", request.path, safe_reason)
+        msg = "فشل التحقق الأمني. حدّث الصفحة ثم أعد المحاولة."
         return _api_error("csrf_failed", status=403, message=msg)
     return HttpResponse(
         "CSRF Failed", status=403, content_type="text/plain; charset=utf-8"
@@ -58,19 +68,53 @@ def auth_login(request: HttpRequest) -> JsonResponse:
     data = _read_json(request)
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
+    code = str(data.get("code") or "").strip()
+
+    locked = _check_failure_lock(request, "auth_login", username)
+    if locked:
+        return locked
+
+    # Spend the same bounded time on every credential check so a missing
+    # account cannot be identified by timing. The floor is tiny and capped;
+    # longer waits are enforced by lockout + Retry-After, never by sleeping
+    # a server worker for a meaningful duration.
+    started = time.monotonic()
     user = authenticate(request, username=username, password=password)
-    if not user:
-        return _api_error("invalid_credentials", status=401)
-    if not getattr(user, "is_active", False):
-        return _api_error("inactive", status=403)
-    if not getattr(user, "is_staff", False):
-        return _api_error("forbidden", status=403)
+    remaining = _LOGIN_UNIFORM_DELAY_SECONDS - (time.monotonic() - started)
+    if remaining > 0:
+        time.sleep(remaining)
+
+    if (
+        not user
+        or not getattr(user, "is_active", False)
+        or not getattr(user, "is_staff", False)
+    ):
+        _record_failure(request, "auth_login", username)
+        return _api_error(
+            "invalid_credentials",
+            status=401,
+            message=_GENERIC_LOGIN_FAILURE_MESSAGE,
+        )
+    # Valid credentials: reset only this account's failure counter, never the
+    # source-IP counter (which also protects other accounts).
+    _clear_failures(request, "auth_login", username, subject_only=True)
+
     profile = TotpProfile.objects.filter(user=user, enabled=True).first()
     if profile:
-        code = str(data.get("code") or "").strip()
         if not code:
             return _api_error("two_factor_required", status=401)
-        if not verify_totp(profile.secret, code):
+        profile_locked = _check_failure_lock(
+            request, "totp_login", str(profile.pk)
+        )
+        if profile_locked:
+            return profile_locked
+        if not verify_totp(
+            profile.secret,
+            code,
+            request=request,
+            profile=profile,
+            purpose="login",
+        ):
             return _api_error("invalid_code", status=401)
     django_login(request, user)
     return _api_ok()
@@ -137,6 +181,10 @@ def auth_change_password(request: HttpRequest) -> JsonResponse:
     if not getattr(user, "is_staff", False):
         return _api_error("forbidden", status=403)
 
+    locked = _check_failure_lock(request, "auth_change_password", str(user.pk))
+    if locked:
+        return locked
+
     data = _read_json(request)
     old_password = str(data.get("oldPassword") or "")
     new_password = str(data.get("newPassword") or "")
@@ -145,7 +193,11 @@ def auth_change_password(request: HttpRequest) -> JsonResponse:
         return _api_error("missing_fields", status=400)
 
     if not user.check_password(old_password):
+        _record_failure(request, "auth_change_password", str(user.pk))
         return _api_error("invalid_old_password", status=400)
+    _clear_failures(
+        request, "auth_change_password", str(user.pk), subject_only=True
+    )
 
     user.set_password(new_password)
     user.save()

@@ -44,6 +44,9 @@ from website.models import Worker
 logger = logging.getLogger(__name__)
 
 
+from .admin_accounts import _bounded_search
+from .admin_accounts import _clean_text
+from .admin_accounts import _safe_int
 from .common import *
 
 
@@ -77,24 +80,26 @@ def admin_ops_inventory_items_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
-    it = InventoryItem.objects.create(
-        sku=str(data.get("sku") or "").strip(),
-        name=name,
-        unit=str(data.get("unit") or "").strip(),
-        current_qty=_to_dec(data.get("currentQty"), allow_none=False)
-        or Decimal("0"),
-        reorder_level=_to_dec(data.get("reorderLevel"), allow_none=True),
-        notes=str(data.get("notes") or "").strip(),
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
+    current_qty = _to_dec(data.get("currentQty"), allow_none=False) or Decimal(
+        "0"
     )
-    if it.current_qty is not None and it.current_qty < 0:
-        it.delete()
-        return _api_error("invalid_quantity", status=400)
-    if it.reorder_level is not None and it.reorder_level < 0:
-        it.delete()
-        return _api_error("invalid_quantity", status=400)
+    reorder_level = _to_dec(data.get("reorderLevel"), allow_none=True)
+    # Validate before writing so a rejected request never leaves a row behind.
+    if current_qty < 0 or (reorder_level is not None and reorder_level < 0):
+        return _api_error(
+            "invalid_quantity", status=400, message="الكمية غير صالحة."
+        )
+    it = InventoryItem.objects.create(
+        sku=_clean_text(data.get("sku"), 64) or "",
+        name=name,
+        unit=_clean_text(data.get("unit"), 32) or "",
+        current_qty=current_qty,
+        reorder_level=reorder_level,
+        notes=_clean_text(data.get("notes"), 4000) or "",
+    )
     _audit_ops(
         request,
         action="ops_inventory_item_create",
@@ -133,11 +138,11 @@ def admin_ops_inventory_items_update(
     }
     data = _read_json(request)
     if data.get("sku") is not None:
-        it.sku = str(data.get("sku") or "").strip()
+        it.sku = _clean_text(data.get("sku"), 64) or ""
     if data.get("name") is not None:
-        it.name = str(data.get("name") or "").strip()
+        it.name = _clean_text(data.get("name"), 255) or ""
     if data.get("unit") is not None:
-        it.unit = str(data.get("unit") or "").strip()
+        it.unit = _clean_text(data.get("unit"), 32) or ""
     if data.get("currentQty") is not None:
         it.current_qty = _to_dec(
             data.get("currentQty"), allow_none=False
@@ -145,9 +150,9 @@ def admin_ops_inventory_items_update(
     if data.get("reorderLevel") is not None:
         it.reorder_level = _to_dec(data.get("reorderLevel"), allow_none=True)
     if data.get("notes") is not None:
-        it.notes = str(data.get("notes") or "").strip()
+        it.notes = _clean_text(data.get("notes"), 4000) or ""
     if not it.name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     if it.current_qty is not None and it.current_qty < 0:
         return _api_error("invalid_quantity", status=400)
     if it.reorder_level is not None and it.reorder_level < 0:
@@ -207,7 +212,7 @@ def admin_ops_inventory_transactions(request: HttpRequest) -> JsonResponse:
     forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
-    item_id = int(request.GET.get("itemId") or 0) or None
+    item_id = _safe_int(request.GET.get("itemId"), 0) or None
     qs = InventoryTransaction.objects.select_related("item", "project")
     if item_id:
         qs = qs.filter(item_id=item_id)
@@ -243,7 +248,7 @@ def admin_ops_inventory_transactions_create(
     if forbidden:
         return forbidden
     data = _read_json(request)
-    item_id = int(data.get("itemId") or 0) or 0
+    item_id = _safe_int(data.get("itemId"), 0)
     it = InventoryItem.objects.filter(pk=item_id).first()
     if not it:
         return _api_error("invalid_item", status=400)
@@ -259,7 +264,7 @@ def admin_ops_inventory_transactions_create(
     unit_cost = _to_dec(data.get("unitCost"), allow_none=True)
     if unit_cost is not None and unit_cost < 0:
         return _api_error("invalid_unit_cost", status=400)
-    project_id = int(data.get("projectId") or 0) or None
+    project_id = _safe_int(data.get("projectId"), 0) or None
     project = (
         ProjectPage.objects.filter(pk=project_id).specific().first()
         if project_id
@@ -292,8 +297,8 @@ def admin_ops_inventory_transactions_create(
             quantity=qty,
             unit_cost=unit_cost,
             date=tx_date,
-            reference=str(data.get("reference") or "").strip(),
-            notes=str(data.get("notes") or "").strip(),
+            reference=_clean_text(data.get("reference"), 128) or "",
+            notes=_clean_text(data.get("notes"), 4000) or "",
             created_by=created_by,
         )
         if kind == InventoryTransaction.KIND_IN:
@@ -355,15 +360,25 @@ def admin_ops_equipment_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
+    status = str(data.get("status") or Equipment.STATUS_AVAILABLE).strip()
+    if status not in dict(Equipment.STATUS_CHOICES):
+        return _api_error(
+            "invalid_status", status=400, message="الحالة غير صالحة."
+        )
+    hourly_cost = _to_dec(data.get("hourlyCost"), allow_none=True)
+    if hourly_cost is not None and hourly_cost < 0:
+        return _api_error(
+            "invalid_hourly_cost", status=400, message="التكلفة غير صالحة."
+        )
     e = Equipment.objects.create(
         name=name,
-        code=str(data.get("code") or "").strip(),
-        status=str(data.get("status") or Equipment.STATUS_AVAILABLE).strip(),
-        hourly_cost=_to_dec(data.get("hourlyCost"), allow_none=True),
-        notes=str(data.get("notes") or "").strip(),
+        code=_clean_text(data.get("code"), 64) or "",
+        status=status,
+        hourly_cost=hourly_cost,
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     return _api_ok({"id": e.id})
 
@@ -380,17 +395,26 @@ def admin_ops_equipment_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("name") is not None:
-        e.name = str(data.get("name") or "").strip()
+        e.name = _clean_text(data.get("name"), 255) or ""
     if data.get("code") is not None:
-        e.code = str(data.get("code") or "").strip()
+        e.code = _clean_text(data.get("code"), 64) or ""
     if data.get("status") is not None:
-        e.status = str(data.get("status") or "").strip()
+        status = str(data.get("status") or "").strip()
+        if status not in dict(Equipment.STATUS_CHOICES):
+            return _api_error(
+                "invalid_status", status=400, message="الحالة غير صالحة."
+            )
+        e.status = status
     if data.get("hourlyCost") is not None:
         e.hourly_cost = _to_dec(data.get("hourlyCost"), allow_none=True)
+        if e.hourly_cost is not None and e.hourly_cost < 0:
+            return _api_error(
+                "invalid_hourly_cost", status=400, message="التكلفة غير صالحة."
+            )
     if data.get("notes") is not None:
-        e.notes = str(data.get("notes") or "").strip()
+        e.notes = _clean_text(data.get("notes"), 4000) or ""
     if not e.name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     e.save()
     return _api_ok()
 
@@ -454,7 +478,7 @@ def admin_ops_assignments_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    project_id = int(data.get("projectId") or 0) or None
+    project_id = _safe_int(data.get("projectId"), 0) or None
     project = (
         ProjectPage.objects.filter(pk=project_id).specific().first()
         if project_id
@@ -465,8 +489,8 @@ def admin_ops_assignments_create(request: HttpRequest) -> JsonResponse:
     ).strip()
     if resource_type not in {k for k, _ in ResourceAssignment.RESOURCE_CHOICES}:
         return _api_error("invalid_resourceType", status=400)
-    worker_id = int(data.get("workerId") or 0) or None
-    equipment_id = int(data.get("equipmentId") or 0) or None
+    worker_id = _safe_int(data.get("workerId"), 0) or None
+    equipment_id = _safe_int(data.get("equipmentId"), 0) or None
     worker = Worker.objects.filter(pk=worker_id).first() if worker_id else None
     equipment = (
         Equipment.objects.filter(pk=equipment_id).first()
@@ -502,7 +526,7 @@ def admin_ops_assignments_create(request: HttpRequest) -> JsonResponse:
         end_date=end_date,
         hours_per_day=_to_dec(data.get("hoursPerDay"), allow_none=True),
         cost_override=_to_dec(data.get("costOverride"), allow_none=True),
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     return _api_ok({"id": a.id})
 
@@ -519,7 +543,7 @@ def admin_ops_assignments_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("projectId") is not None:
-        pid = int(data.get("projectId") or 0) or None
+        pid = _safe_int(data.get("projectId"), 0) or None
         a.project = (
             ProjectPage.objects.filter(pk=pid).specific().first()
             if pid
@@ -531,10 +555,10 @@ def admin_ops_assignments_update(
             return _api_error("invalid_resourceType", status=400)
         a.resource_type = rt
     if data.get("workerId") is not None:
-        wid = int(data.get("workerId") or 0) or None
+        wid = _safe_int(data.get("workerId"), 0) or None
         a.worker = Worker.objects.filter(pk=wid).first() if wid else None
     if data.get("equipmentId") is not None:
-        eid = int(data.get("equipmentId") or 0) or None
+        eid = _safe_int(data.get("equipmentId"), 0) or None
         a.equipment = Equipment.objects.filter(pk=eid).first() if eid else None
     if a.resource_type == ResourceAssignment.RESOURCE_WORKER:
         a.equipment = None
@@ -559,7 +583,7 @@ def admin_ops_assignments_update(
     if data.get("costOverride") is not None:
         a.cost_override = _to_dec(data.get("costOverride"), allow_none=True)
     if data.get("notes") is not None:
-        a.notes = str(data.get("notes") or "").strip()
+        a.notes = _clean_text(data.get("notes"), 4000) or ""
     a.save()
     return _api_ok()
 
@@ -591,22 +615,22 @@ def admin_ops_audit_logs(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     qs = OpsAuditLog.objects.select_related("actor")
-    action = str(request.GET.get("action") or "").strip()
+    action = _bounded_search(request.GET.get("action"), 128)
     if action:
         qs = qs.filter(action=action)
-    entity_type = str(request.GET.get("entityType") or "").strip()
+    entity_type = _bounded_search(request.GET.get("entityType"), 64)
     if entity_type:
         qs = qs.filter(entity_type=entity_type)
-    entity_id = str(request.GET.get("entityId") or "").strip()
+    entity_id = _bounded_search(request.GET.get("entityId"), 128)
     if entity_id:
         qs = qs.filter(entity_id=entity_id)
-    actor_id = int(request.GET.get("actorId") or 0) or None
+    actor_id = _safe_int(request.GET.get("actorId"), 0) or None
     if actor_id:
         qs = qs.filter(actor_id=actor_id)
-    since_id = int(request.GET.get("sinceId") or 0) or None
+    since_id = _safe_int(request.GET.get("sinceId"), 0) or None
     if since_id:
         qs = qs.filter(id__gt=since_id)
-    limit = int(request.GET.get("limit") or 200) or 200
+    limit = _safe_int(request.GET.get("limit"), 200) or 200
     limit = max(1, min(limit, 500))
     items: list[dict[str, Any]] = []
     for r in qs.order_by("-id")[:limit]:
@@ -679,9 +703,11 @@ def admin_ops_permission_rules_update(request: HttpRequest) -> JsonResponse:
     if not user or not getattr(user, "is_superuser", False):
         return _api_error("forbidden", status=403)
     data = _read_json(request)
-    code = str(data.get("code") or "").strip()
+    code = _clean_text(data.get("code"), 64, required=True)
     if not code:
-        return _api_error("missing_code", status=400)
+        return _api_error(
+            "missing_code", status=400, message="رمز القاعدة مطلوب."
+        )
     allowed_roles = data.get("allowedRoles")
     if allowed_roles is not None and not isinstance(allowed_roles, list):
         return _api_error("invalid_allowedRoles", status=400)
@@ -712,7 +738,7 @@ def admin_ops_timeclock_runs(request: HttpRequest) -> JsonResponse:
     forbidden = _require_ops_timeclock_import(request)
     if forbidden:
         return forbidden
-    limit = int(request.GET.get("limit") or 50) or 50
+    limit = _safe_int(request.GET.get("limit"), 50) or 50
     limit = max(1, min(limit, 200))
     qs = OpsTimeclockImportRun.objects.select_related(
         "actor", "default_project"

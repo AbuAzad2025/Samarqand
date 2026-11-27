@@ -6,10 +6,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from wagtail.admin.panels import FieldPanel
 from wagtail.images import get_image_model_string
 from wagtail.snippets.models import register_snippet
+
+from ._formatting import to_arabic_digits as _to_arabic_digits
 
 
 @register_snippet
@@ -58,6 +61,11 @@ class HomeAIMetric(models.Model):
 
     def __str__(self) -> str:
         return self.label
+
+    @property
+    def value_ar(self) -> str:
+        """Digit-only metric values are rendered with Arabic-Indic digits."""
+        return _to_arabic_digits(self.value)
 
 
 @register_snippet
@@ -112,6 +120,10 @@ class HomeStat(models.Model):
 
     def __str__(self) -> str:
         return self.label
+
+    @property
+    def value_ar(self) -> str:
+        return _to_arabic_digits(self.value)
 
 
 @register_snippet
@@ -179,6 +191,10 @@ class TeamMember(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def experience_ar(self) -> str:
+        return _to_arabic_digits(self.experience)
+
 
 @register_snippet
 class Testimonial(models.Model):
@@ -207,3 +223,17 @@ class Testimonial(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def rating_ar(self) -> str:
+        return _to_arabic_digits(self.rating)
+
+    def clean(self) -> None:
+        try:
+            value = int(self.rating)
+        except (TypeError, ValueError):
+            raise ValidationError(
+                {"rating": "التقييم يجب أن يكون رقماً صحيحاً."}
+            ) from None
+        if value < 0 or value > 5:
+            raise ValidationError({"rating": "التقييم يجب أن يكون بين ٠ و ٥."})

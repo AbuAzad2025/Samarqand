@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from website.models import Lead
 
+from .admin_accounts import _bounded_search
 from .common import *
 
 
@@ -55,10 +56,10 @@ def admin_leads(request: HttpRequest) -> JsonResponse:
         return forbidden
 
     qs = Lead.objects.select_related("assigned_to")
-    status = str(request.GET.get("status") or "").strip()
+    status = _bounded_search(request.GET.get("status"), 32)
     if status in {key for key, _ in Lead.STATUS_CHOICES}:
         qs = qs.filter(status=status)
-    search = str(request.GET.get("search") or "").strip()
+    search = _bounded_search(request.GET.get("search"), 120)
     if search:
         from django.db.models import Q
 

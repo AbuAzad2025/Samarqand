@@ -18,6 +18,14 @@ from typing import Any
 from django.conf import settings
 from django.db import models
 
+from ._formatting import EMPTY_VALUE as _EMPTY_VALUE
+from ._formatting import format_choice as _format_choice
+from ._formatting import format_date as _format_date
+from ._formatting import format_datetime as _format_datetime
+from ._formatting import format_integer as _format_integer
+from ._formatting import format_number as _format_number
+from ._formatting import related_label as _related_label
+from ._formatting import validate_date_range as _validate_date_range
 from .operations import InventoryItem
 from .operations import PurchaseOrder
 from .pages import ProjectPage
@@ -107,6 +115,35 @@ class CorrespondenceRegister(models.Model):
     def __str__(self) -> str:
         return f"{self.reference_number} — {self.subject}"
 
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def direction_label(self) -> str:
+        return _format_choice(self, "direction")
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def response_due_date_ar(self) -> str:
+        return _format_date(self.response_due_date)
+
+    @property
+    def responded_at_ar(self) -> str:
+        return _format_datetime(self.responded_at)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.date,
+            self.response_due_date,
+            "response_due_date",
+            "تاريخ المراسلة",
+            "تاريخ استحقاق الرد",
+        )
+
 
 class MeetingMinutes(models.Model):
     MEETING_SITE = "site"
@@ -183,7 +220,23 @@ class MeetingMinutes(models.Model):
         verbose_name_plural = "محاضر الاجتماعات"
 
     def __str__(self) -> str:
-        return f"{self.meeting_number} — {self.project.title}"
+        return (
+            f"{self.meeting_number} — "
+            f"{_related_label(self, 'project', 'title')} "
+            f"({self.meeting_date_ar})"
+        )
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def meeting_type_label(self) -> str:
+        return _format_choice(self, "meeting_type")
+
+    @property
+    def meeting_date_ar(self) -> str:
+        return _format_date(self.meeting_date)
 
 
 class MeetingActionItem(models.Model):
@@ -233,6 +286,18 @@ class MeetingActionItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.item_number} — {self.description[:30]}"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def due_date_ar(self) -> str:
+        return _format_date(self.due_date)
+
+    @property
+    def completed_at_ar(self) -> str:
+        return _format_datetime(self.completed_at)
 
 
 class DailySiteReport(models.Model):
@@ -309,7 +374,22 @@ class DailySiteReport(models.Model):
         verbose_name_plural = "التقارير اليومية"
 
     def __str__(self) -> str:
-        return f"تقرير {self.date} — {self.project.title}"
+        return (
+            f"تقرير {_format_date(self.date)} — "
+            f"{_related_label(self, 'project', 'title')}"
+        )
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def workers_ar(self) -> str:
+        return _format_integer(self.total_workers)
+
+    @property
+    def submitted_at_ar(self) -> str:
+        return _format_datetime(self.submitted_at)
 
 
 class MaterialDeliveryNote(models.Model):
@@ -368,6 +448,14 @@ class MaterialDeliveryNote(models.Model):
     def __str__(self) -> str:
         return f"GRN {self.id} — {self.supplier_name}"
 
+    @property
+    def delivery_date_ar(self) -> str:
+        return _format_date(self.delivery_date)
+
+    @property
+    def supplier_label(self) -> str:
+        return self.supplier_name or _EMPTY_VALUE
+
 
 class MaterialDeliveryNoteItem(models.Model):
     note: models.ForeignKey["MaterialDeliveryNote", "MaterialDeliveryNote"] = (
@@ -408,6 +496,14 @@ class MaterialDeliveryNoteItem(models.Model):
         ordering = ["id"]
         verbose_name = "بند مذكرة استلام"
         verbose_name_plural = "بنود مذكرات الاستلام"
+
+    @property
+    def total_ar(self) -> str:
+        return _format_number(self.total)
+
+    @property
+    def quantity_ar(self) -> str:
+        return _format_number(self.quantity, decimals=3)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         from decimal import Decimal
@@ -520,6 +616,26 @@ class RFI(models.Model):
     def __str__(self) -> str:
         return f"{self.rfi_number} — {self.subject}"
 
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def priority_label(self) -> str:
+        return _format_choice(self, "priority")
+
+    @property
+    def category_label(self) -> str:
+        return _format_choice(self, "category")
+
+    @property
+    def submitted_at_ar(self) -> str:
+        return _format_datetime(self.submitted_at)
+
+    @property
+    def days_to_respond_ar(self) -> str:
+        return _format_integer(self.days_to_respond)
+
 
 class NCR(models.Model):
     SEVERITY_MINOR = "minor"
@@ -611,6 +727,31 @@ class NCR(models.Model):
     def __str__(self) -> str:
         return f"{self.ncr_number} — {self.location}"
 
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def severity_label(self) -> str:
+        return _format_choice(self, "severity")
+
+    @property
+    def date_ar(self) -> str:
+        return _format_date(self.date)
+
+    @property
+    def action_deadline_ar(self) -> str:
+        return _format_date(self.action_deadline)
+
+    def clean(self) -> None:
+        _validate_date_range(
+            self.date,
+            self.action_deadline,
+            "action_deadline",
+            "تاريخ المخالفة",
+            "موعد الإجراء التصحيحي",
+        )
+
 
 class Submittal(models.Model):
     CATEGORY_MATERIAL_SAMPLE = "material_sample"
@@ -695,3 +836,19 @@ class Submittal(models.Model):
 
     def __str__(self) -> str:
         return f"{self.submittal_number} — {self.title}"
+
+    @property
+    def status_label(self) -> str:
+        return _format_choice(self, "status")
+
+    @property
+    def category_label(self) -> str:
+        return _format_choice(self, "category")
+
+    @property
+    def submitted_at_ar(self) -> str:
+        return _format_datetime(self.submitted_at)
+
+    @property
+    def responded_at_ar(self) -> str:
+        return _format_datetime(self.responded_at)

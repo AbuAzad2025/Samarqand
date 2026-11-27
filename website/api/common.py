@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import ipaddress
 import json
 import logging
 import os
@@ -89,13 +91,29 @@ def _api_error(
     )
 
 
+def _is_trusted_proxy(request: HttpRequest) -> bool:
+    """True only when the direct peer is an explicitly configured proxy."""
+    remote = str(request.META.get("REMOTE_ADDR") or "").strip()
+    trusted = set(getattr(settings, "TRUSTED_PROXY_IPS", None) or [])
+    return bool(remote and remote in trusted)
+
+
+def _clean_forwarded_ip(value: str) -> str:
+    candidate = str(value or "").split(",")[0].strip()[:64]
+    try:
+        return str(ipaddress.ip_address(candidate))
+    except ValueError:
+        return ""
+
+
 def _client_ip(request: HttpRequest) -> str:
     """Return the client IP, honouring X-Forwarded-For only from trusted proxies."""
     remote = str(request.META.get("REMOTE_ADDR") or "").strip() or "unknown"
-    trusted = set(getattr(settings, "TRUSTED_PROXY_IPS", None) or [])
     forwarded = str(request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
-    if trusted and remote in trusted and forwarded:
-        return forwarded.split(",")[0].strip() or remote
+    if forwarded and _is_trusted_proxy(request):
+        cleaned = _clean_forwarded_ip(forwarded)
+        if cleaned:
+            return cleaned
     return remote
 
 
@@ -140,13 +158,123 @@ def _check_rate_limit(
         )
 
     now = int(time.time())
-    retry_after = win - (now % win)
-    return _api_error(
+    retry_after = max(1, win - (now % win))
+    response = _api_error(
         "rate_limited",
         status=429,
         message="تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً.",
         details={"retryAfterSeconds": retry_after},
     )
+    response["Retry-After"] = str(retry_after)
+    return response
+
+
+def _identifier_digest(value: str) -> str:
+    """Hash identifiers before placing them in cache keys or log messages."""
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()[:24]
+
+
+def _failure_keys(request: HttpRequest, scope: str, subject: str) -> list[str]:
+    # One bucket per source IP and one per subject: this stops both a single
+    # IP spraying many accounts and many IPs targeting the same account.
+    ip_digest = _identifier_digest(_client_ip(request))
+    subject_digest = _identifier_digest(subject)
+    return [
+        f"fail:{scope}:ip:{ip_digest}",
+        f"fail:{scope}:sub:{subject_digest}",
+    ]
+
+
+def _check_failure_lock(
+    request: HttpRequest, scope: str, subject: str
+) -> JsonResponse | None:
+    """Return a generic 429 response while a failure lockout is active."""
+    now = int(time.time())
+    retry_after = 0
+    for key in _failure_keys(request, scope, subject):
+        try:
+            until = int(cache.get(f"{key}:lock") or 0)
+        except Exception:
+            continue
+        if until > now:
+            retry_after = max(retry_after, until - now)
+    if not retry_after:
+        return None
+    retry_after = max(1, retry_after)
+    response = _api_error(
+        "rate_limited",
+        status=429,
+        message="محاولات فاشلة كثيرة. يرجى الانتظار ثم المحاولة مرة أخرى.",
+        details={"retryAfterSeconds": retry_after},
+    )
+    response["Retry-After"] = str(retry_after)
+    return response
+
+
+def _record_failure(
+    request: HttpRequest,
+    scope: str,
+    subject: str,
+    *,
+    limit: int = 5,
+    window_seconds: int = 300,
+    base_lock_seconds: int = 30,
+    max_lock_seconds: int = 300,
+) -> None:
+    """Count a failed attempt and apply a short, graduated lockout."""
+    keys = _failure_keys(request, scope, subject)
+    max_count = 0
+    for key in keys:
+        try:
+            if cache.add(key, 1, timeout=window_seconds):
+                count = 1
+            else:
+                count = int(cache.incr(key) or 1)
+            max_count = max(max_count, count)
+        except Exception:
+            # The shared API limiter fails closed before this point; a counter
+            # failure must never become a 500 or silently bypass a check.
+            return
+    bounded_limit = max(1, int(limit))
+    if max_count <= bounded_limit:
+        return
+    over = max_count - bounded_limit - 1
+    lock_seconds = min(
+        max(1, int(max_lock_seconds)),
+        max(1, int(base_lock_seconds)) * (2 ** min(4, max(0, over))),
+    )
+    until = int(time.time()) + lock_seconds
+    for key in keys:
+        try:
+            cache.set(f"{key}:lock", until, timeout=lock_seconds)
+        except Exception:
+            pass
+
+
+def _clear_failures(
+    request: HttpRequest,
+    scope: str,
+    subject: str,
+    *,
+    subject_only: bool = False,
+) -> None:
+    keys = _failure_keys(request, scope, subject)
+    if subject_only:
+        keys = keys[1:]
+    for key in keys:
+        try:
+            cache.delete(key)
+            cache.delete(f"{key}:lock")
+        except Exception:
+            pass
+
+
+def _claim_once(key: str, timeout_seconds: int) -> bool:
+    """Atomically consume a one-shot token (e.g. a TOTP code for one step)."""
+    try:
+        return bool(cache.add(key, 1, timeout=max(1, int(timeout_seconds))))
+    except Exception:
+        return False
 
 
 def _fail(exc: Exception, code: str, log_message: str) -> JsonResponse:
@@ -2039,6 +2167,10 @@ __all__ = [
     "_calculator_response",
     "_can_use_restricted_tools",
     "_chat_reply",
+    "_check_failure_lock",
+    "_claim_once",
+    "_clean_forwarded_ip",
+    "_clear_failures",
     "_check_rate_limit",
     "_company_logo_as_jpeg",
     "_create_placeholder_visual",
@@ -2052,7 +2184,9 @@ __all__ = [
     "_get_calc_settings",
     "_get_site",
     "_hex_to_rgb",
+    "_identifier_digest",
     "_image_rendition_url",
+    "_is_trusted_proxy",
     "_image_url",
     "_ops_rule_allowed_roles",
     "_page_type_label",
@@ -2063,6 +2197,7 @@ __all__ = [
     "_project_cover_url",
     "_projects_index",
     "_rate_limit_key",
+    "_record_failure",
     "_read_json",
     "_require_accounting",
     "_require_fleet_read",

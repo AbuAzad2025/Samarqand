@@ -11,16 +11,19 @@ from pathlib import Path
 from typing import Any
 from typing import Iterator
 
+from django.db.models import Prefetch
 from django.http import HttpRequest
 from django.http import JsonResponse
 from django.http import StreamingHttpResponse
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_safe
 from wagtail.models import Page
 
 from website.models import ArticleIndexPage
 from website.models import ArticlePage
 from website.models import CompanySettings
 from website.models import EventIndexPage
+from website.models import EventOccurrence
 from website.models import EventPage
 from website.models import HomeAIFeature
 from website.models import HomeAIMetric
@@ -31,6 +34,7 @@ from website.models import HomeTrustBadge
 from website.models import Lead
 from website.models import LocationIndexPage
 from website.models import LocationPage
+from website.models import ProjectGalleryImage
 from website.models import ProjectIndexPage
 from website.models import ProjectPage
 from website.models import ServicePage
@@ -44,6 +48,42 @@ logger = logging.getLogger(__name__)
 
 from .common import *
 from .common import _streamfield_to_html
+
+# Stable machine codes keep the API contract; the message is always a short,
+# Arabic, user-facing explanation. No exception text, path or setting name is
+# ever included in a public error response.
+_PUBLIC_ERROR_MESSAGES: dict[str, str] = {
+    "invalid_name": "الاسم غير صالح. استخدم من 2 إلى 255 حرفاً.",
+    "invalid_phone": "رقم الهاتف غير صالح.",
+    "invalid_email": "البريد الإلكتروني غير صالح.",
+    "invalid_project_type": "نوع المشروع غير صالح.",
+    "invalid_message": "الرسالة طويلة جداً.",
+    "invalid_source": "مصدر الطلب غير صالح.",
+    "invalid_area": "المساحة غير صالحة. أدخل رقماً أكبر من صفر ولا يتجاوز 100000 م².",
+    "invalid_floors": "عدد الطوابق غير صالح. أدخل رقماً صحيحاً من 1 إلى 20.",
+    "invalid_description": "التفاصيل طويلة جداً.",
+    "invalid_topic": "الموضوع طويل جداً.",
+    "invalid_style": "الطراز غير صالح.",
+    "invalid_aspect_ratio": "نسبة أبعاد الصورة غير صالحة.",
+    "invalid_slug": "الرابط المطلوب غير صالح.",
+    "invalid_project_status": "حالة المشروع غير صالحة.",
+    "invalid_content_type": "نوع المحتوى غير صالح.",
+    "not_found": "المحتوى المطلوب غير موجود.",
+    "site_not_found": "الموقع غير متاح حالياً.",
+    "calculation_failed": "تعذّر إجراء الحساب. تحقق من المدخلات وحاول مجدداً.",
+    "ai_not_configured": "ميزات الذكاء الاصطناعي غير متاحة حالياً.",
+}
+
+
+def _public_error(code: str, *, status: int = 400) -> JsonResponse:
+    """Return an opaque code plus an understandable Arabic message."""
+    return _api_error(
+        code,
+        status=status,
+        message=_PUBLIC_ERROR_MESSAGES.get(
+            code, "تعذّر إتمام الطلب. يرجى المحاولة لاحقاً."
+        ),
+    )
 
 
 @require_POST
@@ -65,18 +105,18 @@ def site_leads_create(request: HttpRequest) -> JsonResponse:
     source = str(data.get("source") or Lead.SOURCE_WEBSITE).strip()
 
     if len(name) < 2 or len(name) > 255:
-        return _api_error("invalid_name", status=400)
+        return _public_error("invalid_name", status=400)
     if not (7 <= len(phone) <= 20):
-        return _api_error("invalid_phone", status=400)
+        return _public_error("invalid_phone", status=400)
     if email and ("@" not in email or len(email) > 254):
-        return _api_error("invalid_email", status=400)
+        return _public_error("invalid_email", status=400)
     if len(project_type) > 128:
-        return _api_error("invalid_project_type", status=400)
+        return _public_error("invalid_project_type", status=400)
     if len(message) > 4000:
-        return _api_error("invalid_message", status=400)
+        return _public_error("invalid_message", status=400)
     allowed_sources = {key for key, _ in Lead.SOURCE_CHOICES}
     if source not in allowed_sources:
-        return _api_error("invalid_source", status=400)
+        return _public_error("invalid_source", status=400)
 
     lead = Lead.objects.create(
         name=name,
@@ -91,11 +131,7 @@ def site_leads_create(request: HttpRequest) -> JsonResponse:
 
 def _require_ai_key() -> JsonResponse | None:
     if not (os.environ.get("GEMINI_API_KEY") or "").strip():
-        return _api_error(
-            "ai_not_configured",
-            status=503,
-            message="ميزات الذكاء الاصطناعي غير مُفعّلة؛ اضبط GEMINI_API_KEY.",
-        )
+        return _public_error("ai_not_configured", status=503)
     return None
 
 
@@ -117,10 +153,16 @@ def analyze_design(request: HttpRequest) -> JsonResponse:
     area_raw = str(data.get("area") or "").strip()
     description = str(data.get("description") or "").strip()
 
+    if not project_type or len(project_type) > 128:
+        return _public_error("invalid_project_type")
+    if len(description) > 4000:
+        return _public_error("invalid_description")
     try:
         area_m2 = float(area_raw)
-    except Exception:
-        area_m2 = 0.0
+    except (TypeError, ValueError):
+        return _public_error("invalid_area")
+    if not (0 < area_m2 <= 100000):
+        return _public_error("invalid_area")
 
     ai_settings = _get_ai_settings(request)
     context = ai_settings.company_context if ai_settings else ""
@@ -169,6 +211,9 @@ def generate_content(request: HttpRequest) -> JsonResponse:
     kind = str(data.get("type") or "blog").strip()
     topic = str(data.get("topic") or "").strip()
 
+    if len(kind) > 64 or len(topic) > 2000:
+        return _public_error("invalid_topic")
+
     ai_settings = _get_ai_settings(request)
     site = _get_site(request)
     company_name = (
@@ -207,14 +252,20 @@ def calculate(request: HttpRequest) -> JsonResponse:
         return limited
     data = _read_json(request)
     project_type = str(data.get("projectType") or "").strip()
+    if len(project_type) > 128:
+        return _public_error("invalid_project_type")
     try:
         area = float(data.get("area") or 0.0)
-    except Exception:
-        area = 0.0
+    except (TypeError, ValueError):
+        return _public_error("invalid_area")
+    if not (0 < area <= 100000):
+        return _public_error("invalid_area")
     try:
         floors = int(data.get("floors") or 1)
-    except Exception:
-        floors = 1
+    except (TypeError, ValueError):
+        return _public_error("invalid_floors")
+    if not (1 <= floors <= 20):
+        return _public_error("invalid_floors")
     currency = str(data.get("currency") or "").strip().upper()
     settings_obj = _get_calc_settings(request)
     try:
@@ -224,7 +275,8 @@ def calculate(request: HttpRequest) -> JsonResponse:
             )
         )
     except Exception:
-        return _api_error("calculation_failed", status=400)
+        logger.exception("Calculator request failed")
+        return _public_error("calculation_failed", status=400)
 
 
 @require_POST
@@ -245,6 +297,13 @@ def generate_visualization(request: HttpRequest) -> JsonResponse:
     description = str(data.get("description") or "").strip()
     style = str(data.get("style") or "").strip()
     aspect_ratio = str(data.get("aspectRatio") or "").strip()
+
+    if len(project_type) > 128 or len(description) > 4000:
+        return _public_error("invalid_description")
+    if len(style) > 64:
+        return _public_error("invalid_style")
+    if aspect_ratio and aspect_ratio not in {"1:1", "9:16", "4:3", "16:9"}:
+        return _public_error("invalid_aspect_ratio")
 
     ai_settings = _get_ai_settings(request)
     if ai_settings and ai_settings.visualizer_prompt:
@@ -286,6 +345,8 @@ def chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
         return unconfigured
     data = _read_json(request)
     message = str(data.get("message") or "")
+    if len(message) > 4000:
+        return _public_error("invalid_message")
 
     ai_settings = _get_ai_settings(request)
     prompt_context = ai_settings.company_context if ai_settings else ""
@@ -316,10 +377,11 @@ def chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
     return resp
 
 
+@require_safe
 def site_company(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     company = CompanySettings.for_site(site)
     logo_url = ""
     if company.logo_image and getattr(company.logo_image, "file", None):
@@ -349,10 +411,11 @@ def site_company(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_safe
 def site_config(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     v = SiteVisibilitySettings.for_site(site)
     return _api_ok(
         {
@@ -382,10 +445,11 @@ def site_config(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_safe
 def site_home(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     home = HomePageSettings.for_site(site)
     bg_url = ""
     if home.hero_background_image and getattr(
@@ -408,10 +472,11 @@ def site_home(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_safe
 def site_content(request: HttpRequest) -> JsonResponse:
     site = _get_site(request)
     if not site:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     content = SiteContentSettings.for_site(site)
     return _api_ok(
         {
@@ -423,18 +488,20 @@ def site_content(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_safe
 def site_services(request: HttpRequest) -> JsonResponse:
     root = _site_root(request)
     if not root:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     services_index = root.get_children().live().filter(slug="services").first()
     if not services_index:
         return _api_ok({"items": []})
+    # Query the specific model directly so cover_image is joined once instead
+    # of fetching it for every service in the loop.
     pages = (
-        Page.objects.child_of(services_index)
+        ServicePage.objects.child_of(services_index)
         .live()
-        .type(ServicePage)
-        .specific()
+        .select_related("cover_image")
     )
     items: list[dict[str, Any]] = []
     for p in pages:
@@ -455,10 +522,11 @@ def site_services(request: HttpRequest) -> JsonResponse:
     return _api_ok({"items": items})
 
 
+@require_safe
 def site_projects(request: HttpRequest) -> JsonResponse:
     root = _site_root(request)
     if not root:
-        return _api_error("site_not_found", status=400)
+        return _public_error("site_not_found", status=400)
     projects_index = root.get_children().live().filter(slug="projects").first()
     if not projects_index:
         return _api_ok({"items": []})
@@ -467,20 +535,16 @@ def site_projects(request: HttpRequest) -> JsonResponse:
         ProjectPage.STATUS_ONGOING,
         ProjectPage.STATUS_COMPLETED,
     }:
-        return _api_error("invalid_project_status", status=400)
+        return _public_error("invalid_project_status", status=400)
     pages = (
         ProjectPage.objects.child_of(projects_index)
         .live()
         .exclude(status=ProjectPage.STATUS_ARCHIVED)
-        .specific()
+        .select_related("cover_image")
     )
     if status:
         pages = pages.filter(status=status)
     pages = pages.order_by("path")
-    from django.db.models import Prefetch
-
-    from website.models import ProjectGalleryImage
-
     pages = pages.prefetch_related(
         Prefetch(
             "gallery_images",
@@ -534,27 +598,31 @@ def _content_index(request: HttpRequest, kind: str):
     root = _site_root(request)
     if not root:
         return None
-    children = list(root.get_children().live().specific())
+    # Resolve the index directly instead of loading every sibling as a
+    # specific page (which costs one query per page type).
     index_model = _INDEX_MODELS.get(kind)
     if index_model:
-        for page in children:
-            if isinstance(page, index_model):
-                return page
+        index = index_model.objects.child_of(root).live().first()
+        if index:
+            return index
     slugs = _INDEX_SLUGS.get(kind, set())
-    return next((page for page in children if page.slug in slugs), None)
+    if slugs:
+        return Page.objects.child_of(root).live().filter(slug__in=slugs).first()
+    return None
 
 
+@require_safe
 def site_content_list(request: HttpRequest, kind: str) -> JsonResponse:
     model = _CONTENT_MODELS.get(kind)
     if not model:
-        return _api_error("invalid_content_type", status=400)
+        return _public_error("invalid_content_type", status=400)
     index = _content_index(request, kind)
     if not index:
         return _api_ok({"items": []})
     pages = (
         model.objects.child_of(index)
         .live()
-        .specific()
+        .select_related("cover_image")
         .order_by("-first_published_at", "path")
     )
     items: list[dict[str, Any]] = []
@@ -580,24 +648,44 @@ def site_content_list(request: HttpRequest, kind: str) -> JsonResponse:
     return _api_ok({"items": items})
 
 
+@require_safe
 def site_content_detail(
     request: HttpRequest, kind: str, slug: str
 ) -> JsonResponse:
     model = _CONTENT_MODELS.get(kind)
     if not model:
-        return _api_error("invalid_content_type", status=400)
+        return _public_error("invalid_content_type", status=400)
+    if (
+        not slug
+        or len(slug) > 255
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in slug)
+    ):
+        return _public_error("invalid_slug")
     index = _content_index(request, kind)
     if not index:
-        return _api_error("not_found", status=404)
-    page = (
-        model.objects.child_of(index)
-        .live()
-        .specific()
-        .filter(slug=slug)
-        .first()
+        return _public_error("not_found", status=404)
+    queryset = (
+        model.objects.child_of(index).live().select_related("cover_image")
     )
+    if kind == "events":
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "occurrences",
+                queryset=EventOccurrence.objects.order_by("start"),
+            )
+        )
+    elif kind == "projects":
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "gallery_images",
+                queryset=ProjectGalleryImage.objects.select_related(
+                    "image"
+                ).order_by("sort_order", "id"),
+            )
+        )
+    page = queryset.filter(slug=slug).first()
     if not page:
-        return _api_error("not_found", status=404)
+        return _public_error("not_found", status=404)
     result: dict[str, Any] = {
         "id": page.id,
         "title": page.title,
@@ -630,7 +718,7 @@ def site_content_detail(
         )
     if kind == "events":
         occurrences = []
-        for occ in page.occurrences.all().order_by("start"):
+        for occ in page.occurrences.all():
             occurrences.append(
                 {
                     "start": _to_iso(getattr(occ, "start", None)),
@@ -686,7 +774,7 @@ def site_content_detail(
             except Exception:
                 pass
         gallery: list[dict[str, Any]] = []
-        for item in page.gallery_images.all().order_by("sort_order", "id"):
+        for item in page.gallery_images.all():
             url = _image_url(request, getattr(item, "image", None))
             if url:
                 gallery.append({"url": url, "caption": str(item.caption or "")})
@@ -696,9 +784,10 @@ def site_content_detail(
     return _api_ok(result)
 
 
+@require_safe
 def site_team(request: HttpRequest) -> JsonResponse:
     items: list[dict[str, Any]] = []
-    for m in TeamMember.objects.all():
+    for m in TeamMember.objects.select_related("image").all():
         image_url = ""
         if m.image and getattr(m.image, "file", None):
             image_url = _abs_url(request, m.image.file.url)
@@ -716,6 +805,7 @@ def site_team(request: HttpRequest) -> JsonResponse:
     return _api_ok({"items": items})
 
 
+@require_safe
 def site_testimonials(request: HttpRequest) -> JsonResponse:
     items: list[dict[str, Any]] = []
     for t in Testimonial.objects.all():
@@ -731,6 +821,7 @@ def site_testimonials(request: HttpRequest) -> JsonResponse:
     return _api_ok({"items": items})
 
 
+@require_safe
 def site_home_sections(request: HttpRequest) -> JsonResponse:
     badges = [
         {

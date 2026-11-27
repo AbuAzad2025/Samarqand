@@ -23,6 +23,9 @@ from website.models import Supplier
 logger = logging.getLogger(__name__)
 
 
+from .admin_accounts import _clean_text
+from .admin_accounts import _safe_int
+from .admin_accounts import _valid_email
 from .common import *
 
 
@@ -31,7 +34,16 @@ def admin_ops_clients(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     items: list[dict[str, Any]] = []
-    for c in Client.objects.all():
+    for c in Client.objects.only(
+        "id",
+        "name",
+        "phone",
+        "email",
+        "address",
+        "notes",
+        "created_at",
+        "updated_at",
+    ).order_by("id"):
         items.append(
             {
                 "id": c.id,
@@ -53,15 +65,20 @@ def admin_ops_clients_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
+    email = _clean_text(data.get("email"), 254) or ""
+    if email and not _valid_email(email):
+        return _api_error(
+            "invalid_email", status=400, message="البريد الإلكتروني غير صالح."
+        )
     c = Client.objects.create(
         name=name,
-        phone=str(data.get("phone") or "").strip(),
-        email=str(data.get("email") or "").strip(),
-        address=str(data.get("address") or "").strip(),
-        notes=str(data.get("notes") or "").strip(),
+        phone=_clean_text(data.get("phone"), 64) or "",
+        email=email,
+        address=_clean_text(data.get("address"), 500) or "",
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     return _api_ok({"id": c.id})
 
@@ -78,17 +95,24 @@ def admin_ops_clients_update(
         return _api_error("not_found", status=404)
     data = _read_json(request)
     if data.get("name") is not None:
-        c.name = str(data.get("name") or "").strip()
+        c.name = _clean_text(data.get("name"), 255) or ""
     if data.get("phone") is not None:
-        c.phone = str(data.get("phone") or "").strip()
+        c.phone = _clean_text(data.get("phone"), 64) or ""
     if data.get("email") is not None:
-        c.email = str(data.get("email") or "").strip()
+        email = _clean_text(data.get("email"), 254) or ""
+        if email and not _valid_email(email):
+            return _api_error(
+                "invalid_email",
+                status=400,
+                message="البريد الإلكتروني غير صالح.",
+            )
+        c.email = email
     if data.get("address") is not None:
-        c.address = str(data.get("address") or "").strip()
+        c.address = _clean_text(data.get("address"), 500) or ""
     if data.get("notes") is not None:
-        c.notes = str(data.get("notes") or "").strip()
+        c.notes = _clean_text(data.get("notes"), 4000) or ""
     if not c.name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     c.save()
     return _api_ok()
 
@@ -156,8 +180,8 @@ def admin_ops_client_contacts_create(
     row = ClientContactLog.objects.create(
         client=c,
         kind=kind,
-        subject=str(data.get("subject") or "").strip(),
-        body=str(data.get("body") or "").strip(),
+        subject=_clean_text(data.get("subject"), 300) or "",
+        body=_clean_text(data.get("body"), 10000) or "",
         created_by=(
             getattr(request, "user", None)
             if getattr(
@@ -196,16 +220,21 @@ def admin_ops_suppliers_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
+    email = _clean_text(data.get("email"), 254) or ""
+    if email and not _valid_email(email):
+        return _api_error(
+            "invalid_email", status=400, message="البريد الإلكتروني غير صالح."
+        )
     s = Supplier.objects.create(
         name=name,
-        category=str(data.get("category") or "").strip(),
-        phone=str(data.get("phone") or "").strip(),
-        email=str(data.get("email") or "").strip(),
-        address=str(data.get("address") or "").strip(),
-        notes=str(data.get("notes") or "").strip(),
+        category=_clean_text(data.get("category"), 255) or "",
+        phone=_clean_text(data.get("phone"), 64) or "",
+        email=email,
+        address=_clean_text(data.get("address"), 500) or "",
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -237,19 +266,26 @@ def admin_ops_suppliers_update(
     }
     data = _read_json(request)
     if data.get("name") is not None:
-        s.name = str(data.get("name") or "").strip()
+        s.name = _clean_text(data.get("name"), 255) or ""
     if data.get("category") is not None:
-        s.category = str(data.get("category") or "").strip()
+        s.category = _clean_text(data.get("category"), 255) or ""
     if data.get("phone") is not None:
-        s.phone = str(data.get("phone") or "").strip()
+        s.phone = _clean_text(data.get("phone"), 64) or ""
     if data.get("email") is not None:
-        s.email = str(data.get("email") or "").strip()
+        email = _clean_text(data.get("email"), 254) or ""
+        if email and not _valid_email(email):
+            return _api_error(
+                "invalid_email",
+                status=400,
+                message="البريد الإلكتروني غير صالح.",
+            )
+        s.email = email
     if data.get("address") is not None:
-        s.address = str(data.get("address") or "").strip()
+        s.address = _clean_text(data.get("address"), 500) or ""
     if data.get("notes") is not None:
-        s.notes = str(data.get("notes") or "").strip()
+        s.notes = _clean_text(data.get("notes"), 4000) or ""
     if not s.name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     s.save()
     after = {
         "name": s.name,
@@ -319,16 +355,21 @@ def admin_ops_subcontractors_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    name = str(data.get("name") or "").strip()
+    name = _clean_text(data.get("name"), 255, required=True)
     if not name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
+    email = _clean_text(data.get("email"), 254) or ""
+    if email and not _valid_email(email):
+        return _api_error(
+            "invalid_email", status=400, message="البريد الإلكتروني غير صالح."
+        )
     s = Subcontractor.objects.create(
         name=name,
-        specialty=str(data.get("specialty") or "").strip(),
-        phone=str(data.get("phone") or "").strip(),
-        email=str(data.get("email") or "").strip(),
-        address=str(data.get("address") or "").strip(),
-        notes=str(data.get("notes") or "").strip(),
+        specialty=_clean_text(data.get("specialty"), 255) or "",
+        phone=_clean_text(data.get("phone"), 64) or "",
+        email=email,
+        address=_clean_text(data.get("address"), 500) or "",
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -360,19 +401,26 @@ def admin_ops_subcontractors_update(
     }
     data = _read_json(request)
     if data.get("name") is not None:
-        s.name = str(data.get("name") or "").strip()
+        s.name = _clean_text(data.get("name"), 255) or ""
     if data.get("specialty") is not None:
-        s.specialty = str(data.get("specialty") or "").strip()
+        s.specialty = _clean_text(data.get("specialty"), 255) or ""
     if data.get("phone") is not None:
-        s.phone = str(data.get("phone") or "").strip()
+        s.phone = _clean_text(data.get("phone"), 64) or ""
     if data.get("email") is not None:
-        s.email = str(data.get("email") or "").strip()
+        email = _clean_text(data.get("email"), 254) or ""
+        if email and not _valid_email(email):
+            return _api_error(
+                "invalid_email",
+                status=400,
+                message="البريد الإلكتروني غير صالح.",
+            )
+        s.email = email
     if data.get("address") is not None:
-        s.address = str(data.get("address") or "").strip()
+        s.address = _clean_text(data.get("address"), 500) or ""
     if data.get("notes") is not None:
-        s.notes = str(data.get("notes") or "").strip()
+        s.notes = _clean_text(data.get("notes"), 4000) or ""
     if not s.name:
-        return _api_error("missing_name", status=400)
+        return _api_error("missing_name", status=400, message="الاسم مطلوب.")
     s.save()
     after = {
         "name": s.name,
@@ -449,8 +497,8 @@ def admin_ops_contracts_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    project_id = int(data.get("projectId") or 0) or None
-    client_id = int(data.get("clientId") or 0) or None
+    project_id = _safe_int(data.get("projectId"), 0) or None
+    client_id = _safe_int(data.get("clientId"), 0) or None
     project = None
     if project_id:
         project = ProjectPage.objects.filter(pk=project_id).specific().first()
@@ -476,13 +524,13 @@ def admin_ops_contracts_create(request: HttpRequest) -> JsonResponse:
     row = ProjectContract.objects.create(
         project=project,
         client=client,
-        title=str(data.get("title") or "").strip(),
-        number=str(data.get("number") or "").strip(),
+        title=_clean_text(data.get("title"), 300) or "",
+        number=_clean_text(data.get("number"), 64) or "",
         status=status,
         start_date=start_date,
         end_date=end_date,
         amount=amount,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -526,19 +574,19 @@ def admin_ops_contracts_update(
     }
     data = _read_json(request)
     if data.get("projectId") is not None:
-        pid = int(data.get("projectId") or 0) or None
+        pid = _safe_int(data.get("projectId"), 0) or None
         row.project = (
             ProjectPage.objects.filter(pk=pid).specific().first()
             if pid
             else None
         )
     if data.get("clientId") is not None:
-        cid = int(data.get("clientId") or 0) or None
+        cid = _safe_int(data.get("clientId"), 0) or None
         row.client = Client.objects.filter(pk=cid).first() if cid else None
     if data.get("title") is not None:
-        row.title = str(data.get("title") or "").strip()
+        row.title = _clean_text(data.get("title"), 300) or ""
     if data.get("number") is not None:
-        row.number = str(data.get("number") or "").strip()
+        row.number = _clean_text(data.get("number"), 64) or ""
     if data.get("status") is not None:
         status = str(data.get("status") or "").strip()
         allowed_status = {k for k, _ in ProjectContract.STATUS_CHOICES}
@@ -561,7 +609,7 @@ def admin_ops_contracts_update(
             return _api_error("invalid_amount", status=400)
         row.amount = amount
     if data.get("notes") is not None:
-        row.notes = str(data.get("notes") or "").strip()
+        row.notes = _clean_text(data.get("notes"), 4000) or ""
     if row.start_date and row.end_date and row.end_date < row.start_date:
         return _api_error("invalid_date_range", status=400)
     row.save()
@@ -662,11 +710,11 @@ def admin_ops_contract_addendums_create(
         return _api_error("invalid_end_date", status=400)
     a = ContractAddendum.objects.create(
         contract=c,
-        title=str(data.get("title") or "").strip(),
+        title=_clean_text(data.get("title"), 300) or "",
         amount_delta=_to_dec(data.get("amountDelta"), allow_none=True),
         start_date=start_date,
         end_date=end_date,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -754,13 +802,13 @@ def admin_ops_contract_payments_create(
         return _api_error("invalid_paid_amount", status=400)
     p = ContractPayment.objects.create(
         contract=c,
-        title=str(data.get("title") or "").strip(),
+        title=_clean_text(data.get("title"), 300) or "",
         due_date=due_date,
         amount=amount,
         paid_amount=paid_amount,
         paid_date=paid_date,
         status=status,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -806,7 +854,7 @@ def admin_ops_contract_payments_update(
     }
     data = _read_json(request)
     if data.get("title") is not None:
-        p.title = str(data.get("title") or "").strip()
+        p.title = _clean_text(data.get("title"), 300) or ""
     if data.get("dueDate") is not None:
         try:
             p.due_date = _to_date(data.get("dueDate"))
@@ -834,7 +882,7 @@ def admin_ops_contract_payments_update(
             return _api_error("invalid_status", status=400)
         p.status = status
     if data.get("notes") is not None:
-        p.notes = str(data.get("notes") or "").strip()
+        p.notes = _clean_text(data.get("notes"), 4000) or ""
     if p.paid_amount is not None and p.paid_amount > 0 and not p.paid_date:
         return _api_error("invalid_paid_date", status=400)
     if (
@@ -933,8 +981,8 @@ def admin_ops_purchase_orders_create(request: HttpRequest) -> JsonResponse:
     if forbidden:
         return forbidden
     data = _read_json(request)
-    supplier_id = int(data.get("supplierId") or 0) or None
-    project_id = int(data.get("projectId") or 0) or None
+    supplier_id = _safe_int(data.get("supplierId"), 0) or None
+    project_id = _safe_int(data.get("projectId"), 0) or None
     supplier = (
         Supplier.objects.filter(pk=supplier_id).first() if supplier_id else None
     )
@@ -957,11 +1005,11 @@ def admin_ops_purchase_orders_create(request: HttpRequest) -> JsonResponse:
     po = PurchaseOrder.objects.create(
         supplier=supplier,
         project=project,
-        number=str(data.get("number") or "").strip(),
+        number=_clean_text(data.get("number"), 64) or "",
         date=po_date,
         status=status,
         total_amount=total_amount,
-        notes=str(data.get("notes") or "").strip(),
+        notes=_clean_text(data.get("notes"), 4000) or "",
     )
     _audit_ops(
         request,
@@ -1008,17 +1056,17 @@ def admin_ops_purchase_orders_update(
     }
     data = _read_json(request)
     if data.get("supplierId") is not None:
-        sid = int(data.get("supplierId") or 0) or None
+        sid = _safe_int(data.get("supplierId"), 0) or None
         po.supplier = Supplier.objects.filter(pk=sid).first() if sid else None
     if data.get("projectId") is not None:
-        pid = int(data.get("projectId") or 0) or None
+        pid = _safe_int(data.get("projectId"), 0) or None
         po.project = (
             ProjectPage.objects.filter(pk=pid).specific().first()
             if pid
             else None
         )
     if data.get("number") is not None:
-        po.number = str(data.get("number") or "").strip()
+        po.number = _clean_text(data.get("number"), 64) or ""
     if data.get("date") is not None:
         try:
             po.date = _to_date(data.get("date"))
@@ -1036,7 +1084,7 @@ def admin_ops_purchase_orders_update(
             return _api_error("invalid_total_amount", status=400)
         po.total_amount = total_amount
     if data.get("notes") is not None:
-        po.notes = str(data.get("notes") or "").strip()
+        po.notes = _clean_text(data.get("notes"), 4000) or ""
     po.save()
     after = {
         "supplierId": po.supplier_id,

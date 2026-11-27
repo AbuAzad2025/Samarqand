@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import re_path
+from django.urls.resolvers import URLPattern
 
 from . import admin_accounts
 from . import admin_boq
@@ -37,6 +38,29 @@ urlpatterns += admin_mail.urlpatterns
 urlpatterns += site.urlpatterns
 urlpatterns += vite.urlpatterns
 urlpatterns += spa.urlpatterns
+
+
+def _name_unnamed_routes(patterns, used):
+    """Give every local route a unique name without renaming third-party ones."""
+    for pattern in patterns:
+        if not isinstance(pattern, URLPattern) or pattern.name:
+            continue
+        base = getattr(pattern.callback, "__name__", None)
+        if not base:
+            continue
+        name = base
+        counter = 2
+        while name in used:
+            name = f"{base}_{counter}"
+            counter += 1
+        pattern.name = name
+        pattern.pattern.name = name
+        used.add(name)
+
+
+_name_unnamed_routes(
+    urlpatterns, {p.name for p in urlpatterns if getattr(p, "name", None)}
+)
 
 if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()  # type: ignore
