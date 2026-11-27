@@ -3,12 +3,14 @@ import { Phone, X } from 'lucide-react';
 
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
+import { useFooterVisible } from "@/react-app/utils/useFooterVisible";
 
 export default function FloatingCTA() {
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
+  const footerVisible = useFooterVisible();
 
   useEffect(() => {
     // Appear only once the visitor has scrolled past the hero, so it never
@@ -27,7 +29,7 @@ export default function FloatingCTA() {
   const v = config?.visibility;
   if (!(v?.showFloatingCTA ?? true)) return null;
 
-  if (isDismissed || !isVisible) return null;
+  if (isDismissed || !isVisible || footerVisible) return null;
 
   const waLink =
     whatsappUrl(company?.phone1, "مرحباً، أريد الحصول على استشارة مجانية") || "/contact";

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, X, Minimize2, Maximize2, Sparkles, User } from 'lucide-react';
 import { apiFetch } from '@/react-app/api/site';
+import { useFooterVisible } from '@/react-app/utils/useFooterVisible';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -17,6 +18,7 @@ export default function AIChatbot() {
     },
   ]);
   const [input, setInput] = useState('');
+  const footerVisible = useFooterVisible();
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasNewMessage, setHasNewMessage] = useState(false);
@@ -126,7 +128,7 @@ export default function AIChatbot() {
           onClick={() => setIsOpen(true)}
           aria-label="فتح المساعد الذكي"
           title="المساعد الذكي"
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-sq-green via-sq-black to-sq-red rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group"
+          className={`fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-r from-sq-green via-sq-black to-sq-red rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 flex items-center justify-center group ${footerVisible ? 'opacity-0 pointer-events-none' : ''}`}
         >
           <Bot className="text-white" size={28} />
           {hasNewMessage && (
