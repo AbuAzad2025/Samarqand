@@ -3210,7 +3210,7 @@ export async function updateAdminContentSettings(
   return { ok: true };
 }
 
-export type SiteContentKind = "articles" | "events" | "locations";
+export type SiteContentKind = "articles" | "events" | "locations" | "projects";
 
 export type SiteContentItem = {
   id: number;
@@ -3236,6 +3236,9 @@ export type SiteContentDetail = SiteContentItem & {
   canonicalUrl?: string;
   occurrences?: { start: string; end: string; repeat?: string }[];
   nextOccurrence?: { start: string; end: string } | null;
+  gallery?: { url: string; caption: string }[];
+  location?: string;
+  status?: string;
 };
 
 export async function fetchSiteContentList(

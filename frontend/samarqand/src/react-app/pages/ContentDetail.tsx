@@ -16,6 +16,7 @@ const PATHS: Record<SiteContentKind, string> = {
   articles: "/blog",
   events: "/events",
   locations: "/locations",
+  projects: "/projects",
 };
 
 export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
@@ -100,8 +101,27 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
             />
           ) : null}
           <h1 className="text-3xl font-extrabold text-slate-900 mb-4">{item.title}</h1>
+          {kind === "projects" && (item.location || item.status) ? (
+            <div className="mb-5 flex flex-wrap gap-2 text-sm">
+              {item.status === "ongoing" ? (
+                <span className="rounded-full bg-emerald-50 px-3 py-1 font-bold text-sq-green">
+                  مشروع جاري
+                </span>
+              ) : null}
+              {item.location ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                  <MapPin size={14} /> {item.location}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-4 text-sm text-slate-500 mb-8">
-            {item.date ? <span className="flex items-center gap-1"><Calendar size={15} />{item.date}</span> : null}
+            {item.date ? (
+              <span className="flex items-center gap-1">
+                <Calendar size={15} />
+                {new Date(item.date).toLocaleDateString("ar")}
+              </span>
+            ) : null}
             {item.author ? <span>{item.author}</span> : null}
           </div>
 
@@ -113,6 +133,30 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
           ) : (
             <p className="text-slate-600 leading-loose">{item.description}</p>
           )}
+
+          {kind === "projects" && item.gallery?.length ? (
+            <div className="mt-10">
+              <h2 className="text-xl font-bold text-slate-900 mb-4">معرض المشروع</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {item.gallery.map((image, index) => (
+                  <figure key={index} className="overflow-hidden rounded-xl border border-slate-200">
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={image.url}
+                      alt={image.caption || item.title}
+                      className="h-56 w-full object-cover"
+                    />
+                    {image.caption ? (
+                      <figcaption className="px-3 py-2 text-xs text-slate-600">
+                        {image.caption}
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {kind === "events" && item.occurrences?.length ? (
             <div className="mt-8 rounded-xl bg-emerald-50 p-5">

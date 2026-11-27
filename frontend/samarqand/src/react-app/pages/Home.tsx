@@ -173,7 +173,10 @@ export default function Home() {
                   <h3 className="text-xl font-bold text-gray-800 mb-3">{project.title}</h3>
                   <p className="text-gray-600 mb-4">{project.description}</p>
                   
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <Link to={`/projects/${project.slug}`} className="btn-corp-link mt-4 inline-flex">
+                    تفاصيل المشروع ←
+                  </Link>
+                  <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
                       <MapPin size={16} className="text-sq-green" />
                       <span>{project.location}</span>

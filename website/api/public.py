@@ -30,6 +30,7 @@ from website.models import HomeTrustBadge
 from website.models import Lead
 from website.models import LocationIndexPage
 from website.models import LocationPage
+from website.models import ProjectIndexPage
 from website.models import ProjectPage
 from website.models import ServicePage
 from website.models import SiteContentSettings
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 from .common import *
+from .common import _streamfield_to_html
 
 
 @require_POST
@@ -511,16 +513,19 @@ _CONTENT_MODELS: dict[str, Any] = {
     "articles": ArticlePage,
     "events": EventPage,
     "locations": LocationPage,
+    "projects": ProjectPage,
 }
 _INDEX_MODELS: dict[str, Any] = {
     "articles": ArticleIndexPage,
     "events": EventIndexPage,
     "locations": LocationIndexPage,
+    "projects": ProjectIndexPage,
 }
 _INDEX_SLUGS: dict[str, set[str]] = {
     "articles": {"blog", "blogs", "articles", "news"},
     "events": {"events", "event"},
     "locations": {"locations", "location"},
+    "projects": {"projects", "project"},
 }
 
 
@@ -635,6 +640,22 @@ def site_content_detail(
         result["occurrences"] = occurrences
         result["nextOccurrence"] = occurrences[0] if occurrences else None
         result["address"] = str(getattr(page, "address", "") or "")
+    if kind == "projects":
+        result["description"] = (
+            str(getattr(page, "scope_statement", "") or "")
+            or str(getattr(page, "short_description", "") or "")
+            or result["description"]
+        )
+        result["location"] = str(getattr(page, "project_location", "") or "")
+        result["status"] = str(getattr(page, "status", "") or "")
+        gallery = []
+        for item in page.gallery_images.all().order_by("sort_order", "id"):
+            url = _image_url(request, getattr(item, "image", None))
+            if url:
+                gallery.append({"url": url, "caption": str(item.caption or "")})
+        result["gallery"] = gallery
+        if not result["imageUrl"] and gallery:
+            result["imageUrl"] = gallery[0]["url"]
     return _api_ok(result)
 
 

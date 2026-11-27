@@ -13,6 +13,11 @@ import {
 } from "@/react-app/api/site";
 
 const LABELS: Record<SiteContentKind, { title: string; intro: string; path: string }> = {
+  projects: {
+    title: "مشاريعنا",
+    intro: "نفخر بإنجازاتنا ومشاريعنا المنجزة والجارية",
+    path: "/projects",
+  },
   articles: {
     title: "المقالات والأخبار",
     intro: "آخر المستجدات والمقالات الهندسية من شركة سمر قند",

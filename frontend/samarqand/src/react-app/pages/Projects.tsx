@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 import { useSiteContent, heading } from "@/react-app/utils/content";
 import TopBar from "@/react-app/components/TopBar";
 import Navigation from "@/react-app/components/Navigation";
@@ -62,7 +64,7 @@ export default function Projects() {
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {projects.map((project) => (
-              <div key={project.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition group">
+              <div key={project.id} className="card-corp overflow-hidden transition group">
                 <div className="relative h-52 overflow-hidden">
                   {project.imageUrl ? (
                     <img loading="lazy" decoding="async"                       src={project.imageUrl}
@@ -83,7 +85,10 @@ export default function Projects() {
                   <h3 className="text-xl font-bold text-gray-800 mb-3">{project.title}</h3>
                   <p className="text-gray-600 mb-4">{project.description}</p>
                   
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <Link to={`/projects/${project.slug}`} className="btn-corp-link mt-4 inline-flex">
+                    تفاصيل المشروع ←
+                  </Link>
+                  <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
                       <MapPin size={16} className="text-sq-green" />
                       <span>{project.location}</span>
