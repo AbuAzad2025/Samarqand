@@ -203,6 +203,8 @@ export default function ControlSecuritySettings() {
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="000000"
+                aria-describedby={notice ? "security-notice" : undefined}
+                aria-invalid={notice?.kind === "error" || undefined}
                 className="w-48 rounded-xl border border-gray-300 px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
               <button
@@ -249,6 +251,8 @@ export default function ControlSecuritySettings() {
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="000000"
+                aria-describedby={notice ? "security-notice" : undefined}
+                aria-invalid={notice?.kind === "error" || undefined}
                 className="w-48 rounded-xl border border-gray-300 px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-sq-green"
               />
               <button
@@ -282,6 +286,7 @@ export default function ControlSecuritySettings() {
 
         {notice && (
           <p
+            id="security-notice"
             role={notice.kind === "error" ? "alert" : "status"}
             aria-live={notice.kind === "error" ? "assertive" : "polite"}
             className={`text-sm font-semibold ${

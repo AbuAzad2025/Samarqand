@@ -45,9 +45,9 @@ export default function WhatsAppButton() {
       <a
         href={rawLink}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        aria-label="تواصل معنا عبر واتساب"
-        title="تواصل معنا عبر واتساب"
-        className="inline-flex items-center gap-2 rounded-full bg-sq-whatsapp py-2.5 pr-2.5 pl-3 text-white shadow-lg transition hover:bg-sq-whatsapp-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:pl-5"
+        aria-label="تواصل عبر واتساب"
+        title="تواصل عبر واتساب"
+        className="inline-flex items-center gap-2 rounded-full bg-sq-whatsapp py-2.5 pr-2.5 pl-3 text-slate-900 shadow-lg transition hover:bg-sq-whatsapp-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:pl-5"
       >
         <MessageCircle size={24} className="shrink-0" aria-hidden="true" />
         <span className="hidden text-sm font-bold sm:inline">تواصل عبر واتساب</span>

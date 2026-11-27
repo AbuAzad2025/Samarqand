@@ -464,7 +464,7 @@ export default function ControlBOQ() {
       agreed: "متفق عليه",
       closed: "مغلق",
     };
-    return map[status] || status;
+    return map[status] || "غير معروف";
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -514,23 +514,23 @@ export default function ControlBOQ() {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
+        <div role="alert" className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
+        <div role="status" className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
           {success}
         </div>
       )}
 
       {!selectedProjectId ? (
-        <div className="text-center py-20 text-white/50">
+        <div className="text-center py-20 text-white/70">
           <div className="text-5xl mb-4">📐</div>
           <div className="text-lg font-bold">اختر مشروعاً لبدء العمل</div>
         </div>
       ) : loading ? (
-        <div className="text-center py-20 text-white/50">جاري التحميل…</div>
+        <div className="text-center py-20 text-white/70">جاري التحميل…</div>
       ) : (
         <>
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -643,15 +643,15 @@ export default function ControlBOQ() {
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
                     <tr>
-                      <th className="px-4 py-3 text-right">#</th>
-                      <th className="px-4 py-3 text-right">الوصف</th>
-                      <th className="px-4 py-3 text-right">الوحدة</th>
-                      <th className="px-4 py-3 text-right">الكمية</th>
-                      <th className="px-4 py-3 text-right">سعر الوحدة</th>
-                      <th className="px-4 py-3 text-right">الإجمالي</th>
-                      <th className="px-4 py-3 text-right">منجز</th>
-                      <th className="px-4 py-3 text-right">متبقي</th>
-                      <th className="px-4 py-3 text-right">إجراءات</th>
+                      <th scope="col" className="px-4 py-3 text-right">#</th>
+                      <th scope="col" className="px-4 py-3 text-right">الوصف</th>
+                      <th scope="col" className="px-4 py-3 text-right">الوحدة</th>
+                      <th scope="col" className="px-4 py-3 text-right">الكمية</th>
+                      <th scope="col" className="px-4 py-3 text-right">سعر الوحدة</th>
+                      <th scope="col" className="px-4 py-3 text-right">الإجمالي</th>
+                      <th scope="col" className="px-4 py-3 text-right">منجز</th>
+                      <th scope="col" className="px-4 py-3 text-right">متبقي</th>
+                      <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -723,15 +723,15 @@ export default function ControlBOQ() {
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
                     <tr>
-                      <th className="px-4 py-3 text-right">الرقم</th>
-                      <th className="px-4 py-3 text-right">التاريخ</th>
-                      <th className="px-4 py-3 text-right">الإجمالي</th>
-                      <th className="px-4 py-3 text-right">مستحق</th>
-                      <th className="px-4 py-3 text-right">حبس ضمان</th>
-                      <th className="px-4 py-3 text-right">ض. خصم</th>
-                      <th className="px-4 py-3 text-right">الصافي</th>
-                      <th className="px-4 py-3 text-right">الحالة</th>
-                      <th className="px-4 py-3 text-right">إجراءات</th>
+                      <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+                      <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+                      <th scope="col" className="px-4 py-3 text-right">الإجمالي</th>
+                      <th scope="col" className="px-4 py-3 text-right">مستحق</th>
+                      <th scope="col" className="px-4 py-3 text-right">حبس ضمان</th>
+                      <th scope="col" className="px-4 py-3 text-right">ض. خصم</th>
+                      <th scope="col" className="px-4 py-3 text-right">الصافي</th>
+                      <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+                      <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -857,13 +857,13 @@ export default function ControlBOQ() {
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
                     <tr>
-                      <th className="px-4 py-3 text-right">الرقم</th>
-                      <th className="px-4 py-3 text-right">العنوان</th>
-                      <th className="px-4 py-3 text-right">السبب</th>
-                      <th className="px-4 py-3 text-right">الأثر المالي</th>
-                      <th className="px-4 py-3 text-right">تأثير الجدولة</th>
-                      <th className="px-4 py-3 text-right">الحالة</th>
-                      <th className="px-4 py-3 text-right">إجراءات</th>
+                      <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+                      <th scope="col" className="px-4 py-3 text-right">العنوان</th>
+                      <th scope="col" className="px-4 py-3 text-right">السبب</th>
+                      <th scope="col" className="px-4 py-3 text-right">الأثر المالي</th>
+                      <th scope="col" className="px-4 py-3 text-right">تأثير الجدولة</th>
+                      <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+                      <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -969,8 +969,8 @@ export default function ControlBOQ() {
               <div className="text-white/80 font-bold">الحساب الختامي</div>
               <div className="grid md:grid-cols-2 gap-4 bg-white/5 border border-white/10 rounded-2xl p-4">
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">قيمة العقد</label>
-                  <input
+                  <label htmlFor="boq-final-contract-amount" className="block text-xs text-white/60 mb-1">قيمة العقد</label>
+                  <input id="boq-final-contract-amount"
                     type="number"
                     step="0.01"
                     value={finalForm.contractAmount ?? 0}
@@ -979,8 +979,8 @@ export default function ControlBOQ() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">إجمالي التغييرات</label>
-                  <input
+                  <label htmlFor="boq-final-variations" className="block text-xs text-white/60 mb-1">إجمالي التغييرات</label>
+                  <input id="boq-final-variations"
                     type="number"
                     step="0.01"
                     value={finalForm.totalVariations ?? 0}
@@ -989,8 +989,8 @@ export default function ControlBOQ() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">حبس ضمان منصرف</label>
-                  <input
+                  <label htmlFor="boq-final-retention-released" className="block text-xs text-white/60 mb-1">حبس ضمان منصرف</label>
+                  <input id="boq-final-retention-released"
                     type="number"
                     step="0.01"
                     value={finalForm.totalRetentionReleased ?? 0}
@@ -1001,8 +1001,8 @@ export default function ControlBOQ() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">إجمالي ضريبة الخصم</label>
-                  <input
+                  <label htmlFor="boq-final-withholding-tax" className="block text-xs text-white/60 mb-1">إجمالي ضريبة الخصم</label>
+                  <input id="boq-final-withholding-tax"
                     type="number"
                     step="0.01"
                     value={finalForm.totalWithholdingTax ?? 0}
@@ -1013,8 +1013,8 @@ export default function ControlBOQ() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">الحالة</label>
-                  <select
+                  <label htmlFor="boq-final-status" className="block text-xs text-white/60 mb-1">الحالة</label>
+                  <select id="boq-final-status"
                     value={finalForm.status || "draft"}
                     onChange={(e) =>
                       setFinalForm({ ...finalForm, status: e.target.value as FinalAccount["status"] })
@@ -1028,14 +1028,14 @@ export default function ControlBOQ() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-white/60 mb-1">المبلغ المتبقي (يتم حسابه تلقائياً)</label>
+                  <div className="block text-xs text-white/60 mb-1">المبلغ المتبقي (يتم حسابه تلقائياً)</div>
                   <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-emerald-300 font-bold">
                     {formatMoney(finalAccount.netDue)} ₪
                   </div>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs text-white/60 mb-1">ملاحظات</label>
-                  <textarea
+                  <label htmlFor="boq-final-notes" className="block text-xs text-white/60 mb-1">ملاحظات</label>
+                  <textarea id="boq-final-notes"
                     value={finalForm.notes || ""}
                     onChange={(e) => setFinalForm({ ...finalForm, notes: e.target.value })}
                     rows={3}
@@ -1059,9 +1059,9 @@ export default function ControlBOQ() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-extrabold text-white">
+              <h2 className="text-xl font-extrabold text-white">
                 {editingPaymentId ? "تعديل مستخلص" : "مستخلص جديد"}
-              </h3>
+              </h2>
               <button
                 type="button"
                 onClick={() => setPaymentModal(null)}
@@ -1159,9 +1159,9 @@ export default function ControlBOQ() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-extrabold text-white">
+              <h2 className="text-xl font-extrabold text-white">
                 بنود المستخلص: {activePayment.applicationNumber}
-              </h3>
+              </h2>
               <button
                 type="button"
                 onClick={() => setPaymentModal(null)}
@@ -1243,14 +1243,14 @@ export default function ControlBOQ() {
               <table className="w-full text-sm">
                 <thead className="bg-white/5 text-white/70">
                   <tr>
-                    <th className="px-3 py-2 text-right">البند</th>
-                    <th className="px-3 py-2 text-right">كمية العقد</th>
-                    <th className="px-3 py-2 text-right">سابق</th>
-                    <th className="px-3 py-2 text-right">حالي</th>
-                    <th className="px-3 py-2 text-right">إجمالي منجز</th>
-                    <th className="px-3 py-2 text-right">% إنجاز</th>
-                    <th className="px-3 py-2 text-right">المبلغ الحالي</th>
-                    <th className="px-3 py-2 text-right">إجراءات</th>
+                    <th scope="col" className="px-3 py-2 text-right">البند</th>
+                    <th scope="col" className="px-3 py-2 text-right">كمية العقد</th>
+                    <th scope="col" className="px-3 py-2 text-right">سابق</th>
+                    <th scope="col" className="px-3 py-2 text-right">حالي</th>
+                    <th scope="col" className="px-3 py-2 text-right">إجمالي منجز</th>
+                    <th scope="col" className="px-3 py-2 text-right">% إنجاز</th>
+                    <th scope="col" className="px-3 py-2 text-right">المبلغ الحالي</th>
+                    <th scope="col" className="px-3 py-2 text-right">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1315,9 +1315,9 @@ export default function ControlBOQ() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-xl shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-extrabold text-white">
+              <h2 className="text-xl font-extrabold text-white">
                 {editingVariationId ? "تعديل أمر تغييري" : "أمر تغييري جديد"}
-              </h3>
+              </h2>
               <button
                 type="button"
                 onClick={() => setVariationModal(null)}
@@ -1403,7 +1403,7 @@ export default function ControlBOQ() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-extrabold text-white">بنود: {activeVariation.title}</h3>
+              <h2 className="text-xl font-extrabold text-white">بنود: {activeVariation.title}</h2>
               <button
                 type="button"
                 onClick={() => setVariationModal(null)}
@@ -1491,12 +1491,12 @@ export default function ControlBOQ() {
               <table className="w-full text-sm">
                 <thead className="bg-white/5 text-white/70">
                   <tr>
-                    <th className="px-3 py-2 text-right">الوصف</th>
-                    <th className="px-3 py-2 text-right">الوحدة</th>
-                    <th className="px-3 py-2 text-right">التغيير</th>
-                    <th className="px-3 py-2 text-right">سعر الوحدة</th>
-                    <th className="px-3 py-2 text-right">الإجمالي</th>
-                    <th className="px-3 py-2 text-right">إجراءات</th>
+                    <th scope="col" className="px-3 py-2 text-right">الوصف</th>
+                    <th scope="col" className="px-3 py-2 text-right">الوحدة</th>
+                    <th scope="col" className="px-3 py-2 text-right">التغيير</th>
+                    <th scope="col" className="px-3 py-2 text-right">سعر الوحدة</th>
+                    <th scope="col" className="px-3 py-2 text-right">الإجمالي</th>
+                    <th scope="col" className="px-3 py-2 text-right">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>

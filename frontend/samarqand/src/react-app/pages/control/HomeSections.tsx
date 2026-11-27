@@ -211,8 +211,8 @@ export default function ControlHomeSections() {
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
               <input value={tbTitle} onChange={(e) => setTbTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-              <input value={tbIconClass} onChange={(e) => setTbIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-              <textarea value={tbDescription} onChange={(e) => setTbDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+              <input value={tbIconClass} onChange={(e) => setTbIconClass(e.target.value)} placeholder="iconClass (اختياري)" aria-label="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+              <textarea value={tbDescription} onChange={(e) => setTbDescription(e.target.value)} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
             <div className="flex items-center justify-end mt-4">
               <button
@@ -325,8 +325,8 @@ export default function ControlHomeSections() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
                     <input value={m.title} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-                    <input value={m.iconClass} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-                    <textarea value={m.description} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+                    <input value={m.iconClass} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" aria-label="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+                    <textarea value={m.description} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
                 </div>
               ))}
@@ -356,7 +356,7 @@ export default function ControlHomeSections() {
             <div className="grid md:grid-cols-2 gap-3">
               <input value={stLabel} onChange={(e) => setStLabel(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
               <input value={stValue} onChange={(e) => setStValue(e.target.value)} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-              <input value={stIconClass} onChange={(e) => setStIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
+              <input value={stIconClass} onChange={(e) => setStIconClass(e.target.value)} placeholder="iconClass (اختياري)" aria-label="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
             </div>
             <div className="flex items-center justify-end mt-4">
               <button
@@ -468,7 +468,7 @@ export default function ControlHomeSections() {
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
                     <input value={m.label} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, label: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
                     <input value={m.value} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, value: e.target.value } : x)))} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-                    <input value={m.iconClass} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
+                    <input value={m.iconClass} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" aria-label="iconClass" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
                   </div>
                 </div>
               ))}
@@ -497,8 +497,8 @@ export default function ControlHomeSections() {
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
               <input value={tlTitle} onChange={(e) => setTlTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-              <input value={tlIconClass} onChange={(e) => setTlIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-              <textarea value={tlDescription} onChange={(e) => setTlDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+              <input value={tlIconClass} onChange={(e) => setTlIconClass(e.target.value)} placeholder="iconClass (اختياري)" aria-label="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+              <textarea value={tlDescription} onChange={(e) => setTlDescription(e.target.value)} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
             <div className="flex items-center justify-end mt-4">
               <button
@@ -611,8 +611,8 @@ export default function ControlHomeSections() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
                     <input value={m.title} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-                    <input value={m.iconClass} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-                    <textarea value={m.description} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+                    <input value={m.iconClass} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" aria-label="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+                    <textarea value={m.description} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
                 </div>
               ))}
@@ -641,8 +641,8 @@ export default function ControlHomeSections() {
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
               <input value={afTitle} onChange={(e) => setAfTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-              <input value={afBadgeText} onChange={(e) => setAfBadgeText(e.target.value)} placeholder="Badge (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" />
-              <textarea value={afDescription} onChange={(e) => setAfDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+              <input value={afBadgeText} onChange={(e) => setAfBadgeText(e.target.value)} placeholder="Badge (اختياري)" aria-label="Badge (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <textarea value={afDescription} onChange={(e) => setAfDescription(e.target.value)} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
             <div className="flex items-center justify-end mt-4">
               <button
@@ -755,8 +755,8 @@ export default function ControlHomeSections() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
                     <input value={m.title} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
-                    <input value={m.badgeText} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, badgeText: e.target.value } : x)))} placeholder="Badge" className="border border-gray-200 rounded-xl px-4 py-3" />
-                    <textarea value={m.description} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
+                    <input value={m.badgeText} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, badgeText: e.target.value } : x)))} placeholder="Badge" aria-label="Badge" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <textarea value={m.description} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" aria-label="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
                 </div>
               ))}

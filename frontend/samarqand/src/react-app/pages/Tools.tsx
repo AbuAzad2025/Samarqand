@@ -119,9 +119,9 @@ export default function ToolsPage() {
       {isLoading ? (
         <section className="py-16 bg-white" aria-busy="true">
           <div className="container mx-auto px-4">
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center">
-              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[var(--corp-green)]" />
-              <p className="text-gray-600">جارٍ تجهيز الأدوات...</p>
+            <div role="status" className="rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center">
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[var(--corp-green)]" aria-hidden="true" />
+              <p className="text-gray-700">جارٍ تجهيز الأدوات...</p>
             </div>
           </div>
         </section>
@@ -227,7 +227,7 @@ export default function ToolsPage() {
                     أدوات مخصصة للمدراء
                   </h2>
                   <p className="text-gray-600 max-w-2xl mx-auto">
-                    مولّد المحتوى وتخيل مشروعك متاحان فقط للمدراء والسوبر أدمن، وهما غير مُفعّلين حالياً.
+                    مولّد المحتوى وتخيل مشروعك مخصصان للمدراء والسوبر أدمن، وهما غير مُفعّلين حالياً.
                   </p>
                   <a
                     href="/control/login"

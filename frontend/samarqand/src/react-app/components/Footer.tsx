@@ -23,6 +23,8 @@ export default function Footer() {
   const v = config?.visibility;
   if (!(v?.showFooter ?? true)) return null;
 
+  const logoLabel = company?.brandTitle || BRAND.samarqand.name;
+
   const siteLinks = [
     { to: "/", label: "الرئيسية", show: true },
     { to: "/about", label: "من نحن", show: v?.showAbout ?? true },
@@ -45,12 +47,11 @@ export default function Footer() {
           <section className="min-w-0 sm:col-span-2 lg:col-span-2" aria-label={BRAND.samarqand.name}>
             <Link
               to="/"
-              aria-label={`${BRAND.samarqand.name} — الصفحة الرئيسية`}
               className="inline-block max-w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             >
               <img
                 src={BRAND.samarqand.wordmarkDark}
-                alt={company?.brandTitle || BRAND.samarqand.name}
+                alt={logoLabel}
                 className="h-10 w-auto max-w-full sm:h-12"
                 loading="lazy"
                 decoding="async"
@@ -74,8 +75,8 @@ export default function Footer() {
           </section>
 
           {/* Grouped site links */}
-          <nav aria-label="روابط الموقع">
-            <h2 className="mb-3 text-sm font-bold text-white">روابط الموقع</h2>
+          <nav aria-labelledby="footer-site-links-heading">
+            <h2 id="footer-site-links-heading" className="mb-3 text-sm font-bold text-white">روابط الموقع</h2>
             <ul className="flex flex-col gap-2">
               {siteLinks.map((item) => (
                 <li key={item.to}>
@@ -88,11 +89,10 @@ export default function Footer() {
           </nav>
 
           {/* Developer credit — kept deliberately understated */}
-          <section aria-label="تطوير وبرمجة">
-            <h2 className="mb-3 text-sm font-bold text-white">تطوير وبرمجة</h2>
+          <section aria-labelledby="footer-developer-heading">
+            <h2 id="footer-developer-heading" className="mb-3 text-sm font-bold text-white">تطوير وبرمجة</h2>
             <a
               href={`tel:${BRAND.azad.phone}`}
-              aria-label={`اتصل بـ ${BRAND.azad.name}`}
               className={`inline-flex max-w-full items-center gap-3 rounded-lg text-white/70 ${linkClass}`}
             >
               <img

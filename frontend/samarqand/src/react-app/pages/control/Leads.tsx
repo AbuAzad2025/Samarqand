@@ -135,7 +135,7 @@ export default function ControlLeads() {
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <div className="text-sm font-bold text-white">مسار الحالات</div>
-          <div className="text-xs text-white/50">
+          <div className="text-xs text-white/70">
             اضغط على أي حالة لعرض طلباتها. الأرقام لكل الطلبات وليس للنتائج المعروضة فقط.
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function ControlLeads() {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-white/40 font-bold" dir="ltr">
+                  <span className="text-[11px] text-white/70 font-bold" dir="ltr">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="text-xl font-extrabold text-white">
@@ -168,7 +168,7 @@ export default function ControlLeads() {
                 <div className="font-bold text-sm text-white mt-1">
                   {STATUS_LABELS[key]}
                 </div>
-                <div className="text-[11px] text-white/50 mt-0.5">
+                <div className="text-[11px] text-white/70 mt-0.5">
                   {STATUS_HINTS[key]}
                 </div>
               </button>
@@ -232,12 +232,12 @@ export default function ControlLeads() {
       </div>
 
       {message ? (
-        <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+        <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
           {message}
         </p>
       ) : null}
       {notice ? (
-        <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+        <p role="status" className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
           {notice}
         </p>
       ) : null}
@@ -270,12 +270,12 @@ export default function ControlLeads() {
             <table className="w-full text-sm text-gray-800">
               <thead className="bg-gray-50 text-gray-700">
                 <tr>
-                  <th className="p-3 text-right font-bold">العميل</th>
-                  <th className="p-3 text-right font-bold">المشروع والمصدر</th>
-                  <th className="p-3 text-right font-bold">التاريخ</th>
-                  <th className="p-3 text-right font-bold">الحالة</th>
-                  <th className="p-3 text-right font-bold">المسؤول</th>
-                  <th className="p-3 text-right font-bold">ملاحظات المتابعة</th>
+                  <th scope="col" className="p-3 text-right font-bold">العميل</th>
+                  <th scope="col" className="p-3 text-right font-bold">المشروع والمصدر</th>
+                  <th scope="col" className="p-3 text-right font-bold">التاريخ</th>
+                  <th scope="col" className="p-3 text-right font-bold">الحالة</th>
+                  <th scope="col" className="p-3 text-right font-bold">المسؤول</th>
+                  <th scope="col" className="p-3 text-right font-bold">ملاحظات المتابعة</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,7 +296,7 @@ export default function ControlLeads() {
                               {it.phone}
                             </a>
                           ) : (
-                            <div className="text-xs text-gray-400 mt-1">لا يوجد هاتف</div>
+                            <div className="text-xs text-gray-600 mt-1">لا يوجد هاتف</div>
                           )}
                           {it.email ? (
                             <a
@@ -331,7 +331,7 @@ export default function ControlLeads() {
                               : "—"}
                           </div>
                           {it.updatedAt && it.updatedAt !== it.createdAt ? (
-                            <div className="text-gray-400 mt-1" dir="ltr">
+                            <div className="text-gray-600 mt-1" dir="ltr">
                               تحديث: {new Date(it.updatedAt).toLocaleDateString("ar")}
                             </div>
                           ) : null}

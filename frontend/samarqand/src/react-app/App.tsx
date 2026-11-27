@@ -55,12 +55,6 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:right-2 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:font-bold focus:text-sq-green"
-        >
-          تخطَّ إلى المحتوى
-        </a>
         <ApiErrorBanner />
         <Suspense
           fallback={

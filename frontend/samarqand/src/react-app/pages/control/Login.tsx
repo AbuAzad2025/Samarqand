@@ -121,6 +121,7 @@ export default function ControlLogin() {
             autoFocus
             disabled={loading}
             aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={Boolean(error)}
             required
           />
         </div>
@@ -140,6 +141,7 @@ export default function ControlLogin() {
             autoComplete="current-password"
             disabled={loading}
             aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={Boolean(error)}
             required
           />
         </div>
@@ -162,6 +164,7 @@ export default function ControlLogin() {
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green disabled:opacity-60"
               disabled={loading}
               aria-describedby={error ? "login-error" : undefined}
+              aria-invalid={Boolean(error)}
               required
             />
           </div>

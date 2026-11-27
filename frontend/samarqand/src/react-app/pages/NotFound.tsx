@@ -14,6 +14,7 @@ export default function NotFound() {
       <Navigation />
       <div className="min-h-[60vh] flex items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-100 px-4">
         <div
+          role="region"
           aria-labelledby="not-found-title"
           className="max-w-lg w-full text-center bg-white rounded-3xl shadow-xl p-10 border border-slate-200"
         >
@@ -31,7 +32,7 @@ export default function NotFound() {
           </h1>
           <p className="text-slate-600 mb-8 leading-relaxed">
             ربما تم نقل الصفحة أو أن الرابط غير صحيح. يمكنك العودة إلى الصفحة
-            الرئيسية، أو تصفح الخدمات، أو التواصل معنا لمساعدتك.
+            الرئيسية، أو تصفح الخدمات، أو التواصل معنا.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link

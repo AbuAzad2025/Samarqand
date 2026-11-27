@@ -73,16 +73,22 @@ export default function About() {
 
               {infoCards.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-8 mb-12">
-                  {infoCards.map(({ title, Icon, text }) => (
+                  {infoCards.map(({ title, Icon, text }, index) => (
                     <article
                       key={title}
+                      aria-labelledby={`about-card-heading-${index}`}
                       className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition"
                     >
                       <div className="flex items-center gap-4 mb-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sq-green text-white">
                           <Icon size={24} aria-hidden="true" />
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-800">{title}</h3>
+                        <h3
+                          id={`about-card-heading-${index}`}
+                          className="text-2xl font-bold text-gray-800"
+                        >
+                          {title}
+                        </h3>
                       </div>
                       <p className="text-gray-600 leading-relaxed">{text}</p>
                     </article>
@@ -94,12 +100,17 @@ export default function About() {
                 </p>
               )}
 
-              <article className="bg-white p-8 rounded-lg shadow-lg">
+              <article
+                aria-labelledby="about-values-heading"
+                className="bg-white p-8 rounded-lg shadow-lg"
+              >
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sq-green text-white">
                     <Award size={24} aria-hidden="true" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-800">قيمنا</h2>
+                  <h2 id="about-values-heading" className="text-2xl font-bold text-gray-800">
+                    قيمنا
+                  </h2>
                 </div>
                 {values.length > 0 ? (
                   <div className="grid md:grid-cols-2 gap-4">

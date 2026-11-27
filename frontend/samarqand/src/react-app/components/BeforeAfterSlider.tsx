@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { MoveHorizontal } from 'lucide-react';
 
 interface BeforeAfterProps {
   before: string;
   after: string;
   title: string;
+  /** Describes the pictured work, so the two images have meaningful alt text. */
+  description?: string;
 }
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
 
-export default function BeforeAfterSlider({ before, after, title }: BeforeAfterProps) {
+export default function BeforeAfterSlider({ before, after, title, description }: BeforeAfterProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Unique per instance: several sliders can share a page without clashing ids.
+  const labelId = useId();
+  const hintId = useId();
 
   const handleMove = (clientX: number, rect: DOMRect) => {
     if (!rect.width) return;
@@ -31,40 +37,66 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const step = e.shiftKey ? 10 : 5;
-    if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      setSliderPosition((prev) => clamp(prev - step));
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
-      setSliderPosition((prev) => clamp(prev + step));
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      setSliderPosition(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      setSliderPosition(100);
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        setSliderPosition((prev) => clamp(prev - step));
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        setSliderPosition((prev) => clamp(prev + step));
+        break;
+      case 'PageDown':
+        e.preventDefault();
+        setSliderPosition((prev) => clamp(prev - 10));
+        break;
+      case 'PageUp':
+        e.preventDefault();
+        setSliderPosition((prev) => clamp(prev + 10));
+        break;
+      case 'Home':
+        e.preventDefault();
+        setSliderPosition(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        setSliderPosition(100);
+        break;
+      default:
+        break;
     }
   };
 
+  // The rounded value drives both the visual divider and the ARIA state so they agree.
   const position = Math.round(sliderPosition);
+  const beforeAlt = description
+    ? `قبل التجديد: ${title} — ${description}`
+    : `قبل التجديد: ${title}`;
+  const afterAlt = description
+    ? `بعد التجديد: ${title} — ${description}`
+    : `بعد التجديد: ${title}`;
 
   return (
     <div className="overflow-hidden rounded-xl bg-white shadow-xl">
-      <h3 className="bg-[var(--corp-dark)] p-4 text-center text-lg font-bold text-white sm:p-6 sm:text-2xl">
+      <h3 id={labelId} className="bg-[var(--corp-dark)] p-4 text-center text-lg font-bold text-white sm:p-6 sm:text-2xl">
         {title}
       </h3>
+      <p id={hintId} className="sr-only">
+        مقارنة قبل وبعد. استخدم الأسهم اليسار واليمين لتحريك خط الفصل، أو اسحب المقبض بالفأرة أو اللمس.
+      </p>
 
       <div
         role="slider"
         tabIndex={0}
-        aria-label={`قبل وبعد: ${title}. اسحب المقبض أو استخدم الأسهم اليسار واليمين`}
+        aria-labelledby={labelId}
+        aria-describedby={hintId}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={position}
-        aria-valuetext={`قبل ${position}٪، بعد ${100 - position}٪`}
+        aria-valuetext={`نسبة الظهور: قبل ${position}٪، بعد ${100 - position}٪`}
         aria-orientation="horizontal"
         onKeyDown={handleKeyDown}
-        className="relative h-64 w-full cursor-ew-resize touch-none select-none sm:h-80 lg:h-96"
+        className="relative h-64 w-full cursor-ew-resize touch-none select-none rounded-b-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sq-green sm:h-80 lg:h-96"
         onMouseDown={(e) => {
           setIsDragging(true);
           handleMove(e.clientX, e.currentTarget.getBoundingClientRect());
@@ -84,7 +116,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
           loading="lazy"
           decoding="async"
           src={after}
-          alt={`${title} - بعد`}
+          alt={afterAlt}
           draggable={false}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
@@ -92,13 +124,13 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
         {/* Before image with clip */}
         <div
           className="pointer-events-none absolute inset-0 overflow-hidden"
-          style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+          style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         >
           <img
             loading="lazy"
             decoding="async"
             src={before}
-            alt={`${title} - قبل`}
+            alt={beforeAlt}
             draggable={false}
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -108,7 +140,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 w-1 bg-white shadow-2xl"
-          style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
+          style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
         >
           <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-sq-green bg-white shadow-lg ring-2 ring-white/40">
             <MoveHorizontal className="text-sq-green" size={24} aria-hidden="true" />

@@ -200,7 +200,7 @@ export default function ControlFleet() {
             <>
               <Input
                 type="number"
-                placeholder="السنة"
+                placeholder="السنة" aria-label="السنة"
                 value={filterYear}
                 onChange={(e) => setFilterYear(Number(e.target.value) || currentYear())}
                 className="w-28"
@@ -222,7 +222,7 @@ export default function ControlFleet() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="بحث بالاسم أو اللوحة..."
+              placeholder="بحث بالاسم أو اللوحة..." aria-label="بحث بالاسم أو اللوحة..."
               className="w-52 print:hidden"
             />
           )}
@@ -245,12 +245,12 @@ export default function ControlFleet() {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
+        <div role="alert" className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
+        <div role="status" className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
           {success}
         </div>
       )}
@@ -273,7 +273,7 @@ export default function ControlFleet() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-white/50">جاري التحميل…</div>
+        <div className="text-center py-20 text-white/70">جاري التحميل…</div>
       ) : (
         <>
           {tab === "vehicles" && (
@@ -464,12 +464,12 @@ function VehiclesSection({
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid md:grid-cols-4 gap-3">
           <Input
-            placeholder="اسم المركبة"
+            placeholder="اسم المركبة" aria-label="اسم المركبة"
             value={form.name || ""}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
           <Input
-            placeholder="رقم اللوحة"
+            placeholder="رقم اللوحة" aria-label="رقم اللوحة"
             value={form.plateNumber || ""}
             onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
           />
@@ -494,33 +494,33 @@ function VehiclesSection({
             ))}
           </Select>
           <Input
-            placeholder="الماركة"
+            placeholder="الماركة" aria-label="الماركة"
             value={form.brand || ""}
             onChange={(e) => setForm({ ...form, brand: e.target.value })}
           />
           <Input
-            placeholder="الموديل"
+            placeholder="الموديل" aria-label="الموديل"
             value={form.modelName || ""}
             onChange={(e) => setForm({ ...form, modelName: e.target.value })}
           />
           <Input
             type="number"
-            placeholder="السنة"
+            placeholder="السنة" aria-label="السنة"
             value={form.year ?? ""}
             onChange={(e) => setForm({ ...form, year: e.target.value ? Number(e.target.value) : null })}
           />
           <Input
-            placeholder="اللون"
+            placeholder="اللون" aria-label="اللون"
             value={form.color || ""}
             onChange={(e) => setForm({ ...form, color: e.target.value })}
           />
           <Input
-            placeholder="رقم الشاسيه"
+            placeholder="رقم الشاسيه" aria-label="رقم الشاسيه"
             value={form.chassisNumber || ""}
             onChange={(e) => setForm({ ...form, chassisNumber: e.target.value })}
           />
           <Input
-            placeholder="رقم المحرك"
+            placeholder="رقم المحرك" aria-label="رقم المحرك"
             value={form.engineNumber || ""}
             onChange={(e) => setForm({ ...form, engineNumber: e.target.value })}
           />
@@ -531,7 +531,7 @@ function VehiclesSection({
           />
           <Input
             type="number"
-            placeholder="رقم المشروع"
+            placeholder="رقم المشروع" aria-label="رقم المشروع"
             value={form.currentProjectId ?? ""}
             onChange={(e) =>
               setForm({ ...form, currentProjectId: e.target.value ? Number(e.target.value) : null })
@@ -548,14 +548,14 @@ function VehiclesSection({
             onChange={(e) => setForm({ ...form, registrationExpiry: e.target.value })}
           />
           <Input
-            placeholder="نوع الوقود"
+            placeholder="نوع الوقود" aria-label="نوع الوقود"
             value={form.fuelType || ""}
             onChange={(e) => setForm({ ...form, fuelType: e.target.value })}
           />
           <Input
             type="number"
             step="0.1"
-            placeholder="سعة الخزان (لتر)"
+            placeholder="سعة الخزان (لتر)" aria-label="سعة الخزان (لتر)"
             value={form.tankCapacityLiters ?? ""}
             onChange={(e) =>
               setForm({ ...form, tankCapacityLiters: e.target.value ? Number(e.target.value) : null })
@@ -563,7 +563,7 @@ function VehiclesSection({
           />
         </div>
         <TextArea
-          placeholder="ملاحظات"
+          placeholder="ملاحظات" aria-label="ملاحظات"
           value={form.notes || ""}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={2}
@@ -590,14 +590,14 @@ function VehiclesSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">المركبة</th>
-              <th className="px-4 py-3 text-right">اللوحة</th>
-              <th className="px-4 py-3 text-right">النوع</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">المسؤول</th>
-              <th className="px-4 py-3 text-right">المشروع</th>
-              <th className="px-4 py-3 text-right">تأمين / ترخيص</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">المركبة</th>
+              <th scope="col" className="px-4 py-3 text-right">اللوحة</th>
+              <th scope="col" className="px-4 py-3 text-right">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">المسؤول</th>
+              <th scope="col" className="px-4 py-3 text-right">المشروع</th>
+              <th scope="col" className="px-4 py-3 text-right">تأمين / ترخيص</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -672,7 +672,7 @@ function statusLabel(status: string): string {
     out_of_service: "خارج الخدمة",
     retired: "تقاعد",
   };
-  return map[status] || status;
+  return map[status] || "غير معروف";
 }
 
 function FuelSection({
@@ -753,27 +753,27 @@ function FuelSection({
           <Input
             type="number"
             step="0.01"
-            placeholder="اللترات"
+            placeholder="اللترات" aria-label="اللترات"
             value={form.liters ?? ""}
             onChange={(e) => setForm({ ...form, liters: Number(e.target.value) || 0 })}
           />
           <Input
             type="number"
             step="0.01"
-            placeholder="التكلفة"
+            placeholder="التكلفة" aria-label="التكلفة"
             value={form.cost ?? ""}
             onChange={(e) => setForm({ ...form, cost: Number(e.target.value) || 0 })}
           />
           <Input
             type="number"
-            placeholder="عداد (كم)"
+            placeholder="عداد (كم)" aria-label="عداد (كم)"
             value={form.odometerKm ?? ""}
             onChange={(e) =>
               setForm({ ...form, odometerKm: e.target.value ? Number(e.target.value) : null })
             }
           />
           <Input
-            placeholder="المحطة"
+            placeholder="المحطة" aria-label="المحطة"
             value={form.station || ""}
             onChange={(e) => setForm({ ...form, station: e.target.value })}
           />
@@ -784,7 +784,7 @@ function FuelSection({
           />
         </div>
         <TextArea
-          placeholder="ملاحظات"
+          placeholder="ملاحظات" aria-label="ملاحظات"
           value={form.notes || ""}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={2}
@@ -809,13 +809,13 @@ function FuelSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">المركبة</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">اللترات</th>
-              <th className="px-4 py-3 text-right">التكلفة</th>
-              <th className="px-4 py-3 text-right">العداد</th>
-              <th className="px-4 py-3 text-right">المحطة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">المركبة</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">اللترات</th>
+              <th scope="col" className="px-4 py-3 text-right">التكلفة</th>
+              <th scope="col" className="px-4 py-3 text-right">العداد</th>
+              <th scope="col" className="px-4 py-3 text-right">المحطة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -954,13 +954,13 @@ function MaintenanceSection({
           <Input
             type="number"
             step="0.01"
-            placeholder="التكلفة"
+            placeholder="التكلفة" aria-label="التكلفة"
             value={form.cost ?? ""}
             onChange={(e) => setForm({ ...form, cost: Number(e.target.value) || 0 })}
           />
           <Input
             type="number"
-            placeholder="عداد (كم)"
+            placeholder="عداد (كم)" aria-label="عداد (كم)"
             value={form.odometerKm ?? ""}
             onChange={(e) =>
               setForm({ ...form, odometerKm: e.target.value ? Number(e.target.value) : null })
@@ -968,24 +968,24 @@ function MaintenanceSection({
           />
           <Input
             type="date"
-            placeholder="موعد الصيانة التالية"
+            placeholder="موعد الصيانة التالية" aria-label="موعد الصيانة التالية"
             value={form.nextDueDate || ""}
             onChange={(e) => setForm({ ...form, nextDueDate: e.target.value })}
           />
           <Input
-            placeholder="الورشة"
+            placeholder="الورشة" aria-label="الورشة"
             value={form.garage || ""}
             onChange={(e) => setForm({ ...form, garage: e.target.value })}
           />
         </div>
         <TextArea
-          placeholder="الوصف"
+          placeholder="الوصف" aria-label="الوصف"
           value={form.description || ""}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="ملاحظات"
+          placeholder="ملاحظات" aria-label="ملاحظات"
           value={form.notes || ""}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={2}
@@ -1010,13 +1010,13 @@ function MaintenanceSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">المركبة</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">النوع</th>
-              <th className="px-4 py-3 text-right">الوصف</th>
-              <th className="px-4 py-3 text-right">التكلفة</th>
-              <th className="px-4 py-3 text-right">موعد لاحق</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">المركبة</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right">الوصف</th>
+              <th scope="col" className="px-4 py-3 text-right">التكلفة</th>
+              <th scope="col" className="px-4 py-3 text-right">موعد لاحق</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>

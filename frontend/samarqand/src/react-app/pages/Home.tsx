@@ -110,18 +110,13 @@ export default function Home() {
 
   return (
     <div className="home-compact min-h-screen bg-white">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-sq-green focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
-      >
-        تخطَّ إلى المحتوى الرئيسي
-      </a>
-
+      {/* The shell template owns the single skip link; App.tsx already owns the
+          page's main landmark and its target id, so none is duplicated here. */}
       <TopBar />
       <Navigation />
       <LandingSidebar visibility={v} />
 
-      <main id="main-content" tabIndex={-1}>
+      <div>
         <div id="home"><ParallaxHero /></div>
 
         {(v?.showHomeQuickLinks ?? true) && <LandingQuickNav visibility={v} />}
@@ -147,8 +142,8 @@ export default function Home() {
                 <h2 id="rfq-heading" className="mb-3 text-3xl font-bold text-gray-800">
                   {heading(content, "rfq", "نماذج عروض الأسعار")}
                 </h2>
-                <p className="mx-auto max-w-2xl text-gray-600">
-                  اختر قالبًا مناسبًا واطلب عرض سعر بسرعة عبر واتساب مع تفاصيل واضحة.
+                <p className="mx-auto max-w-2xl text-gray-700">
+                  اختر قالبًا مناسبًا وأرسل تفاصيل طلبك عبر واتساب.
                 </p>
               </div>
 
@@ -172,7 +167,7 @@ export default function Home() {
                             <div className="mt-5">
                               <Link
                                 to={`/contact?rfqTemplate=${encodeURIComponent(t.key)}`}
-                                aria-label={`ابدأ طلب ${t.title}`}
+                                aria-label={`ابدأ الطلب ${t.title}`}
                                 className="btn-corp-primary w-full font-bold hover:shadow-lg transition"
                               >
                                 ابدأ الطلب
@@ -208,7 +203,7 @@ export default function Home() {
                 <h2 id="projects-heading" className="mb-3 text-3xl font-bold text-gray-800">
                   {heading(content, "projects", "مشاريعنا المميزة")}
                 </h2>
-                <p className="mx-auto max-w-2xl text-gray-600">نفخر بإنجازاتنا ونسعى دائماً لتقديم الأفضل</p>
+                <p className="mx-auto max-w-2xl text-gray-600">مشاريع منفذة وأرقام توثيق حقيقية من موقع العمل</p>
               </div>
 
               <div className="grid gap-6 md:grid-cols-3">
@@ -263,7 +258,7 @@ export default function Home() {
                         <Link to={`/projects/${project.slug}`} className="btn-corp-link mt-4 inline-flex">
                           تفاصيل المشروع ←
                         </Link>
-                        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <MapPin size={16} className="text-sq-green" aria-hidden="true" />
                             <span>{project.location}</span>
@@ -305,7 +300,7 @@ export default function Home() {
                 <p className="mx-auto max-w-2xl text-lg text-gray-600">
                   نماذج قبل/بعد لأعمال الترميم والتجديد
                 </p>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-slate-600">
                   صور توضيحية لأغراض العرض، وليست توثيقاً لمشروع محدد.
                 </p>
               </div>
@@ -388,7 +383,7 @@ export default function Home() {
                       <p className="mb-4 leading-loose text-slate-600">"{testimonial.text}"</p>
                       <div className="border-t pt-4">
                         <p className="font-bold text-gray-800">{testimonial.name}</p>
-                        <p className="text-sm text-gray-500">{testimonial.project}</p>
+                        <p className="text-sm text-gray-600">{testimonial.project}</p>
                       </div>
                     </article>
                   ))}
@@ -415,7 +410,7 @@ export default function Home() {
         )}
 
         {(v?.showNewsletter ?? true) && <div id="contact"><NewsletterSignup /></div>}
-      </main>
+      </div>
 
       <WhatsAppButton />
       <FloatingCTA />

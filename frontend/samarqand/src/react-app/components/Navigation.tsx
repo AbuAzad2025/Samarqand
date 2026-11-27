@@ -99,7 +99,6 @@ export default function Navigation() {
           {/* Brand — right side in RTL */}
           <Link
             to="/"
-            aria-label={company?.brandTitle || "سمر قند — الصفحة الرئيسية"}
             aria-current={pathname === "/" ? "page" : undefined}
             className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sq-green"
           >
@@ -175,7 +174,7 @@ export default function Navigation() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="ابحث في صفحات الموقع..."
             aria-label="ابحث في صفحات الموقع"
-            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-sq-green focus:outline-none"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-sq-green focus:outline-none focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-1"
           />
           <div className="mt-2 flex flex-wrap gap-2" aria-live="polite">
             {items

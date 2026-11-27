@@ -91,7 +91,7 @@ function contractStatusLabel(status: string): string {
     closed: "مغلق",
     cancelled: "ملغي",
   };
-  return map[String(status || "")] || String(status || "—");
+  return map[String(status || "")] || "غير معروف";
 }
 
 function contractStatusTone(status: string): string {
@@ -1557,8 +1557,8 @@ export default function ControlOps() {
         {canAudit ? tabBtn("audit", "سجل التدقيق") : null}
       </div>
 
-      {error ? <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">{error}</div> : null}
-      {success ? <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4">{success}</div> : null}
+      {error ? <div role="alert" className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">{error}</div> : null}
+      {success ? <div role="status" className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4">{success}</div> : null}
 
       {tab === "clients" ? (
         <div className="space-y-8">
@@ -1781,12 +1781,12 @@ export default function ControlOps() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-700">
                   <tr>
-                    <th className="p-3 text-right font-bold">ID</th>
-                    <th className="p-3 text-right font-bold">الوقت</th>
-                    <th className="p-3 text-right font-bold">المستخدم</th>
-                    <th className="p-3 text-right font-bold">الدور</th>
-                    <th className="p-3 text-right font-bold">Action</th>
-                    <th className="p-3 text-right font-bold">Entity</th>
+                    <th scope="col" className="p-3 text-right font-bold">ID</th>
+                    <th scope="col" className="p-3 text-right font-bold">الوقت</th>
+                    <th scope="col" className="p-3 text-right font-bold">المستخدم</th>
+                    <th scope="col" className="p-3 text-right font-bold">الدور</th>
+                    <th scope="col" className="p-3 text-right font-bold">Action</th>
+                    <th scope="col" className="p-3 text-right font-bold">Entity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4354,13 +4354,13 @@ export default function ControlOps() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr className="text-right text-gray-600">
-                  <th className="p-4 font-bold">المشروع</th>
-                  <th className="p-4 font-bold">التقدم</th>
-                  <th className="p-4 font-bold">الميزانية</th>
-                  <th className="p-4 font-bold">العقود</th>
-                  <th className="p-4 font-bold">أوامر الشراء</th>
-                  <th className="p-4 font-bold">مدفوع</th>
-                  <th className="p-4 font-bold">الفارق</th>
+                  <th scope="col" className="p-4 font-bold">المشروع</th>
+                  <th scope="col" className="p-4 font-bold">التقدم</th>
+                  <th scope="col" className="p-4 font-bold">الميزانية</th>
+                  <th scope="col" className="p-4 font-bold">العقود</th>
+                  <th scope="col" className="p-4 font-bold">أوامر الشراء</th>
+                  <th scope="col" className="p-4 font-bold">مدفوع</th>
+                  <th scope="col" className="p-4 font-bold">الفارق</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

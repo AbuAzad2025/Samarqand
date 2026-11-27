@@ -197,6 +197,7 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link
             to={PATHS[kind]}
+            aria-label={`العودة إلى ${BACK_LABELS[kind]}`}
             className="inline-flex items-center gap-2 text-sq-green font-bold hover:underline"
           >
             <ArrowLeft size={16} aria-hidden="true" /> العودة إلى {BACK_LABELS[kind]}
@@ -234,8 +235,10 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
                   <dt className="text-xs font-bold text-slate-500">{fact.label}</dt>
                   <dd className="mt-1 text-lg font-extrabold text-slate-900" dir={fact.ltr ? "ltr" : undefined}>
                     {fact.value}
+                    {fact.note ? (
+                      <span className="mt-1 block text-xs font-normal text-slate-500">{fact.note}</span>
+                    ) : null}
                   </dd>
-                  {fact.note ? <dd className="mt-1 text-xs text-slate-500">{fact.note}</dd> : null}
                 </div>
               ))}
             </dl>

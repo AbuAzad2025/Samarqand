@@ -83,7 +83,7 @@ function validateForm(
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} role="alert" className="mt-1 text-sm font-medium text-red-600">
+    <p id={id} role="alert" className="mt-1 text-sm font-medium text-red-700">
       {message}
     </p>
   );
@@ -113,6 +113,7 @@ export default function Contact() {
 
   const lastAutoMessageRef = useRef("");
   const submittingRef = useRef(false);
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const groupedRfqTemplates = useMemo(() => groupRfqTemplatesByCategory(RFQ_TEMPLATES), []);
   const selectedRfq = rfqTemplate ? RFQ_TEMPLATES_BY_KEY[rfqTemplate] || null : null;
   const selectedRfqLabel = selectedRfq?.title || "";
@@ -153,6 +154,12 @@ export default function Contact() {
       };
     });
   }, [config?.visibility?.showRfqTemplates, selectedRfq]);
+
+  // Move focus to the submission message once it appears, so the outcome is
+  // announced and obvious for keyboard and screen-reader users.
+  useEffect(() => {
+    if (submitStatus) statusRef.current?.focus();
+  }, [submitStatus]);
 
   const v = config?.visibility;
   const canUseRfq = v?.showRfqTemplates ?? true;
@@ -215,7 +222,7 @@ export default function Contact() {
       savedOk
         ? {
             kind: "success",
-            text: "تم استلام طلبك بنجاح، سنتواصل معك قريباً.",
+            text: "تم إرسال طلبك بنجاح.",
           }
         : {
             kind: "error",
@@ -256,8 +263,8 @@ export default function Contact() {
           </h1>
           <p className="text-xl max-w-3xl mx-auto">
             {isQuote
-              ? "أخبرنا بتفاصيل مشروعك وسنرسل لك عرضاً مناسباً"
-              : "نحن هنا لمساعدتك والإجابة على استفساراتك"}
+              ? "أدخل تفاصيل مشروعك في النموذج أدناه لطلب عرض سعر."
+              : "استخدم النموذج أدناه أو بيانات التواصل المعروضة لإرسال استفسارك."}
           </p>
           {!isQuote && canUseRfq ? (
             <Link
@@ -326,6 +333,7 @@ export default function Contact() {
                         <a
                           href={`mailto:${email}`}
                           className="text-gray-600 hover:text-sq-green transition"
+                          dir="ltr"
                         >
                           {email}
                         </a>
@@ -368,7 +376,7 @@ export default function Contact() {
                 <form onSubmit={handleSubmit} noValidate className="space-y-4">
                   <div>
                     <label htmlFor="contact-name" className="block text-gray-700 font-semibold mb-2">
-                      الاسم <span className="text-red-600">*</span>
+                      الاسم <span className="text-red-700" aria-hidden="true">*</span>
                     </label>
                     <input
                       type="text"
@@ -379,7 +387,7 @@ export default function Contact() {
                       onChange={handleChange}
                       aria-invalid={Boolean(errors.name)}
                       aria-describedby={errors.name ? "contact-name-error" : undefined}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green ${
+                      className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green ${
                         errors.name ? "border-red-400" : "border-gray-300"
                       }`}
                       placeholder="اسمك الكامل"
@@ -389,7 +397,7 @@ export default function Contact() {
 
                   <div>
                     <label htmlFor="contact-phone" className="block text-gray-700 font-semibold mb-2">
-                      رقم الهاتف <span className="text-red-600">*</span>
+                      رقم الهاتف <span className="text-red-700" aria-hidden="true">*</span>
                     </label>
                     <input
                       type="tel"
@@ -401,7 +409,7 @@ export default function Contact() {
                       dir="ltr"
                       aria-invalid={Boolean(errors.phone)}
                       aria-describedby={errors.phone ? "contact-phone-error" : undefined}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green ${
+                      className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green ${
                         errors.phone ? "border-red-400" : "border-gray-300"
                       }`}
                       placeholder="05xxxxxxxx"
@@ -422,7 +430,7 @@ export default function Contact() {
                       dir="ltr"
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? "contact-email-error" : undefined}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green ${
+                      className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green ${
                         errors.email ? "border-red-400" : "border-gray-300"
                       }`}
                       placeholder="email@example.com"
@@ -432,7 +440,7 @@ export default function Contact() {
 
                   <div>
                     <label htmlFor="contact-project" className="block text-gray-700 font-semibold mb-2">
-                      نوع المشروع <span className="text-red-600">*</span>
+                      نوع المشروع <span className="text-red-700" aria-hidden="true">*</span>
                     </label>
                     <select
                       id="contact-project"
@@ -442,7 +450,7 @@ export default function Contact() {
                       onChange={handleChange}
                       aria-invalid={Boolean(errors.projectType)}
                       aria-describedby={errors.projectType ? "contact-project-error" : undefined}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green ${
+                      className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green ${
                         errors.projectType ? "border-red-400" : "border-gray-300"
                       }`}
                     >
@@ -463,11 +471,10 @@ export default function Contact() {
                   {canUseRfq && formData.projectType === QUOTE_TYPE ? (
                     <div>
                       <label htmlFor="contact-rfq" className="block text-gray-700 font-semibold mb-2">
-                        نوع نموذج عرض السعر <span className="text-red-600">*</span>
+                        نوع نموذج عرض السعر <span className="text-red-700" aria-hidden="true">*</span>
                       </label>
                       <select
                         id="contact-rfq"
-                        aria-label="نوع نموذج عرض السعر"
                         value={rfqTemplate}
                         onChange={(e) => {
                           setRfqTemplate(e.target.value);
@@ -482,7 +489,7 @@ export default function Contact() {
                             ? "contact-rfq-hint contact-rfq-error"
                             : "contact-rfq-hint"
                         }
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green ${
+                        className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green ${
                           errors.rfqTemplate ? "border-red-400" : "border-gray-300"
                         }`}
                         required
@@ -498,7 +505,7 @@ export default function Contact() {
                           </optgroup>
                         ))}
                       </select>
-                      <p id="contact-rfq-hint" className="mt-1 text-sm text-gray-500">
+                      <p id="contact-rfq-hint" className="mt-1 text-sm text-gray-600">
                         {selectedRfq
                           ? selectedRfq.description
                           : "اختر نموذجاً لتظهر قائمة المطلوب تلقائياً في حقل التفاصيل."}
@@ -512,7 +519,7 @@ export default function Contact() {
 
                   <div>
                     <label htmlFor="contact-message" className="block text-gray-700 font-semibold mb-2">
-                      تفاصيل المشروع <span className="text-red-600">*</span>
+                      تفاصيل المشروع <span className="text-red-700" aria-hidden="true">*</span>
                     </label>
                     <textarea
                       id="contact-message"
@@ -523,7 +530,7 @@ export default function Contact() {
                       rows={5}
                       aria-invalid={Boolean(errors.message)}
                       aria-describedby={errors.message ? "contact-message-error" : undefined}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green resize-none ${
+                      className={`w-full px-4 py-3 border rounded-lg placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green resize-none ${
                         errors.message ? "border-red-400" : "border-gray-300"
                       }`}
                       placeholder="أخبرنا عن مشروعك..."
@@ -536,8 +543,10 @@ export default function Contact() {
 
                   {submitStatus ? (
                     <p
+                      ref={statusRef}
+                      tabIndex={-1}
                       role={submitStatus.kind === "success" ? "status" : "alert"}
-                      className={`text-sm font-semibold rounded-lg px-4 py-3 border ${
+                      className={`text-sm font-semibold rounded-lg px-4 py-3 border focus:outline-none focus:ring-2 focus:ring-sq-green ${
                         submitStatus.kind === "success"
                           ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                           : "bg-red-50 text-red-700 border-red-200"

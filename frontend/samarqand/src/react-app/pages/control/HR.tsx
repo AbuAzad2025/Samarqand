@@ -246,12 +246,12 @@ export default function ControlHR() {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
+        <div role="alert" className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
+        <div role="status" className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
           {success}
         </div>
       )}
@@ -274,7 +274,7 @@ export default function ControlHR() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-white/50">جاري التحميل…</div>
+        <div className="text-center py-20 text-white/70">جاري التحميل…</div>
       ) : (
         <>
           {tab === "leave" && (
@@ -398,7 +398,7 @@ function statusLabel(status: string): string {
     closed: "مغلقة",
     draft: "مسودة",
   };
-  return map[status] || status;
+  return map[status] || "غير معروف";
 }
 
 function WorkerSelect({
@@ -512,7 +512,7 @@ function LeaveSection({
         <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white">
           <span className="text-white/60">رصيد الإجازات السنوية المتبقي:</span>{" "}
           <span className="font-extrabold text-emerald-300">{balance.remainingAnnualDays} يوم</span>
-          <span className="text-white/50 text-sm"> (الاستحقاق {balance.annualEntitlement} — مستهلك {balance.approvedAnnualDays})</span>
+          <span className="text-white/70 text-sm"> (الاستحقاق {balance.annualEntitlement} — مستهلك {balance.approvedAnnualDays})</span>
         </div>
       )}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
@@ -570,14 +570,14 @@ function LeaveSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الموظف</th>
-              <th className="px-4 py-3 text-right">النوع</th>
-              <th className="px-4 py-3 text-right">من</th>
-              <th className="px-4 py-3 text-right">إلى</th>
-              <th className="px-4 py-3 text-right">الأيام</th>
-              <th className="px-4 py-3 text-right">السبب</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الموظف</th>
+              <th scope="col" className="px-4 py-3 text-right">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right">من</th>
+              <th scope="col" className="px-4 py-3 text-right">إلى</th>
+              <th scope="col" className="px-4 py-3 text-right">الأيام</th>
+              <th scope="col" className="px-4 py-3 text-right">السبب</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -803,16 +803,16 @@ function ContractsSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الموظف</th>
-              <th className="px-4 py-3 text-right">رقم العقد</th>
-              <th className="px-4 py-3 text-right">النوع</th>
-              <th className="px-4 py-3 text-right">بداية</th>
-              <th className="px-4 py-3 text-right">نهاية</th>
-              <th className="px-4 py-3 text-right">الراتب</th>
-              <th className="px-4 py-3 text-right">البدلات</th>
-              <th className="px-4 py-3 text-right">الوظيفة</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الموظف</th>
+              <th scope="col" className="px-4 py-3 text-right">رقم العقد</th>
+              <th scope="col" className="px-4 py-3 text-right">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right">بداية</th>
+              <th scope="col" className="px-4 py-3 text-right">نهاية</th>
+              <th scope="col" className="px-4 py-3 text-right">الراتب</th>
+              <th scope="col" className="px-4 py-3 text-right">البدلات</th>
+              <th scope="col" className="px-4 py-3 text-right">الوظيفة</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1016,15 +1016,15 @@ function OvertimeSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الموظف</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">المشروع</th>
-              <th className="px-4 py-3 text-right">الساعات</th>
-              <th className="px-4 py-3 text-right">المضاعف</th>
-              <th className="px-4 py-3 text-right">الأجر الساعي</th>
-              <th className="px-4 py-3 text-right">المبلغ</th>
-              <th className="px-4 py-3 text-right">الموافقة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الموظف</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">المشروع</th>
+              <th scope="col" className="px-4 py-3 text-right">الساعات</th>
+              <th scope="col" className="px-4 py-3 text-right">المضاعف</th>
+              <th scope="col" className="px-4 py-3 text-right">الأجر الساعي</th>
+              <th scope="col" className="px-4 py-3 text-right">المبلغ</th>
+              <th scope="col" className="px-4 py-3 text-right">الموافقة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1239,15 +1239,15 @@ function SocialSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الموظف</th>
-              <th className="px-4 py-3 text-right">السنة</th>
-              <th className="px-4 py-3 text-right">الشهر</th>
-              <th className="px-4 py-3 text-right">الراتب الخاضع</th>
-              <th className="px-4 py-3 text-right">حصة الموظف</th>
-              <th className="px-4 py-3 text-right">حصة صاحب العمل</th>
-              <th className="px-4 py-3 text-right">الإجمالي</th>
-              <th className="px-4 py-3 text-right">السداد</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الموظف</th>
+              <th scope="col" className="px-4 py-3 text-right">السنة</th>
+              <th scope="col" className="px-4 py-3 text-right">الشهر</th>
+              <th scope="col" className="px-4 py-3 text-right">الراتب الخاضع</th>
+              <th scope="col" className="px-4 py-3 text-right">حصة الموظف</th>
+              <th scope="col" className="px-4 py-3 text-right">حصة صاحب العمل</th>
+              <th scope="col" className="px-4 py-3 text-right">الإجمالي</th>
+              <th scope="col" className="px-4 py-3 text-right">السداد</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>

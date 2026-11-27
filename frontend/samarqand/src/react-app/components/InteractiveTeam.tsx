@@ -136,7 +136,7 @@ export default function InteractiveTeam() {
                 <button
                   key={member.id}
                   type="button"
-                  aria-label={`عرض تفاصيل ${member.name}`}
+                  aria-label={`${member.name}، ${member.position} — اضغط لمعرفة المزيد`}
                   onClick={(event) => openMember(member, event.currentTarget)}
                   className="group relative w-full overflow-hidden rounded-2xl bg-white text-right shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
                 >
@@ -269,7 +269,7 @@ export default function InteractiveTeam() {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`التواصل مع ${selectedMember.name}`}
+                  aria-label={`تواصل معنا بخصوص ${selectedMember.name}`}
                   className="btn-corp-primary w-full font-bold hover:shadow-lg focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
                 >
                   تواصل معنا

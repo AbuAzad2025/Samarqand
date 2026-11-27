@@ -191,7 +191,7 @@ export default function AnimatedStats() {
           <h2 id="stats-heading" className="text-3xl md:text-4xl font-bold text-white mb-3">
             إنجازاتنا بالأرقام
           </h2>
-          <p className="text-gray-300">نفخر بما حققناه من نجاحات</p>
+          <p className="text-gray-200">نفخر بما حققناه من نجاحات</p>
         </div>
 
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -200,15 +200,15 @@ export default function AnimatedStats() {
               key={stat.id}
               className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
             >
-              <div
-                className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}
-              >
-                <stat.icon className="text-white" size={22} strokeWidth={1.8} aria-hidden="true" />
-              </div>
               <dt className="mb-2 text-4xl font-bold text-white">
+                <div
+                  className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}
+                >
+                  <stat.icon className="text-white" size={22} strokeWidth={1.8} aria-hidden="true" />
+                </div>
                 <AnimatedCounter target={stat.value} suffix={stat.suffix} />
               </dt>
-              <dd className="text-base font-semibold text-gray-300">{stat.label}</dd>
+              <dd className="text-base font-semibold text-gray-200">{stat.label}</dd>
             </div>
           ))}
         </dl>

@@ -81,7 +81,7 @@ export default function ProcessTimeline() {
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                         <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
                       </div>
-                      <span className="text-xs font-bold text-slate-400">المرحلة {index + 1}</span>
+                      <span className="text-xs font-bold text-slate-600">المرحلة {index + 1}</span>
                     </div>
                     <h3 className="mb-2 text-lg font-bold text-slate-900">{step.title}</h3>
                     <p className="text-sm leading-relaxed text-slate-600">{step.description}</p>

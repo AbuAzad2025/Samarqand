@@ -35,7 +35,6 @@ export default function AIDesignAnalyzer() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [aiUnavailable, setAiUnavailable] = useState(true);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -92,7 +91,6 @@ export default function AIDesignAnalyzer() {
         const code = readErrorCode(payload);
 
         if (code === 'ai_not_configured' || response.status === 503) {
-          setAiUnavailable(true);
           setError(
             'هذا التحليل غير مُفعّل حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يمكنك التواصل معنا مباشرة لمناقشة مشروعك.',
           );
@@ -108,7 +106,6 @@ export default function AIDesignAnalyzer() {
 
       const data = (await response.json()) as AnalysisResult;
       setResult(data);
-      setAiUnavailable(false);
     } catch {
       setError('تعذّر إكمال التحليل حالياً. يرجى المحاولة لاحقاً.');
     } finally {
@@ -130,14 +127,8 @@ export default function AIDesignAnalyzer() {
             أدخل مواصفات مشروعك للحصول على تحليل أولي منظّم للتكلفة والمدة والمواد
           </p>
           <div className="mt-4">
-            <span
-              className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                aiUnavailable
-                  ? 'bg-amber-50 text-amber-800'
-                  : 'bg-emerald-50 text-emerald-800'
-              }`}
-            >
-              {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
+            <span className="inline-flex rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900">
+              غير مُفعّل حالياً
             </span>
           </div>
         </div>
@@ -153,11 +144,12 @@ export default function AIDesignAnalyzer() {
 
               <form onSubmit={handleAnalyze} className="space-y-6" noValidate>
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
-                  <select aria-label="نوع المشروع"
+                  <label htmlFor="ada-project-type" className="block text-gray-800 font-semibold mb-2">نوع المشروع</label>
+                  <select id="ada-project-type" aria-label="نوع المشروع"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none transition"
+                    aria-describedby={error ? 'ada-error' : undefined}
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
@@ -170,42 +162,50 @@ export default function AIDesignAnalyzer() {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
+                  <label htmlFor="ada-area" className="block text-gray-800 font-semibold mb-2">
                     المساحة (متر مربع)
                   </label>
-                  <input aria-label="مساحة المشروع"
+                  <input id="ada-area" aria-label="المساحة (متر مربع)"
                     type="number"
                     inputMode="decimal"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="مثال: 200"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none transition"
+                    aria-describedby={`ada-area-hint${error ? ' ada-error' : ''}`}
                     required
                     min="1"
                     max={MAX_AREA}
                     step="0.01"
                   />
+                  <p id="ada-area-hint" className="mt-1 text-xs text-gray-600">
+                    أدخل قيمة أكبر من صفر ولا تتجاوز {MAX_AREA.toLocaleString('en-US')} متر مربع.
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
+                  <label htmlFor="ada-details" className="block text-gray-800 font-semibold mb-2">
                     تفاصيل إضافية (اختياري)
                   </label>
-                  <textarea aria-label="تفاصيل المشروع"
+                  <textarea id="ada-details" aria-label="تفاصيل إضافية (اختياري)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="أخبرنا عن متطلباتك الخاصة، التصميم المفضل، عدد الطوابق، إلخ..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition h-32 resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none transition h-32 resize-none"
+                    aria-describedby={`ada-details-hint${error ? ' ada-error' : ''}`}
                     maxLength={MAX_DESCRIPTION_LENGTH}
                   />
-                  <p className="mt-1 text-left text-xs text-gray-500" dir="ltr">
+                  <p id="ada-details-hint" className="mt-1 text-xs text-gray-600">
+                    لا تتجاوز {MAX_DESCRIPTION_LENGTH} حرفاً.
+                  </p>
+                  <p className="mt-1 text-left text-xs text-gray-600" dir="ltr">
                     {description.length} / {MAX_DESCRIPTION_LENGTH}
                   </p>
                 </div>
 
                 {error ? (
-                  <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                  <div id="ada-error" role="alert" className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
                     <span>{error}</span>
                   </div>
                 ) : null}
@@ -213,7 +213,7 @@ export default function AIDesignAnalyzer() {
                 <button
                   type="submit"
                   disabled={isAnalyzing}
-                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:!opacity-100 disabled:bg-slate-600 flex items-center justify-center gap-2"
                 >
                   {isAnalyzing ? (
                     <>
@@ -238,10 +238,8 @@ export default function AIDesignAnalyzer() {
                   <p className="text-gray-600 text-lg">
                     أدخل معلومات مشروعك لطلب تحليل أولي منظم
                   </p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    {aiUnavailable
-                      ? 'هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.'
-                      : 'ستظهر النتائج هنا بعد تجهيزها.'}
+                  <p className="mt-2 text-sm text-gray-600">
+                    هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.
                   </p>
                 </div>
               )}
@@ -255,12 +253,12 @@ export default function AIDesignAnalyzer() {
               )}
 
               {isAnalyzing && (
-                <div className="h-full flex flex-col items-center justify-center" aria-busy="true">
+                <div role="status" className="h-full flex flex-col items-center justify-center" aria-busy="true">
                   <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
                   <p className="text-gray-700 text-lg mt-6 font-semibold">
                     جارٍ تحليل المعلومات...
                   </p>
-                  <p className="text-gray-500 text-sm mt-2">هذا قد يستغرق بضع ثوانٍ</p>
+                  <p className="text-gray-600 text-sm mt-2">هذا قد يستغرق بضع ثوانٍ</p>
                 </div>
               )}
 

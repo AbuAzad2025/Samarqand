@@ -251,7 +251,7 @@ export default function ControlUsers() {
       </div>
 
       {result?.password && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+        <div role="status" className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
           <div className="font-bold text-emerald-900 mb-2">{result.message}</div>
           <div className="text-emerald-900 mb-2">
             كلمة المرور تم توليدها تلقائياً. انسخها الآن لأننا لن نعرضها مرة أخرى:
@@ -263,13 +263,13 @@ export default function ControlUsers() {
       )}
 
       {result && !result.password && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+        <div role="status" className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
           <div className="font-bold text-emerald-900">{result.message}</div>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-red-700">
+        <div role="alert" className="bg-red-50 border border-red-200 rounded-2xl p-5 text-red-700">
           {error}
         </div>
       )}
@@ -343,11 +343,11 @@ export default function ControlUsers() {
             <table className="w-full text-sm text-gray-800">
               <thead className="bg-gray-50 text-gray-700">
                 <tr>
-                  <th className="p-3 text-right font-bold">اسم المستخدم</th>
-                  <th className="p-3 text-right font-bold">الدور</th>
-                  <th className="p-3 text-right font-bold">المجموعات</th>
-                  <th className="p-3 text-right font-bold">الصلاحيات (للعرض)</th>
-                  <th className="p-3 text-right font-bold">إجراءات</th>
+                  <th scope="col" className="p-3 text-right font-bold">اسم المستخدم</th>
+                  <th scope="col" className="p-3 text-right font-bold">الدور</th>
+                  <th scope="col" className="p-3 text-right font-bold">المجموعات</th>
+                  <th scope="col" className="p-3 text-right font-bold">الصلاحيات (للعرض)</th>
+                  <th scope="col" className="p-3 text-right font-bold">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -383,7 +383,7 @@ export default function ControlUsers() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400">لا توجد مجموعات</span>
+                        <span className="text-xs text-gray-600">لا توجد مجموعات</span>
                       )}
                     </td>
                     <td className="p-3">

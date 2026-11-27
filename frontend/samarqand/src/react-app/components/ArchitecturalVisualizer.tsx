@@ -8,7 +8,7 @@ const MIN_DESCRIPTION_LENGTH = 10;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg'];
 
-type ErrorInfo = { message: string; unavailable: boolean };
+type ErrorInfo = { message: string };
 
 function readErrorInfo(status: number, payload: unknown): ErrorInfo {
   const code =
@@ -18,19 +18,17 @@ function readErrorInfo(status: number, payload: unknown): ErrorInfo {
 
   if (code === 'ai_not_configured' || status === 503) {
     return {
-      unavailable: true,
       message:
         'ميزة التخيل البصري غير مُفعّلة حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يمكنك مناقشة تصميمك معنا مباشرة عبر الواتساب.',
     };
   }
   if (code === 'forbidden' || status === 403 || code === 'unauthorized' || status === 401) {
-    return { unavailable: false, message: 'هذه الأداة متاحة لحسابات الإدارة فقط.' };
+    return { message: 'هذه الأداة مخصصة لحسابات الإدارة فقط.' };
   }
   if (code === 'rate_limit' || status === 429) {
-    return { unavailable: false, message: 'تم تجاوز عدد الطلبات المسموح بها. يرجى المحاولة بعد قليل.' };
+    return { message: 'تم تجاوز عدد الطلبات المسموح بها. يرجى المحاولة بعد قليل.' };
   }
   return {
-    unavailable: false,
     message: 'تعذّر تجهيز التصور حالياً. يرجى المحاولة لاحقاً.',
   };
 }
@@ -44,7 +42,6 @@ export default function ArchitecturalVisualizer() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [aiUnavailable, setAiUnavailable] = useState(true);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -114,7 +111,6 @@ export default function ArchitecturalVisualizer() {
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         const info = readErrorInfo(response.status, payload);
-        setAiUnavailable(info.unavailable);
         setError(info.message);
         return;
       }
@@ -141,7 +137,6 @@ export default function ArchitecturalVisualizer() {
       }
 
       setGeneratedImage(`data:${mimeType};base64,${base64}`);
-      setAiUnavailable(false);
     } catch {
       setError('تعذّر تجهيز التصور حالياً. يرجى المحاولة لاحقاً.');
     } finally {
@@ -196,14 +191,8 @@ export default function ArchitecturalVisualizer() {
             اطلب تصوراً بصرياً توضيحياً لواجهة مشروعك أو تصميمه الداخلي حسب النوع والطراز الذي تختاره
           </p>
           <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
-                aiUnavailable
-                  ? 'bg-amber-50 text-amber-800'
-                  : 'bg-purple-100 text-purple-800'
-              }`}
-            >
-              {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
+            <span className="inline-flex items-center rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900">
+              غير مُفعّل حالياً
             </span>
           </div>
         </div>
@@ -217,13 +206,14 @@ export default function ArchitecturalVisualizer() {
                 صمم مشروعك
               </h3>
 
-              <form onSubmit={handleGenerate} className="space-y-6">
+              <form onSubmit={handleGenerate} className="space-y-6" noValidate>
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
-                  <select aria-label="نوع المشروع"
+                  <label htmlFor="av-project-type" className="block text-gray-800 font-semibold mb-2">نوع المشروع</label>
+                  <select id="av-project-type" aria-label="نوع المشروع"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-700 focus:outline-none transition"
+                    aria-describedby={error ? 'av-error' : undefined}
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
@@ -236,55 +226,61 @@ export default function ArchitecturalVisualizer() {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
+                  <label htmlFor="av-description" className="block text-gray-800 font-semibold mb-2">
                     وصف المشروع
                   </label>
-                  <textarea aria-label="وصف المشروع"
+                  <textarea id="av-description" aria-label="وصف المشروع"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="مثال: منزل من طابقين بواجهة حجر أبيض، نوافذ كبيرة، حديقة أمامية، موقف سيارات..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition h-32 resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-700 focus:outline-none transition h-32 resize-none"
+                    aria-describedby={`av-desc-hint${error ? ' av-error' : ''}`}
                     maxLength={MAX_DESCRIPTION_LENGTH}
                     required
                   />
-                  <p className="mt-1 text-left text-xs text-gray-500" dir="ltr">
+                  <p id="av-desc-hint" className="mt-1 text-xs text-gray-600">
+                    اكتب بين {MIN_DESCRIPTION_LENGTH} و {MAX_DESCRIPTION_LENGTH} حرفاً.
+                  </p>
+                  <p className="mt-1 text-left text-xs text-gray-600" dir="ltr">
                     {description.length} / {MAX_DESCRIPTION_LENGTH}
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-3">الطراز المعماري</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <p id="av-style-label" className="block text-gray-800 font-semibold mb-3">الطراز المعماري</p>
+                  <div role="group" aria-labelledby="av-style-label" className="grid grid-cols-2 gap-3">
                     {styles.map((s) => (
                       <button
                         key={s.value}
                         type="button"
+                        aria-pressed={style === s.value}
                         onClick={() => setStyle(s.value)}
                         className={`p-3 rounded-lg border-2 transition ${
                           style === s.value
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-purple-300'
+                            ? 'border-purple-600 bg-purple-50'
+                            : 'border-gray-300 hover:border-purple-400'
                         }`}
                       >
-                        <div className="text-2xl mb-1" aria-hidden="true">{s.icon}</div>
-                        <div className="text-sm font-semibold text-gray-700">{s.label}</div>
+                        <span className="mb-1 block text-2xl" aria-hidden="true">{s.icon}</span>
+                        <span className="block text-sm font-semibold text-gray-800">{s.label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">نسبة العرض</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <p id="av-ratio-label" className="block text-gray-800 font-semibold mb-2">نسبة العرض</p>
+                  <div role="group" aria-labelledby="av-ratio-label" className="grid grid-cols-4 gap-2">
                     {aspectRatios.map((ar) => (
                       <button
                         key={ar.value}
                         type="button"
+                        aria-pressed={aspectRatio === ar.value}
                         onClick={() => setAspectRatio(ar.value)}
-                        className={`py-2 rounded-lg border-2 transition text-sm ${
+                        className={`py-2 rounded-lg border-2 transition text-sm text-gray-800 ${
                           aspectRatio === ar.value
-                            ? 'border-purple-500 bg-purple-50 text-purple-700'
-                            : 'border-gray-200 hover:border-purple-300'
+                            ? 'border-purple-600 bg-purple-50 text-purple-800'
+                            : 'border-gray-300 hover:border-purple-400'
                         }`}
                       >
                         {ar.label}
@@ -294,8 +290,8 @@ export default function ArchitecturalVisualizer() {
                 </div>
 
                 {error ? (
-                  <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                  <div id="av-error" role="alert" className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
                     <span>{error}</span>
                   </div>
                 ) : null}
@@ -303,7 +299,7 @@ export default function ArchitecturalVisualizer() {
                 <button
                   type="submit"
                   disabled={isGenerating}
-                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:!opacity-100 disabled:bg-slate-600 flex items-center justify-center gap-2"
                 >
                   {isGenerating ? (
                     <>
@@ -334,10 +330,8 @@ export default function ArchitecturalVisualizer() {
                   <p className="text-gray-600 text-lg mb-2">
                     أدخل تفاصيل مشروعك لطلب تصور بصري توضيحي
                   </p>
-                  <p className="text-gray-500 text-sm">
-                    {aiUnavailable
-                      ? 'هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.'
-                      : 'ستظهر الصورة هنا بعد تجهيزها.'}
+                  <p className="text-gray-600 text-sm">
+                    هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.
                   </p>
                 </div>
               )}
@@ -359,12 +353,12 @@ export default function ArchitecturalVisualizer() {
               )}
 
               {isGenerating && (
-                <div className="h-full flex flex-col items-center justify-center" aria-busy="true">
+                <div role="status" className="h-full flex flex-col items-center justify-center" aria-busy="true">
                   <div className="w-32 h-32 border-8 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
                   <p className="text-gray-700 text-lg font-semibold mt-6">
                     جارٍ تجهيز التصور...
                   </p>
-                  <p className="text-gray-500 text-sm mt-2">
+                  <p className="text-gray-600 text-sm mt-2">
                     هذا قد يستغرق بضع ثوانٍ
                   </p>
                 </div>
@@ -392,6 +386,7 @@ export default function ArchitecturalVisualizer() {
 
                   <div className="flex gap-3">
                     <button
+                      type="button"
                       onClick={downloadImage}
                       className="flex-1 btn-corp-primary font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
@@ -399,6 +394,7 @@ export default function ArchitecturalVisualizer() {
                       تنزيل الصورة
                     </button>
                     <button
+                      type="button"
                       onClick={shareImage}
                       className="flex-1 btn-corp-primary font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
@@ -408,6 +404,7 @@ export default function ArchitecturalVisualizer() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       setGeneratedImage(null);
                       setError(null);

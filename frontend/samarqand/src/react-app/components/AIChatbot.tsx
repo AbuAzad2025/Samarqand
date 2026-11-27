@@ -27,7 +27,6 @@ export default function AIChatbot() {
   const [input, setInput] = useState('');
   const footerVisible = useFooterVisible();
   const [isLoading, setIsLoading] = useState(false);
-  const [aiUnavailable, setAiUnavailable] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
@@ -78,7 +77,6 @@ export default function AIChatbot() {
         const code = readErrorCode(payload);
 
         if (code === 'ai_not_configured' || response.status === 503) {
-          setAiUnavailable(true);
           appendAssistant(
             'المساعد الذكي غير مُفعّل حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يرجى التواصل معنا مباشرة عبر صفحة اتصل بنا.',
           );
@@ -91,8 +89,6 @@ export default function AIChatbot() {
         appendAssistant('تعذّر الاتصال بالمساعد حالياً. يرجى المحاولة لاحقاً أو التواصل معنا مباشرة.');
         return;
       }
-
-      setAiUnavailable(false);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -152,13 +148,6 @@ export default function AIChatbot() {
     }
   };
 
-  const quickQuestions = [
-    'ما هي خدماتكم؟',
-    'كم تكلفة بناء منزل؟',
-    'ما هي مدة التنفيذ؟',
-    'هل تقدمون استشارات مجانية؟',
-  ];
-
   return (
     <>
       {/* Chat Button */}
@@ -171,7 +160,7 @@ export default function AIChatbot() {
         >
           <Bot className="text-white" size={28} />
           {hasNewMessage && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
           )}
         </button>
       )}
@@ -191,9 +180,7 @@ export default function AIChatbot() {
               </div>
               <div>
                 <h3 className="text-white font-bold">مساعد سمر قند</h3>
-                <p className="text-white/80 text-xs">
-                  {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
-                </p>
+                <p className="text-white text-xs">غير مُفعّل حالياً</p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -248,15 +235,16 @@ export default function AIChatbot() {
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex gap-3">
+                  <div role="status" className="flex gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--corp-green)] text-white">
-                      <Bot className="text-white" size={16} />
+                      <Bot className="text-white" size={16} aria-hidden="true" />
                     </div>
                     <div className="bg-gray-100 rounded-2xl p-3">
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-400" />
+                      <span className="sr-only">جارٍ انتظار الرد...</span>
+                      <div className="flex gap-1" aria-hidden="true">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-200" />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animation-delay-400" />
                       </div>
                     </div>
                   </div>
@@ -264,49 +252,34 @@ export default function AIChatbot() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {aiUnavailable ? (
-                <div className="px-4 pb-2">
-                  <div className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
-                    المساعد الذكي غير مُفعّل حالياً.{' '}
-                    <a href="/contact" className="font-semibold underline">
-                      تواصل معنا مباشرة
-                    </a>
-                  </div>
+              <div className="px-4 pb-2">
+                <div id="ai-chat-status" className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                  المساعد الذكي غير مُفعّل حالياً.{' '}
+                  <a href="/contact" className="font-semibold underline">
+                    تواصل معنا مباشرة
+                  </a>
                 </div>
-              ) : (
-                messages.length === 1 && (
-                  <div className="px-4 pb-2">
-                    <p className="text-xs text-gray-500 mb-2">أسئلة شائعة:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {quickQuestions.map((q, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setInput(q)}
-                          className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition"
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              )}
+              </div>
 
               <form onSubmit={sendMessage} className="p-4 border-t">
                 <div className="flex gap-2">
+                  <label htmlFor="ai-chat-input" className="sr-only">رسالتك</label>
                   <input
+                    id="ai-chat-input"
+                    aria-label="رسالتك"
+                    aria-describedby="ai-chat-status"
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="اكتب رسالتك هنا..."
-                    className="flex-1 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-sq-green"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-full text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-sq-green"
                     disabled={isLoading}
                   />
                   <button
                     type="submit"
                     aria-label="إرسال الرسالة"
                     disabled={isLoading || !input.trim()}
-                    className="btn-corp-primary rounded-xl p-2 hover:shadow-lg transition disabled:opacity-50"
+                    className="btn-corp-primary rounded-xl p-2 hover:shadow-lg transition disabled:!opacity-100 disabled:bg-slate-600"
                   >
                     <Send size={20} />
                   </button>

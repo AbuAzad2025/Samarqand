@@ -145,12 +145,12 @@ export default function ControlRFQDocuments() {
       </div>
 
       {error ? (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-5 py-4 mb-6 text-sm font-semibold">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-5 py-4 mb-6 text-sm font-semibold">
           {error}
         </div>
       ) : null}
       {createError ? (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-5 py-4 mb-6 text-sm font-semibold">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-5 py-4 mb-6 text-sm font-semibold">
           {createError}
         </div>
       ) : null}

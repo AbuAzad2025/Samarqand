@@ -87,7 +87,7 @@ export default function LegalPage({
                     id={`legal-heading-${index}`}
                     className="text-xl font-extrabold text-sq-green mb-4"
                   >
-                    <span className="me-2 text-gray-400" aria-hidden="true">
+                    <span className="me-2 text-gray-600" aria-hidden="true">
                       {index + 1}.
                     </span>
                     {section.heading}

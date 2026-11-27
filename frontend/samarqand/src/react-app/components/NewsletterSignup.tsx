@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Mail, Send, X } from "lucide-react";
 
@@ -13,6 +13,7 @@ export default function NewsletterSignup() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>(null);
   const [dismissed, setDismissed] = useState(false);
+  const statusRef = useRef<HTMLDivElement>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [home, setHome] = useState<{
     newsletterTitle?: string;
@@ -30,6 +31,12 @@ export default function NewsletterSignup() {
     fetchHomeSettings().then((data) => { if (active) setHome(data); }).catch(() => {});
     return () => { active = false; };
   }, []);
+
+  // Move focus to the feedback message so keyboard users land on it directly;
+  // role="status"/"alert" still announces it to screen readers.
+  useEffect(() => {
+    if (status) statusRef.current?.focus();
+  }, [status]);
 
   function dismiss() {
     setDismissed(true);
@@ -93,9 +100,10 @@ export default function NewsletterSignup() {
 
   if (dismissed) {
     return (
-      <section className="section-corp-muted" dir="rtl">
+      <section className="section-corp-muted" dir="rtl" aria-labelledby="newsletter-dismissed-heading">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-[var(--corp-muted)]">
+          <h2 id="newsletter-dismissed-heading" className="sr-only">اشترك في نشرتنا الإخبارية</h2>
+          <p className="text-sm text-gray-700">
             تم إخفاء نموذج الاشتراك. يمكنك التواصل معنا مباشرة في أي وقت.
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
@@ -142,14 +150,16 @@ export default function NewsletterSignup() {
           <h2 id="newsletter-heading" className="mb-3 text-3xl font-bold text-white md:text-4xl">
             {home?.newsletterTitle || "اشترك في نشرتنا الإخبارية"}
           </h2>
-          <p className="mb-6 text-lg text-white/90">
+          <p className="mb-6 text-lg text-white">
             {home?.newsletterSubtitle || "احصل على آخر العروض والنصائح الهندسية مباشرة على بريدك"}
           </p>
 
           {status && (
             <div
+              ref={statusRef}
+              tabIndex={-1}
               role={status.kind === "error" ? "alert" : "status"}
-              className={`mx-auto mb-5 max-w-xl rounded-lg px-4 py-3 text-sm font-semibold ${
+              className={`mx-auto mb-5 max-w-xl rounded-lg px-4 py-3 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                 status.kind === "success"
                   ? "bg-emerald-50 text-emerald-800"
                   : "bg-white text-[#8a1020]"
@@ -193,7 +203,7 @@ export default function NewsletterSignup() {
             </button>
           </form>
 
-          <p id="newsletter-note" className="mt-5 text-sm text-white/75">
+          <p id="newsletter-note" className="mt-5 text-sm text-white">
             لا يُحفظ بريدك في هذا الموقع؛ تتم المشاركة عبر واتساب فقط عند إرسالك للرسالة.
           </p>
         </div>

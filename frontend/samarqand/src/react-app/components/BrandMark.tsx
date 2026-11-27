@@ -21,8 +21,9 @@ export default function BrandMark({
   const [failed, setFailed] = useState(false);
 
   const dimension = Number.isFinite(size) && size > 0 ? Math.round(size) : 80;
-  const accessibleName =
-    alt !== undefined ? alt : label?.trim() || BRAND.samarqand.name;
+  const accessibleName = (
+    alt !== undefined ? alt : label?.trim() || BRAND.samarqand.name
+  ).trim();
   const classes = ["object-contain", className].filter(Boolean).join(" ");
 
   const src = useMemo(() => {

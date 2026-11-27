@@ -109,6 +109,7 @@ export default function ControlChangePassword() {
 
       {error && (
         <div
+          id="password-error"
           role="alert"
           aria-live="assertive"
           className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700"
@@ -137,6 +138,8 @@ export default function ControlChangePassword() {
             type="password"
             autoComplete="current-password"
             disabled={loading}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? "password-error" : undefined}
             required
           />
         </div>
@@ -156,7 +159,8 @@ export default function ControlChangePassword() {
             type="password"
             autoComplete="new-password"
             disabled={loading}
-            aria-describedby="password-hint"
+            aria-describedby={error ? "password-hint password-error" : "password-hint"}
+            aria-invalid={Boolean(error)}
             required
           />
           <p id="password-hint" className="text-xs text-gray-500 mt-1">
@@ -179,6 +183,8 @@ export default function ControlChangePassword() {
             type="password"
             autoComplete="new-password"
             disabled={loading}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? "password-error" : undefined}
             required
           />
         </div>

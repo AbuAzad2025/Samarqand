@@ -646,7 +646,7 @@ export default function ControlDashboard({
         <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">فريق العمل</h1>
-            <p className="text-gray-600 mt-1">إدارة أعضاء فريق العمل وإعداداتهم.</p>
+            <p className="text-white/70 mt-1">إدارة أعضاء فريق العمل وإعداداتهم.</p>
           </div>
           <div className="flex gap-3">
             <Link

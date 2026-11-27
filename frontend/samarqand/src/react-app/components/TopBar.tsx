@@ -34,12 +34,11 @@ export default function TopBar() {
                   {phones.slice(0, 2).map((phone, index) => (
                     <span key={phone} className="inline-flex items-center gap-3">
                       {index > 0 ? (
-                        <span aria-hidden="true" className="text-white/30">|</span>
+                        <span aria-hidden="true" className="text-white/60">|</span>
                       ) : null}
                       <a
                         href={`tel:${phone.replace(/\s+/g, "")}`}
-                        aria-label={`اتصل بـ ${phone}`}
-                        className="whitespace-nowrap font-medium transition hover:text-sq-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        className="whitespace-nowrap font-medium transition hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       >
                         {phone}
                       </a>
@@ -61,7 +60,7 @@ export default function TopBar() {
             {!hasContact ? (
               <Link
                 to="/contact"
-                className="font-medium text-white/90 transition hover:text-sq-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="font-medium text-white/90 transition hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 تواصل معنا
               </Link>

@@ -110,7 +110,7 @@ export default function Projects() {
       <section className="relative bg-[var(--corp-dark)] text-white py-14">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "projects", "مشاريعنا")}</h1>
-          <p className="text-xl max-w-3xl mx-auto">نفخر بإنجازاتنا ونلتزم بتقديم أفضل الخدمات</p>
+          <p className="text-xl max-w-3xl mx-auto">تعرّف على مشاريعنا وتفاصيلها الموثقة بالموقع</p>
         </div>
       </section>
 
@@ -145,7 +145,7 @@ export default function Projects() {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="ابحث بالاسم أو الموقع أو التصنيف"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-10 pl-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-sq-green focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-10 pl-3 text-sm text-gray-800 placeholder:text-gray-600 focus:border-sq-green focus:outline-none"
                   />
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function Projects() {
             </div>
 
             {loading ? (
-              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3" role="status" aria-label="جارٍ تحميل المشاريع">
+              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
                 {[0, 1, 2].map((index) => (
                   <div key={index} className="card-corp animate-pulse overflow-hidden">
                     <div className="h-52 w-full bg-gray-200" />
@@ -220,7 +220,7 @@ export default function Projects() {
                 ))}
               </div>
             ) : loadError ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+              <div role="alert" className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
                 <AlertCircle size={36} className="mx-auto mb-3 text-sq-red" aria-hidden="true" />
                 <p className="mb-4 text-gray-700">تعذّر تحميل المشاريع. يرجى المحاولة مرة أخرى.</p>
                 <button
@@ -241,7 +241,11 @@ export default function Projects() {
                           loading="lazy"
                           decoding="async"
                           src={project.imageUrl}
-                          alt={project.category ? `${project.title} - ${project.category}` : project.title}
+                          alt={
+                            project.category
+                              ? `صورة مشروع ${project.title}، ${project.category}`
+                              : `صورة مشروع ${project.title}`
+                          }
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                         />
                       ) : (
@@ -262,12 +266,12 @@ export default function Projects() {
                       <div className="mt-auto">
                         <Link
                           to={`/projects/${project.slug}`}
-                          aria-label={`عرض تفاصيل مشروع ${project.title}`}
                           className="btn-corp-link mt-2 inline-flex items-center gap-2"
                         >
-                          تفاصيل المشروع ←
+                          تفاصيل المشروع <span aria-hidden="true">←</span>
+                          <span className="sr-only">: {project.title}</span>
                         </Link>
-                        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
+                        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
                           {project.location ? (
                             <div className="flex items-center gap-2">
                               <MapPin size={16} className="text-sq-green" aria-hidden="true" />

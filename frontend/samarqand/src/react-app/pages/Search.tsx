@@ -187,7 +187,7 @@ export default function Search() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="ابحث عن مشروع أو خدمة..."
-                  className="w-full rounded-xl px-4 py-3 pr-11 text-gray-900"
+                  className="w-full rounded-xl px-4 py-3 pr-11 text-gray-900 placeholder:text-gray-600"
                 />
               </div>
               <button
@@ -203,7 +203,7 @@ export default function Search() {
         <section className="py-12">
           <div className="container mx-auto px-4 max-w-4xl space-y-8 text-right">
             {loadState === "loading" ? (
-              <p role="status" className="text-center text-gray-500">
+              <p role="status" className="text-center text-gray-600">
                 جارٍ تجهيز البحث…
               </p>
             ) : loadState === "error" ? (
@@ -258,7 +258,7 @@ export default function Search() {
                   <div key={group}>
                     <h2 className="text-xl font-extrabold text-sq-green mb-4">
                       {group}{" "}
-                      <span className="text-sm font-semibold text-gray-500">
+                      <span className="text-sm font-semibold text-gray-600">
                         ({hits.length})
                       </span>
                     </h2>
@@ -267,7 +267,6 @@ export default function Search() {
                         <Link
                           key={`${group}-${i}`}
                           to={hit.url}
-                          aria-label={`افتح: ${hit.title}`}
                           className="block rounded-xl border border-gray-200 bg-white p-5 text-right hover:border-sq-green hover:shadow-md transition"
                         >
                           <div className="font-bold text-gray-900">{hit.title}</div>

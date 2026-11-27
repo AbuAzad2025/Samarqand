@@ -45,14 +45,16 @@ function Notice({
   title,
   message,
   withContact = false,
+  role = "status",
 }: {
   icon: ReactNode;
   title: string;
   message: string;
   withContact?: boolean;
+  role?: "status" | "alert";
 }) {
   return (
-    <div role="status" className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
+    <div role={role} className="mx-auto flex max-w-xl flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
         {icon}
       </span>
@@ -164,17 +166,18 @@ export default function ShowcasePage() {
               </div>
 
               {galleryReady === null ? (
-                <p role="status" className="text-center text-sm text-gray-500">
+                <p role="status" className="text-center text-sm text-gray-600">
                   جارٍ تحميل صور المعرض…
                 </p>
               ) : visibleGallery.length > 0 ? (
-                <div className="grid md:grid-cols-2 gap-8">
+                <div className="grid gap-8 md:grid-cols-2">
                   {visibleGallery.map((item) => (
                     <figure key={item.title} className="card-corp overflow-hidden">
                       <BeforeAfterSlider
                         before={item.before}
                         after={item.after}
                         title={item.title}
+                        description={item.caption}
                       />
                       <figcaption className="border-t border-gray-100 px-4 py-3 text-sm leading-relaxed text-gray-600">
                         {item.caption}
@@ -207,7 +210,7 @@ export default function ShowcasePage() {
                 </div>
 
                 {testimonialsStatus === "loading" ? (
-                  <p role="status" className="text-center text-sm text-gray-500">
+                  <p role="status" className="text-center text-sm text-gray-600">
                     جارٍ تحميل الآراء…
                   </p>
                 ) : testimonialsStatus === "error" ? (
@@ -216,6 +219,7 @@ export default function ShowcasePage() {
                     title="تعذّر تحميل الآراء"
                     message="يمكنك المحاولة مرة أخرى لاحقاً أو التواصل معنا."
                     withContact
+                    role="alert"
                   />
                 ) : testimonials.length === 0 ? (
                   <Notice
@@ -247,7 +251,7 @@ export default function ShowcasePage() {
                           </blockquote>
                           <figcaption className="border-t pt-4">
                             <p className="font-bold text-gray-800">{testimonial.name}</p>
-                            <p className="text-sm text-gray-500">{testimonial.project}</p>
+                            <p className="text-sm text-gray-600">{testimonial.project}</p>
                           </figcaption>
                         </figure>
                       );

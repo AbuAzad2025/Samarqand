@@ -102,6 +102,7 @@ export default function FloatingCTA() {
                 className="btn-corp-primary w-full text-sm focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
               >
                 تواصل عبر واتساب
+                <span className="sr-only"> (يفتح في تبويب جديد)</span>
               </a>
             ) : (
               <Link

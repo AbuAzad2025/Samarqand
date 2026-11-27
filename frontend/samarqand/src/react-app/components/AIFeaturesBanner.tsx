@@ -55,8 +55,8 @@ export default function AIFeaturesBanner() {
           <h2 className="mb-4 text-3xl font-bold md:text-4xl">
             أدوات تساعدك على التخطيط واتخاذ القرار
           </h2>
-          <p className="text-white/70 leading-loose">
-            نعرض هنا الأدوات الرقمية المتاحة للتخطيط وتنظيم المعلومات وتسريع التواصل مع عملائنا، ضمن إمكانيات مُحدّدة وواضحة.
+          <p className="text-white leading-loose">
+            نعرض هنا أدوات رقمية للتخطيط وتنظيم المعلومات وتسريع التواصل مع عملائنا، ضمن إمكانيات مُحدّدة وواضحة.
           </p>
         </div>
 
@@ -67,13 +67,14 @@ export default function AIFeaturesBanner() {
           <span className="rounded-full bg-amber-300/20 px-3 py-1 text-xs font-semibold text-amber-200">
             غير مُفعّل حالياً
           </span>
-          <p className="text-sm leading-relaxed text-white/80">
+          <p className="text-sm leading-relaxed text-white">
             الميزات التي تعتمد على الذكاء الاصطناعي غير مُفعّلة حالياً حتى يتم ضبط مفتاح الخدمة. يمكنك التواصل معنا مباشرة لمناقشة احتياجاتك.
           </p>
         </div>
 
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <div role="status" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+            <span className="sr-only">جارٍ تحميل قائمة الأدوات...</span>
             {[1, 2, 3].map((item) => (
               <div key={item} className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
             ))}
@@ -81,7 +82,7 @@ export default function AIFeaturesBanner() {
         ) : error ? (
           <div role="alert" className="rounded-xl border border-red-300/30 bg-red-400/10 p-6 text-center">
             <AlertCircle className="mx-auto mb-3 text-red-300" size={36} />
-            <p className="mb-4 text-white/80">تعذّر تحميل قائمة الأدوات حالياً. يرجى المحاولة مرة أخرى.</p>
+            <p className="mb-4 text-white">تعذّر تحميل قائمة الأدوات حالياً. يرجى المحاولة مرة أخرى.</p>
             <button
               type="button"
               onClick={() => setReloadKey((key) => key + 1)}
@@ -92,7 +93,7 @@ export default function AIFeaturesBanner() {
             </button>
           </div>
         ) : features.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white">
             لا توجد أدوات لعرضها حالياً.
           </div>
         ) : (
@@ -110,12 +111,12 @@ export default function AIFeaturesBanner() {
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <h3 className="text-base font-bold">{feature.title}</h3>
                     {feature.badgeText ? (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white">
                         {feature.badgeText}
                       </span>
                     ) : null}
                   </div>
-                  <p className="text-sm leading-relaxed text-white/60">
+                  <p className="text-sm leading-relaxed text-white">
                     {feature.description}
                   </p>
                 </article>

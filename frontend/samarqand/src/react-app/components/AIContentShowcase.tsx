@@ -17,7 +17,6 @@ export default function AIContentShowcase() {
   const [content, setContent] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiUnavailable, setAiUnavailable] = useState(true);
 
   const generateContent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +48,6 @@ export default function AIContentShowcase() {
         const code = readErrorCode(payload);
 
         if (code === 'ai_not_configured' || response.status === 503) {
-          setAiUnavailable(true);
           setError(
             'مولّد المحتوى غير مُفعّل حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يمكنك التواصل معنا لطلب المحتوى مباشرة.',
           );
@@ -70,7 +68,6 @@ export default function AIContentShowcase() {
       }
 
       setContent(data.content);
-      setAiUnavailable(false);
     } catch {
       setError('تعذّر إنشاء المحتوى حالياً. يرجى المحاولة لاحقاً.');
     } finally {
@@ -103,77 +100,77 @@ export default function AIContentShowcase() {
             صياغة مسودة لمقالة أو منشور حول موضوع تختاره
           </p>
           <div className="mt-4">
-            <span
-              className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
-                aiUnavailable
-                  ? 'bg-amber-50 text-amber-800'
-                  : 'bg-emerald-50 text-emerald-800'
-              }`}
-            >
-              {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
+            <span className="inline-flex rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900">
+              غير مُفعّل حالياً
             </span>
           </div>
         </div>
 
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
           <div className="grid md:grid-cols-2">
-            <div className="p-8 bg-gradient-to-br from-indigo-500 to-purple-500">
-              <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                <FileText size={24} />
+            <div className="p-8 bg-gradient-to-br from-indigo-800 to-purple-900">
+              <h3 id="acs-type-label" className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                <FileText size={24} aria-hidden="true" />
                 اختر نوع المحتوى
               </h3>
 
-              <div className="space-y-4 mb-6">
+              <div role="group" aria-labelledby="acs-type-label" className="space-y-4 mb-6">
                 <button
                   type="button"
+                  aria-pressed={contentType === 'blog'}
                   onClick={() => setContentType('blog')}
                   className={`w-full p-4 rounded-lg transition-all ${
                     contentType === 'blog'
-                      ? 'bg-white text-indigo-600 shadow-lg scale-105'
-                      : 'bg-white/20 text-white hover:bg-white/30'
+                      ? 'bg-white text-indigo-900 shadow-lg'
+                      : 'border border-white/40 bg-indigo-950/50 text-white hover:bg-indigo-950/70'
                   }`}
                 >
-                  <FileText className="inline-block ml-2" size={20} />
+                  <FileText className="inline-block ml-2" size={20} aria-hidden="true" />
                   <span className="font-bold">مقالة مدونة</span>
-                  <p className="text-sm mt-1 opacity-90">صياغة نص طويل</p>
+                  <span className="mt-1 block text-sm">صياغة نص طويل</span>
                 </button>
 
                 <button
                   type="button"
+                  aria-pressed={contentType === 'social'}
                   onClick={() => setContentType('social')}
                   className={`w-full p-4 rounded-lg transition-all ${
                     contentType === 'social'
-                      ? 'bg-white text-indigo-600 shadow-lg scale-105'
-                      : 'bg-white/20 text-white hover:bg-white/30'
+                      ? 'bg-white text-indigo-900 shadow-lg'
+                      : 'border border-white/40 bg-indigo-950/50 text-white hover:bg-indigo-950/70'
                   }`}
                 >
-                  <Share2 className="inline-block ml-2" size={20} />
+                  <Share2 className="inline-block ml-2" size={20} aria-hidden="true" />
                   <span className="font-bold">منشور وسائل التواصل</span>
-                  <p className="text-sm mt-1 opacity-90">صياغة نص قصير</p>
+                  <span className="mt-1 block text-sm">صياغة نص قصير</span>
                 </button>
               </div>
 
               <form onSubmit={generateContent} className="space-y-4" noValidate>
                 <div>
-                  <label className="block text-white font-semibold mb-2">
+                  <label htmlFor="acs-topic" className="block text-white font-semibold mb-2">
                     الموضوع
                   </label>
-                  <input aria-label="موضوع المحتوى المطلوب"
+                  <input id="acs-topic" aria-label="الموضوع"
                     type="text"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     placeholder="مثال: أهمية العزل الحراري في المباني"
-                    className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
+                    className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-white"
+                    aria-describedby={`acs-topic-hint${error ? ' acs-error' : ''}`}
                     maxLength={MAX_TOPIC_LENGTH}
                     required
                   />
-                  <p className="mt-1 text-left text-xs text-white/80" dir="ltr">
+                  <p id="acs-topic-hint" className="mt-1 text-xs text-indigo-100">
+                    أدخل موضوعاً لا يتجاوز {MAX_TOPIC_LENGTH} حرفاً.
+                  </p>
+                  <p className="mt-1 text-left text-xs text-indigo-100" dir="ltr">
                     {topic.length} / {MAX_TOPIC_LENGTH}
                   </p>
                 </div>
 
                 {error ? (
-                  <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm leading-relaxed text-red-800">
+                  <div id="acs-error" role="alert" className="rounded-lg bg-red-50 p-3 text-sm leading-relaxed text-red-800">
                     {error}
                   </div>
                 ) : null}
@@ -181,7 +178,7 @@ export default function AIContentShowcase() {
                 <button
                   type="submit"
                   disabled={isGenerating}
-                  className="w-full bg-white text-indigo-600 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+                  className="w-full bg-white text-indigo-900 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:!opacity-100"
                 >
                   {isGenerating ? (
                     <>
@@ -200,13 +197,11 @@ export default function AIContentShowcase() {
               {!content && !isGenerating && !error && (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <FileText className="text-indigo-400 mb-4" size={64} />
-                  <p className="text-gray-600">
+                  <p className="text-gray-700">
                     اختر نوع المحتوى وأدخل الموضوع لطلب مسودة
                   </p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    {aiUnavailable
-                      ? 'هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.'
-                      : 'ستظهر المسودة هنا بعد تجهيزها.'}
+                  <p className="mt-2 text-sm text-gray-600">
+                    هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.
                   </p>
                 </div>
               )}
@@ -220,7 +215,7 @@ export default function AIContentShowcase() {
               )}
 
               {isGenerating && (
-                <div className="h-full flex flex-col items-center justify-center" aria-busy="true">
+                <div role="status" className="h-full flex flex-col items-center justify-center" aria-busy="true">
                   <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
                   <p className="text-gray-700 text-lg mt-6 font-semibold">
                     جارٍ تجهيز المحتوى...

@@ -78,7 +78,6 @@ export default function LandingQuickNav({
         </nav>
         <Link
           to="/request-quote"
-          aria-label="فتح نموذج طلب عرض سعر"
           className="ms-auto flex shrink-0 items-center gap-1 rounded-full bg-sq-green px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2 sm:text-sm"
         >
           <Phone size={14} aria-hidden="true" />

@@ -199,7 +199,7 @@ export default function ControlFieldDocs() {
       approved_with_comments: "معتمد بملاحظات",
       rejected: "مرفوض",
     };
-    return map[status] || status;
+    return map[status] || "غير معروف";
   }
 
   return (
@@ -242,23 +242,23 @@ export default function ControlFieldDocs() {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
+        <div role="alert" className="rounded-2xl bg-red-500/15 border border-red-500/30 px-4 py-3 text-red-200">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
+        <div role="status" className="rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3 text-emerald-200">
           {success}
         </div>
       )}
 
       {!selectedProjectId ? (
-        <div className="text-center py-20 text-white/50">
+        <div className="text-center py-20 text-white/70">
           <div className="text-5xl mb-4">📋</div>
           <div className="text-lg font-bold">اختر مشروعاً لبدء العمل</div>
         </div>
       ) : loading ? (
-        <div className="text-center py-20 text-white/50">جاري التحميل…</div>
+        <div className="text-center py-20 text-white/70">جاري التحميل…</div>
       ) : (
         <>
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -516,7 +516,7 @@ function CorrespondenceSection({
             <option value="outgoing" className="bg-sq-black">صادر</option>
           </Select>
           <Input
-            placeholder="رقم المرجع"
+            placeholder="رقم المرجع" aria-label="رقم المرجع"
             value={form.referenceNumber || ""}
             onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
           />
@@ -527,22 +527,22 @@ function CorrespondenceSection({
           />
           <Input
             type="date"
-            placeholder="تاريخ استحقاق الرد"
+            placeholder="تاريخ استحقاق الرد" aria-label="تاريخ استحقاق الرد"
             value={form.responseDueDate || ""}
             onChange={(e) => setForm({ ...form, responseDueDate: e.target.value })}
           />
           <Input
-            placeholder="من"
+            placeholder="من" aria-label="من"
             value={form.fromEntity || ""}
             onChange={(e) => setForm({ ...form, fromEntity: e.target.value })}
           />
           <Input
-            placeholder="إلى"
+            placeholder="إلى" aria-label="إلى"
             value={form.toEntity || ""}
             onChange={(e) => setForm({ ...form, toEntity: e.target.value })}
           />
           <Input
-            placeholder="الموضوع"
+            placeholder="الموضوع" aria-label="الموضوع"
             value={form.subject || ""}
             onChange={(e) => setForm({ ...form, subject: e.target.value })}
             className="md:col-span-2"
@@ -556,7 +556,7 @@ function CorrespondenceSection({
             <option value="closed" className="bg-sq-black">مغلق</option>
           </Select>
           <Input
-            placeholder="رقم الرد"
+            placeholder="رقم الرد" aria-label="رقم الرد"
             value={form.responseRef || ""}
             onChange={(e) => setForm({ ...form, responseRef: e.target.value })}
           />
@@ -572,7 +572,7 @@ function CorrespondenceSection({
           {uploading ? <span>جارٍ الرفع…</span> : null}
         </div>
         <TextArea
-          placeholder="الوصف"
+          placeholder="الوصف" aria-label="الوصف"
           value={form.description || ""}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={2}
@@ -597,13 +597,13 @@ function CorrespondenceSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الاتجاه</th>
-              <th className="px-4 py-3 text-right">الرقم</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">من / إلى</th>
-              <th className="px-4 py-3 text-right">الموضوع</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الاتجاه</th>
+              <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">من / إلى</th>
+              <th scope="col" className="px-4 py-3 text-right">الموضوع</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -711,7 +711,7 @@ function MeetingsSection({
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid md:grid-cols-4 gap-3">
           <Input
-            placeholder="رقم الاجتماع"
+            placeholder="رقم الاجتماع" aria-label="رقم الاجتماع"
             value={form.meetingNumber || ""}
             onChange={(e) => setForm({ ...form, meetingNumber: e.target.value })}
           />
@@ -731,17 +731,17 @@ function MeetingsSection({
             <option value="safety" className="bg-sq-black">سلامة</option>
           </Select>
           <Input
-            placeholder="المكان"
+            placeholder="المكان" aria-label="المكان"
             value={form.location || ""}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
           />
           <Input
-            placeholder="رئيس الاجتماع"
+            placeholder="رئيس الاجتماع" aria-label="رئيس الاجتماع"
             value={form.chairperson || ""}
             onChange={(e) => setForm({ ...form, chairperson: e.target.value })}
           />
           <Input
-            placeholder="محرر المحضر"
+            placeholder="محرر المحضر" aria-label="محرر المحضر"
             value={form.minutesBy || ""}
             onChange={(e) => setForm({ ...form, minutesBy: e.target.value })}
           />
@@ -755,13 +755,13 @@ function MeetingsSection({
           </Select>
         </div>
         <TextArea
-          placeholder="الحاضرون"
+          placeholder="الحاضرون" aria-label="الحاضرون"
           value={form.attendees || ""}
           onChange={(e) => setForm({ ...form, attendees: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="الملخص"
+          placeholder="الملخص" aria-label="الملخص"
           value={form.summary || ""}
           onChange={(e) => setForm({ ...form, summary: e.target.value })}
           rows={2}
@@ -786,13 +786,13 @@ function MeetingsSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الرقم</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">النوع</th>
-              <th className="px-4 py-3 text-right">المكان</th>
-              <th className="px-4 py-3 text-right">رئيس الاجتماع</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right">المكان</th>
+              <th scope="col" className="px-4 py-3 text-right">رئيس الاجتماع</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -912,7 +912,7 @@ function MeetingActionItemsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-extrabold text-white">بنود الإجراء — {meeting.meetingNumber}</h3>
+          <h2 className="text-xl font-extrabold text-white">بنود الإجراء — {meeting.meetingNumber}</h2>
           <button type="button" onClick={onClose} className="text-white/60 hover:text-white">
             ✕
           </button>
@@ -921,12 +921,12 @@ function MeetingActionItemsModal({
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 mb-4">
           <div className="grid md:grid-cols-4 gap-3">
             <Input
-              placeholder="رقم البند"
+              placeholder="رقم البند" aria-label="رقم البند"
               value={form.itemNumber || ""}
               onChange={(e) => setForm({ ...form, itemNumber: e.target.value })}
             />
             <Input
-              placeholder="المسؤول"
+              placeholder="المسؤول" aria-label="المسؤول"
               value={form.responsible || ""}
               onChange={(e) => setForm({ ...form, responsible: e.target.value })}
             />
@@ -946,7 +946,7 @@ function MeetingActionItemsModal({
             </Select>
           </div>
           <TextArea
-            placeholder="الوصف"
+            placeholder="الوصف" aria-label="الوصف"
             value={form.description || ""}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={2}
@@ -967,7 +967,7 @@ function MeetingActionItemsModal({
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-white/50">جاري التحميل…</div>
+          <div className="text-center py-8 text-white/70">جاري التحميل…</div>
         ) : (
         <>
           <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
@@ -975,12 +975,12 @@ function MeetingActionItemsModal({
             <table className="w-full text-sm">
               <thead className="bg-white/5 text-white/70">
                 <tr>
-                  <th className="px-4 py-3 text-right">رقم البند</th>
-                  <th className="px-4 py-3 text-right">الوصف</th>
-                  <th className="px-4 py-3 text-right">المسؤول</th>
-                  <th className="px-4 py-3 text-right">تاريخ الاستحقاق</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-right">إجراءات</th>
+                  <th scope="col" className="px-4 py-3 text-right">رقم البند</th>
+                  <th scope="col" className="px-4 py-3 text-right">الوصف</th>
+                  <th scope="col" className="px-4 py-3 text-right">المسؤول</th>
+                  <th scope="col" className="px-4 py-3 text-right">تاريخ الاستحقاق</th>
+                  <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+                  <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -1089,42 +1089,42 @@ function DailyReportsSection({
             onChange={(e) => setForm({ ...form, date: e.target.value })}
           />
           <Input
-            placeholder="الطقس"
+            placeholder="الطقس" aria-label="الطقس"
             value={form.weather || ""}
             onChange={(e) => setForm({ ...form, weather: e.target.value })}
           />
           <Input
-            placeholder="درجة الحرارة"
+            placeholder="درجة الحرارة" aria-label="درجة الحرارة"
             value={form.temperature || ""}
             onChange={(e) => setForm({ ...form, temperature: e.target.value })}
           />
           <Input
             type="number"
-            placeholder="إجمالي العمال"
+            placeholder="إجمالي العمال" aria-label="إجمالي العمال"
             value={form.totalWorkers ?? ""}
             onChange={(e) => setForm({ ...form, totalWorkers: Number(e.target.value) })}
           />
         </div>
         <TextArea
-          placeholder="ملخص الأعمال المنفذة"
+          placeholder="ملخص الأعمال المنفذة" aria-label="ملخص الأعمال المنفذة"
           value={form.workDoneSummary || ""}
           onChange={(e) => setForm({ ...form, workDoneSummary: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="الكميات المنفذة"
+          placeholder="الكميات المنفذة" aria-label="الكميات المنفذة"
           value={form.quantitiesExecuted || ""}
           onChange={(e) => setForm({ ...form, quantitiesExecuted: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="المواد المستلمة"
+          placeholder="المواد المستلمة" aria-label="المواد المستلمة"
           value={form.materialsReceived || ""}
           onChange={(e) => setForm({ ...form, materialsReceived: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="المشاكل / التأخيرات / ملاحظات السلامة"
+          placeholder="المشاكل / التأخيرات / ملاحظات السلامة" aria-label="المشاكل / التأخيرات / ملاحظات السلامة"
           value={form.issuesEncountered || ""}
           onChange={(e) =>
             setForm({
@@ -1135,7 +1135,7 @@ function DailyReportsSection({
           rows={2}
         />
         <TextArea
-          placeholder="خطة اليوم التالي"
+          placeholder="خطة اليوم التالي" aria-label="خطة اليوم التالي"
           value={form.planForNextDay || ""}
           onChange={(e) => setForm({ ...form, planForNextDay: e.target.value })}
           rows={2}
@@ -1160,12 +1160,12 @@ function DailyReportsSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">الطقس</th>
-              <th className="px-4 py-3 text-right">العمال</th>
-              <th className="px-4 py-3 text-right">ملخص الأعمال</th>
-              <th className="px-4 py-3 text-right">المواد</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">الطقس</th>
+              <th scope="col" className="px-4 py-3 text-right">العمال</th>
+              <th scope="col" className="px-4 py-3 text-right">ملخص الأعمال</th>
+              <th scope="col" className="px-4 py-3 text-right">المواد</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1269,23 +1269,23 @@ function DeliveryNotesSection({
             onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })}
           />
           <Input
-            placeholder="المورد"
+            placeholder="المورد" aria-label="المورد"
             value={form.supplierName || ""}
             onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
           />
           <Input
-            placeholder="رقم اللوحة"
+            placeholder="رقم اللوحة" aria-label="رقم اللوحة"
             value={form.vehiclePlate || ""}
             onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })}
           />
           <Input
-            placeholder="اسم السائق"
+            placeholder="اسم السائق" aria-label="اسم السائق"
             value={form.driverName || ""}
             onChange={(e) => setForm({ ...form, driverName: e.target.value })}
           />
         </div>
         <TextArea
-          placeholder="ملاحظات"
+          placeholder="ملاحظات" aria-label="ملاحظات"
           value={form.notes || ""}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={2}
@@ -1310,12 +1310,12 @@ function DeliveryNotesSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">المورد</th>
-              <th className="px-4 py-3 text-right">رقم اللوحة</th>
-              <th className="px-4 py-3 text-right">السائق</th>
-              <th className="px-4 py-3 text-right">البنود</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">المورد</th>
+              <th scope="col" className="px-4 py-3 text-right">رقم اللوحة</th>
+              <th scope="col" className="px-4 py-3 text-right">السائق</th>
+              <th scope="col" className="px-4 py-3 text-right">البنود</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1429,7 +1429,7 @@ function DeliveryItemsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-sq-black border border-white/10 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-extrabold text-white">بنود مذكرة الاستلام — {note.supplierName}</h3>
+          <h2 className="text-xl font-extrabold text-white">بنود مذكرة الاستلام — {note.supplierName}</h2>
           <button type="button" onClick={onClose} className="text-white/60 hover:text-white">
             ✕
           </button>
@@ -1438,25 +1438,25 @@ function DeliveryItemsModal({
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 mb-4">
           <div className="grid md:grid-cols-5 gap-3">
             <Input
-              placeholder="الوصف"
+              placeholder="الوصف" aria-label="الوصف"
               value={form.description || ""}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="md:col-span-2"
             />
             <Input
-              placeholder="الكمية"
+              placeholder="الكمية" aria-label="الكمية"
               type="number"
               step="0.001"
               value={form.quantity ?? ""}
               onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
             />
             <Input
-              placeholder="الوحدة"
+              placeholder="الوحدة" aria-label="الوحدة"
               value={form.unit || ""}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
             />
             <Input
-              placeholder="سعر الوحدة"
+              placeholder="سعر الوحدة" aria-label="سعر الوحدة"
               type="number"
               step="0.01"
               value={form.unitPrice ?? ""}
@@ -1483,12 +1483,12 @@ function DeliveryItemsModal({
           <table className="w-full text-sm">
             <thead className="bg-white/5 text-white/70">
               <tr>
-                <th className="px-4 py-3 text-right">الوصف</th>
-                <th className="px-4 py-3 text-right">الكمية</th>
-                <th className="px-4 py-3 text-right">الوحدة</th>
-                <th className="px-4 py-3 text-right">سعر الوحدة</th>
-                <th className="px-4 py-3 text-right">الإجمالي</th>
-                <th className="px-4 py-3 text-right">إجراءات</th>
+                <th scope="col" className="px-4 py-3 text-right">الوصف</th>
+                <th scope="col" className="px-4 py-3 text-right">الكمية</th>
+                <th scope="col" className="px-4 py-3 text-right">الوحدة</th>
+                <th scope="col" className="px-4 py-3 text-right">سعر الوحدة</th>
+                <th scope="col" className="px-4 py-3 text-right">الإجمالي</th>
+                <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -1590,12 +1590,12 @@ function RfiSection({
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid md:grid-cols-4 gap-3">
           <Input
-            placeholder="رقم RFI"
+            placeholder="رقم RFI" aria-label="رقم RFI"
             value={form.rfiNumber || ""}
             onChange={(e) => setForm({ ...form, rfiNumber: e.target.value })}
           />
           <Input
-            placeholder="الموضوع"
+            placeholder="الموضوع" aria-label="الموضوع"
             value={form.subject || ""}
             onChange={(e) => setForm({ ...form, subject: e.target.value })}
           />
@@ -1627,25 +1627,25 @@ function RfiSection({
             <option value="closed" className="bg-sq-black">مغلق</option>
           </Select>
           <Input
-            placeholder="مقدم إلى"
+            placeholder="مقدم إلى" aria-label="مقدم إلى"
             value={form.submittedTo || ""}
             onChange={(e) => setForm({ ...form, submittedTo: e.target.value })}
           />
           <Input
             type="number"
-            placeholder="أيام للرد"
+            placeholder="أيام للرد" aria-label="أيام للرد"
             value={form.daysToRespond ?? ""}
             onChange={(e) => setForm({ ...form, daysToRespond: Number(e.target.value) })}
           />
         </div>
         <TextArea
-          placeholder="السؤال"
+          placeholder="السؤال" aria-label="السؤال"
           value={form.question || ""}
           onChange={(e) => setForm({ ...form, question: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="الرد"
+          placeholder="الرد" aria-label="الرد"
           value={form.response || ""}
           onChange={(e) => setForm({ ...form, response: e.target.value })}
           rows={2}
@@ -1670,13 +1670,13 @@ function RfiSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الرقم</th>
-              <th className="px-4 py-3 text-right">الموضوع</th>
-              <th className="px-4 py-3 text-right">التصنيف</th>
-              <th className="px-4 py-3 text-right">الأولوية</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">مقدم إلى</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+              <th scope="col" className="px-4 py-3 text-right">الموضوع</th>
+              <th scope="col" className="px-4 py-3 text-right">التصنيف</th>
+              <th scope="col" className="px-4 py-3 text-right">الأولوية</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">مقدم إلى</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1782,7 +1782,7 @@ function NcrSection({
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid md:grid-cols-4 gap-3">
           <Input
-            placeholder="رقم NCR"
+            placeholder="رقم NCR" aria-label="رقم NCR"
             value={form.ncrNumber || ""}
             onChange={(e) => setForm({ ...form, ncrNumber: e.target.value })}
           />
@@ -1792,7 +1792,7 @@ function NcrSection({
             onChange={(e) => setForm({ ...form, date: e.target.value })}
           />
           <Input
-            placeholder="الموقع"
+            placeholder="الموقع" aria-label="الموقع"
             value={form.location || ""}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
           />
@@ -1814,24 +1814,24 @@ function NcrSection({
           </Select>
           <Input
             type="date"
-            placeholder="موعد الإجراء"
+            placeholder="موعد الإجراء" aria-label="موعد الإجراء"
             value={form.actionDeadline || ""}
             onChange={(e) => setForm({ ...form, actionDeadline: e.target.value })}
           />
           <Input
-            placeholder="مرجع البند"
+            placeholder="مرجع البند" aria-label="مرجع البند"
             value={form.clauseRef || ""}
             onChange={(e) => setForm({ ...form, clauseRef: e.target.value })}
           />
         </div>
         <TextArea
-          placeholder="الوصف"
+          placeholder="الوصف" aria-label="الوصف"
           value={form.description || ""}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={2}
         />
         <TextArea
-          placeholder="الإجراء التصحيحي"
+          placeholder="الإجراء التصحيحي" aria-label="الإجراء التصحيحي"
           value={form.correctiveAction || ""}
           onChange={(e) => setForm({ ...form, correctiveAction: e.target.value })}
           rows={2}
@@ -1856,13 +1856,13 @@ function NcrSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الرقم</th>
-              <th className="px-4 py-3 text-right">التاريخ</th>
-              <th className="px-4 py-3 text-right">الموقع</th>
-              <th className="px-4 py-3 text-right">الخطورة</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">موعد الإجراء</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+              <th scope="col" className="px-4 py-3 text-right">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right">الموقع</th>
+              <th scope="col" className="px-4 py-3 text-right">الخطورة</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">موعد الإجراء</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -1968,12 +1968,12 @@ function SubmittalsSection({
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
         <div className="grid md:grid-cols-4 gap-3">
           <Input
-            placeholder="رقم المستند"
+            placeholder="رقم المستند" aria-label="رقم المستند"
             value={form.submittalNumber || ""}
             onChange={(e) => setForm({ ...form, submittalNumber: e.target.value })}
           />
           <Input
-            placeholder="العنوان"
+            placeholder="العنوان" aria-label="العنوان"
             value={form.title || ""}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
@@ -1998,13 +1998,13 @@ function SubmittalsSection({
             <option value="rejected" className="bg-sq-black">مرفوض</option>
           </Select>
           <Input
-            placeholder="مقدم إلى"
+            placeholder="مقدم إلى" aria-label="مقدم إلى"
             value={form.submittedTo || ""}
             onChange={(e) => setForm({ ...form, submittedTo: e.target.value })}
           />
         </div>
         <TextArea
-          placeholder="الرد"
+          placeholder="الرد" aria-label="الرد"
           value={form.response || ""}
           onChange={(e) => setForm({ ...form, response: e.target.value })}
           rows={2}
@@ -2029,12 +2029,12 @@ function SubmittalsSection({
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
             <tr>
-              <th className="px-4 py-3 text-right">الرقم</th>
-              <th className="px-4 py-3 text-right">العنوان</th>
-              <th className="px-4 py-3 text-right">التصنيف</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">مقدم إلى</th>
-              <th className="px-4 py-3 text-right">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right">الرقم</th>
+              <th scope="col" className="px-4 py-3 text-right">العنوان</th>
+              <th scope="col" className="px-4 py-3 text-right">التصنيف</th>
+              <th scope="col" className="px-4 py-3 text-right">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right">مقدم إلى</th>
+              <th scope="col" className="px-4 py-3 text-right">إجراءات</th>
             </tr>
           </thead>
           <tbody>

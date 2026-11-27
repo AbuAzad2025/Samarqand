@@ -100,6 +100,9 @@ body {
   --corp-red: #c8102e;
   --corp-text: #1e293b;
   --corp-muted: #475569;
+  /* Secondary-text tokens: >= 4.5:1 on #fff, on --corp-surface and on
+     --corp-green-soft, so small copy stays legible on every light surface. */
+  --corp-muted-soft: #526071;
   --corp-surface: #f5f7f9;
   --corp-card: #ffffff;
   --corp-border: #e2e8f0;
@@ -189,7 +192,10 @@ h1, h2, h3, h4 {
 
 .btn-corp-primary:disabled,
 .btn-corp-secondary:disabled {
-  opacity: 0.55;
+  background: #e2e8f0;
+  color: #334155;
+  border-color: #cbd5e1;
+  box-shadow: none;
   cursor: not-allowed;
   transform: none;
 }
@@ -251,6 +257,35 @@ h1, h2, h3, h4 {
 :focus-visible {
   outline: 3px solid #005a31 !important;
   outline-offset: 3px !important;
+  /* The pale halo keeps the ring legible on dark green/black controls too,
+     without ever removing or hiding the outline itself. */
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Accessible secondary text on white / light surfaces.
+   Tailwind's slate/gray 400-500 fall below 4.5:1 on #fff (400 ~ 2.5:1,
+   500 ~ 4.4-4.8:1) and even lower on --corp-surface. Remap just these
+   neutral-grey text utilities to tokens that keep the same muted look but
+   pass WCAG AA. Brand green/red and dark-surface `text-white/*` copy are
+   deliberately untouched. */
+.text-slate-400,
+.text-gray-400,
+.placeholder\:text-slate-400::placeholder,
+.placeholder\:text-gray-400::placeholder {
+  color: var(--corp-muted-soft);
+}
+
+.text-slate-500,
+.text-gray-500,
+.placeholder\:text-slate-500::placeholder,
+.placeholder\:text-gray-500::placeholder {
+  color: var(--corp-muted);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--corp-muted-soft);
+  opacity: 1;
 }
 
 *,
@@ -360,10 +395,23 @@ h1, h2, h3, h4 {
     color: #000 !important;
     font-size: 11pt !important;
     line-height: 1.6 !important;
-    direction: rtl;
-    text-align: right;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Follow the document direction so RTL sheets read correctly while LTR
+     documents (and their dir="ltr" islands) keep their own reading order. */
+  html[dir="rtl"],
+  html[dir="rtl"] body,
+  body[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+  }
+  html[dir="ltr"],
+  html[dir="ltr"] body,
+  body[dir="ltr"] {
+    direction: ltr;
+    text-align: left;
   }
 
   #root,
@@ -379,6 +427,7 @@ h1, h2, h3, h4 {
 
   /* Interactive chrome: navigation, top bar, footer, buttons and overlays. */
   nav,
+  [role="navigation"],
   footer,
   button,
   input,
@@ -391,22 +440,26 @@ h1, h2, h3, h4 {
   .toast,
   .modal,
   .overlay,
+  .animate-slide-up,
   .fixed:not(#rfq-print),
   .sticky,
   .backdrop-blur,
   .backdrop-blur-sm,
   .backdrop-blur-lg,
-  .bg-sq-whatsapp,
+  [class*="bg-sq-whatsapp"],
   .legal-actions,
   .legal-print-button,
+  .no-print,
   .print\:hidden,
   [data-print="hide"],
+  [data-print-hide],
   [class*="bg-[#0D131D]"],
   [class*="bg-gradient-to-r"] {
     display: none !important;
   }
 
-  .print-only {
+  /* Never reveal a panel that is explicitly hidden (nav/search dropdowns). */
+  .print-only:not([hidden]) {
     display: block !important;
   }
 
@@ -467,19 +520,27 @@ h1, h2, h3, h4 {
     orphans: 3;
     widows: 3;
   }
-  .card-corp, figure, table, pre, blockquote, img {
+  .card-corp, figure, pre, blockquote, img {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  /* Long tables may paginate between rows, but rows stay whole and the
+     header/footer repeat on every sheet instead of being sliced. */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
+    break-inside: auto;
+    page-break-inside: auto;
   }
   thead {
     display: table-header-group;
+    break-after: avoid;
+    page-break-after: avoid;
   }
   tfoot {
     display: table-footer-group;
+    break-before: avoid;
+    page-break-before: avoid;
   }
   tr, td, th {
     break-inside: avoid;
@@ -495,11 +556,11 @@ h1, h2, h3, h4 {
   }
 
   /* Printed documents follow the site's RTL reading order; explicit LTR
-     snippets (numbers, codes, foreign text) stay readable. */
-  body,
-  #root,
-  main,
-  article {
+     snippets (numbers, codes, foreign text) stay readable and isolated. */
+  html[dir="rtl"] body,
+  html[dir="rtl"] #root,
+  html[dir="rtl"] main,
+  html[dir="rtl"] article {
     direction: rtl;
     text-align: right;
   }
@@ -509,5 +570,29 @@ h1, h2, h3, h4 {
   td[dir="ltr"] {
     direction: ltr !important;
     text-align: left !important;
+    unicode-bidi: isolate;
+  }
+}
+
+/* Reduced motion: stop decorative movement while keeping state cues and
+   controls usable (loading/status text and the static ring remain). */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  .nav-flash-shine,
+  .skeleton-corp,
+  [class*="animate-"] {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .skeleton-corp {
+    background: var(--corp-surface, #f5f7f9) !important;
+  }
+
+  .state-loading::before {
+    animation: none !important;
   }
 }

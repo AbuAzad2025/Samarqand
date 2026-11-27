@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -228,7 +228,7 @@ export default function ControlMail() {
             <Mail size={18} />
           </div>
           <div>
-            <h2 className="text-lg font-extrabold text-white">البريد الإلكتروني</h2>
+            <h1 className="text-lg font-extrabold text-white">البريد الإلكتروني</h1>
             <p className="text-xs text-white/60">
               {FOLDER_LABELS[currentFolder] || currentFolder} • {totalMessages} رسالة
               {unreadCount > 0 && ` • ${unreadCount} غير مقروء`}
@@ -275,7 +275,7 @@ export default function ControlMail() {
             value={searchInput}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="بحث في الرسائل..."
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 pr-10 pl-4 text-sm text-white placeholder-white/40 outline-none focus:border-emerald-500/50 transition"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 pr-10 pl-4 text-sm text-white placeholder-white/70 outline-none focus:border-emerald-500/50 transition"
           />
         </div>
       </div>
@@ -285,7 +285,7 @@ export default function ControlMail() {
         <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
           <div className="p-2 space-y-1">
             {folders.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-white/50">
+              <div className="px-3 py-4 text-center text-xs text-white/70">
                 لا توجد مجلدات لعرضها.
               </div>
             ) : null}
@@ -352,7 +352,7 @@ export default function ControlMail() {
                         ? "لا توجد رسائل مطابقة للبحث"
                         : `لا توجد رسائل في ${FOLDER_LABELS[currentFolder] || currentFolder}`}
                     </div>
-                    <p className="text-xs text-white/50 mt-2">
+                    <p className="text-xs text-white/70 mt-2">
                       {search
                         ? "جرّب كلمة بحث أخرى أو امسح عبارة البحث."
                         : "ستظهر الرسائل هنا عند وصولها أو بعد إنشاء رسالة جديدة."}
@@ -399,7 +399,7 @@ export default function ControlMail() {
                         >
                           <Star
                             size={14}
-                            className={msg.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/20 hover:text-white/60"}
+                            className={msg.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/60 hover:text-white/60"}
                           />
                         </button>
                         <div className="min-w-0 flex-1">
@@ -448,7 +448,7 @@ export default function ControlMail() {
                   >
                     <ChevronRight size={16} />
                   </button>
-                  <span className="text-xs text-white/50">
+                  <span className="text-xs text-white/70">
                     صفحة {page} من {totalPages}
                   </span>
                   <button
@@ -606,9 +606,9 @@ function MessageDetail({
       </div>
 
       <div className="p-4 md:p-6 space-y-4 text-right">
-        <h3 className="text-xl font-extrabold leading-relaxed text-white">
+        <h2 className="text-xl font-extrabold leading-relaxed text-white">
           {message.subject || "(بدون موضوع)"}
-        </h3>
+        </h2>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="flex items-start gap-3">
@@ -616,15 +616,15 @@ function MessageDetail({
               {(message.senderName || "U").slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs text-white/50">من</div>
+              <div className="text-xs text-white/70">من</div>
               <div className="font-bold text-white text-sm mt-0.5">{message.senderName}</div>
             </div>
-            <div className="text-xs text-white/50 shrink-0" dir="ltr">
+            <div className="text-xs text-white/70 shrink-0" dir="ltr">
               {new Date(message.createdAt).toLocaleString("ar-SA")}
             </div>
           </div>
           <div className="h-px bg-white/10 my-3" />
-          <div className="text-xs text-white/50 mb-1">إلى</div>
+          <div className="text-xs text-white/70 mb-1">إلى</div>
           <div className="text-sm text-white/80 leading-relaxed">
             {recipientNames.length ? recipientNames.join("، ") : "—"}
           </div>
@@ -632,7 +632,7 @@ function MessageDetail({
 
         {message.attachments.length > 0 && (
           <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-            <div className="text-xs font-bold text-white/50 mb-2 flex items-center gap-2">
+            <div className="text-xs font-bold text-white/70 mb-2 flex items-center gap-2">
               <Paperclip size={12} />
               <span>مرفقات ({message.attachments.length})</span>
             </div>
@@ -748,10 +748,12 @@ function RecipientField({
 
   const selectedUsers = users.filter((u) => selected.includes(u.id));
   const unknownIds = selected.filter((id) => !users.some((u) => u.id === id));
+  const fieldId = useId();
+  const errorId = `${fieldId}-error`;
 
   return (
     <div>
-      <label className="text-xs font-bold text-white/60 block mb-1.5">
+      <label htmlFor={fieldId} className="text-xs font-bold text-white/60 block mb-1.5">
         {label}
         {required ? <span className="text-red-400"> *</span> : null}
       </label>
@@ -793,11 +795,14 @@ function RecipientField({
       ) : null}
       <div className="relative">
         <input
+          id={fieldId}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={hint || "ابحث عن مستخدم..."}
-          className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition ${
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/70 outline-none transition ${
             error ? "border-red-400/70 focus:border-red-400" : "border-white/10 focus:border-emerald-500/50"
           }`}
         />
@@ -806,7 +811,7 @@ function RecipientField({
             type="button"
             onClick={() => setQuery("")}
             aria-label="مسح البحث"
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-white/50 hover:text-white"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-white/70 hover:text-white"
           >
             <X size={14} />
           </button>
@@ -815,9 +820,9 @@ function RecipientField({
       {query.trim() ? (
         <div className="mt-1 max-h-32 overflow-y-auto bg-white/10 border border-white/10 rounded-xl">
           {searching ? (
-            <div className="px-3 py-2 text-xs text-white/50">جارٍ البحث...</div>
+            <div className="px-3 py-2 text-xs text-white/70">جارٍ البحث...</div>
           ) : results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-white/50">
+            <div className="px-3 py-2 text-xs text-white/70">
               لم يتم العثور على مستخدمين بهذا الاسم.
             </div>
           ) : (
@@ -834,7 +839,11 @@ function RecipientField({
           )}
         </div>
       ) : null}
-      {error ? <p className="text-xs text-red-400 mt-1">{error}</p> : null}
+      {error ? (
+        <p id={errorId} role="alert" className="text-xs text-red-400 mt-1">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -863,6 +872,9 @@ function ComposeModal({
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<{ recipients?: string; subject?: string }>({});
+  const subjectId = useId();
+  const subjectErrorId = `${subjectId}-error`;
+  const bodyId = useId();
 
   function validate(): boolean {
     const next: { recipients?: string; subject?: string } = {};
@@ -952,17 +964,17 @@ function ComposeModal({
       <div className="w-full max-w-2xl bg-sq-black border border-white/20 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <div>
-            <h3 className="font-extrabold text-white text-lg">
+            <h2 className="font-extrabold text-white text-lg">
               {replyTo ? "رد على الرسالة" : "رسالة جديدة"}
-            </h3>
-            <p className="text-xs text-white/50 mt-1">
+            </h2>
+            <p className="text-xs text-white/70 mt-1">
               اختر المستلم واكتب الموضوع قبل الإرسال. الحقول المعلّمة بـ * مطلوبة.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-white/10 transition text-white/50"
+            className="p-2 rounded-xl hover:bg-white/10 transition text-white/70"
           >
             <X size={18} />
           </button>
@@ -988,14 +1000,14 @@ function ComposeModal({
             <button
               type="button"
               onClick={() => setShowCc((v) => !v)}
-              className="text-xs text-white/50 hover:text-white/80 transition font-bold"
+              className="text-xs text-white/70 hover:text-white/80 transition font-bold"
             >
               {showCc ? "إخفاء CC" : "CC"}
             </button>
             <button
               type="button"
               onClick={() => setShowBcc((v) => !v)}
-              className="text-xs text-white/50 hover:text-white/80 transition font-bold"
+              className="text-xs text-white/70 hover:text-white/80 transition font-bold"
             >
               {showBcc ? "إخفاء BCC" : "BCC"}
             </button>
@@ -1023,10 +1035,11 @@ function ComposeModal({
 
           {/* Subject */}
           <div>
-            <label className="text-xs font-bold text-white/60 block mb-1.5">
+            <label htmlFor={subjectId} className="text-xs font-bold text-white/60 block mb-1.5">
               الموضوع <span className="text-red-400">*</span>
             </label>
             <input
+              id={subjectId}
               type="text"
               value={subject}
               onChange={(e) => {
@@ -1037,24 +1050,28 @@ function ComposeModal({
               }}
               placeholder="اكتب موضوع الرسالة"
               aria-invalid={Boolean(errors.subject)}
-              className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition ${
+              aria-describedby={errors.subject ? subjectErrorId : undefined}
+              className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/70 outline-none transition ${
                 errors.subject ? "border-red-400/70 focus:border-red-400" : "border-white/10 focus:border-emerald-500/50"
               }`}
             />
             {errors.subject ? (
-              <p className="text-xs text-red-400 mt-1">{errors.subject}</p>
+              <p id={subjectErrorId} role="alert" className="text-xs text-red-400 mt-1">
+                {errors.subject}
+              </p>
             ) : null}
           </div>
 
           {/* Body */}
           <div>
-            <label className="text-xs font-bold text-white/60 block mb-1.5">محتوى الرسالة</label>
+            <label htmlFor={bodyId} className="text-xs font-bold text-white/60 block mb-1.5">محتوى الرسالة</label>
             <textarea
+              id={bodyId}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="اكتب محتوى الرسالة هنا..."
               rows={8}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm leading-7 text-white placeholder-white/40 outline-none focus:border-emerald-500/50 transition resize-y"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm leading-7 text-white placeholder-white/70 outline-none focus:border-emerald-500/50 transition resize-y"
             />
           </div>
 
@@ -1066,7 +1083,7 @@ function ComposeModal({
                 <span>إرفاق ملف</span>
                 <input type="file" onChange={handleFileUpload} className="hidden" />
               </label>
-              {uploading && <span className="text-xs text-white/50">جاري الرفع...</span>}
+              {uploading && <span className="text-xs text-white/70">جاري الرفع...</span>}
             </div>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -1112,7 +1129,7 @@ function ComposeModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white/50 text-sm hover:bg-white/10 transition"
+            className="px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10 transition"
           >
             إلغاء
           </button>

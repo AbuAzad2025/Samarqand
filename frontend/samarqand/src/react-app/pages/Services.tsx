@@ -59,6 +59,9 @@ export default function ServicesPage() {
         </section>
       ) : (
         <>
+          {/* Card titles are h3 while the component's own h2 is hidden here,
+              so supply the parent heading to keep h1 -> h2 -> h3 order. */}
+          <h2 className="sr-only">الخدمات المتاحة</h2>
           <Services showHeading={false} />
           <ProcessTimeline />
           <section className="py-12 bg-white border-t border-gray-200">
@@ -67,7 +70,7 @@ export default function ServicesPage() {
                 لم تجد ما تبحث عنه؟
               </h2>
               <p className="text-gray-600 mb-5 leading-relaxed">
-                أرسل تفاصيل مشروعك عبر نموذج طلب عرض السعر وسنرد عليك بما يناسب احتياجك.
+                أرسل تفاصيل مشروعك عبر نموذج طلب عرض السعر لمراجعتها.
               </p>
               <Link
                 to="/request-quote"

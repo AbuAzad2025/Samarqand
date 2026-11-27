@@ -140,7 +140,7 @@ function ConfirmDialog({
     >
       <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-2xl p-6">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <button
             type="button"
             onClick={onCancel}
@@ -644,12 +644,12 @@ export default function ControlRFQDocumentEdit() {
               <table className="min-w-[820px] w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr className="text-gray-700">
-                    <th className="text-right p-3 font-bold w-[46%]">الوصف</th>
-                    <th className="text-right p-3 font-bold w-[10%]">الكمية</th>
-                    <th className="text-right p-3 font-bold w-[10%]">الوحدة</th>
-                    <th className="text-right p-3 font-bold w-[12%]">سعر الوحدة</th>
-                    <th className="text-right p-3 font-bold w-[12%]">الإجمالي</th>
-                    <th className="text-right p-3 font-bold w-[10%]">إجراءات</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[46%]">الوصف</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[10%]">الكمية</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[10%]">الوحدة</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[12%]">سعر الوحدة</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[12%]">الإجمالي</th>
+                    <th scope="col" className="text-right p-3 font-bold w-[10%]">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -935,11 +935,11 @@ export default function ControlRFQDocumentEdit() {
                     <table className="min-w-[720px] w-full text-sm">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr className="text-gray-700">
-                          <th className="text-right p-3 font-bold w-[52%]">البند</th>
-                          <th className="text-right p-3 font-bold w-[12%]">الكمية</th>
-                          <th className="text-right p-3 font-bold w-[12%]">الوحدة</th>
-                          <th className="text-right p-3 font-bold w-[12%]">سعر الوحدة</th>
-                          <th className="text-right p-3 font-bold w-[12%]">الإجمالي</th>
+                          <th scope="col" className="text-right p-3 font-bold w-[52%]">البند</th>
+                          <th scope="col" className="text-right p-3 font-bold w-[12%]">الكمية</th>
+                          <th scope="col" className="text-right p-3 font-bold w-[12%]">الوحدة</th>
+                          <th scope="col" className="text-right p-3 font-bold w-[12%]">سعر الوحدة</th>
+                          <th scope="col" className="text-right p-3 font-bold w-[12%]">الإجمالي</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">

@@ -159,7 +159,7 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
                     ) : null}
                     <Link
                       to={`${label.path}/${item.slug}`}
-                      aria-label={`عرض تفاصيل ${label.type}: ${item.title}`}
+                      aria-label={`عرض التفاصيل: ${label.type} ${item.title}`}
                       className="btn-corp-link mt-auto inline-flex items-center gap-2 self-start"
                     >
                       عرض التفاصيل <ArrowLeft size={16} aria-hidden="true" />
