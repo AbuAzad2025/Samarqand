@@ -1,6 +1,6 @@
 import { Phone, MapPin } from "lucide-react";
 import { Link } from "react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fetchCompany, type CompanyPayload } from "@/react-app/api/site";
 
@@ -11,12 +11,9 @@ export default function TopBar() {
     fetchCompany().then(setCompany).catch(() => {});
   }, []);
 
-  const phones = useMemo(() => {
-    const list = [company?.phone1, company?.phone2].filter(
-      (p): p is string => Boolean(p && String(p).trim()),
-    );
-    return list;
-  }, [company?.phone1, company?.phone2]);
+  const phones = [company?.phone1, company?.phone2].filter(
+    (p): p is string => Boolean(p && String(p).trim()),
+  );
 
   const hasContact = phones.length > 0 || Boolean(company?.address?.trim());
 
@@ -31,7 +28,7 @@ export default function TopBar() {
                 <Phone size={16} className="shrink-0 text-white/70" aria-hidden="true" />
                 <span className="sr-only">الهاتف:</span>
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1" dir="ltr">
-                  {phones.slice(0, 2).map((phone, index) => (
+                  {phones.map((phone, index) => (
                     <span key={phone} className="inline-flex items-center gap-3">
                       {index > 0 ? (
                         <span aria-hidden="true" className="text-white/60">|</span>

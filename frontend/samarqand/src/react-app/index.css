@@ -205,6 +205,16 @@ h1, h2, h3, h4 {
   border: 1px solid var(--corp-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 6px 20px rgba(13, 19, 29, 0.05);
+  /* Keep layout/style invalidation inside repeated cards; no clipping and no
+     effect on the card's own shadow, focus ring or hover transforms. */
+  contain: layout style;
+}
+
+/* The largest Tailwind shadow is the costliest paint on the public pages.
+   Trim only its blur radius — offset, colour and spread stay identical, so the
+   perceived elevation is unchanged. Scoped so the control panel is untouched. */
+.home-compact .shadow-2xl {
+  box-shadow: 0 25px 42px -12px rgb(0 0 0 / 0.25);
 }
 
 .section-corp {
@@ -214,6 +224,27 @@ h1, h2, h3, h4 {
 .section-corp-muted {
   background: var(--corp-surface);
   padding-block: var(--space-12);
+}
+
+/* Rendering cost: let long, below-the-fold marketing sections skip layout and
+   paint while they are off-screen. The `auto <length>` form remembers the last
+   measured height, so the scrollbar and in-page anchor offsets stop shifting
+   once a section has been visited. Only static sections are listed here: the
+   hero, the stats section (its counters are IntersectionObserver targets on
+   descendants), sections with fixed overlays, and any [hidden] element are
+   deliberately excluded. Screen-only; print restores full layout below. */
+@media screen {
+  .home-compact section#services:not([hidden]),
+  .home-compact section[aria-labelledby="timeline-heading"]:not([hidden]),
+  .home-compact section#rfq-templates:not([hidden]),
+  .home-compact section#projects:not([hidden]),
+  .home-compact section#showcase:not([hidden]),
+  .home-compact section#testimonials:not([hidden]),
+  .home-compact section#content-generator:not([hidden]) {
+    content-visibility: auto;
+    contain-intrinsic-size: 640px;
+    contain-intrinsic-size: auto 640px;
+  }
 }
 
 .eyebrow-corp {
@@ -496,6 +527,12 @@ textarea::placeholder {
     max-width: none !important;
     margin-inline: 0 !important;
     padding-inline: 0 !important;
+  }
+
+  /* Sections skipped while scrolling off-screen must be fully laid out on
+     paper; `visible` also drops any containment used for the optimisation. */
+  section {
+    content-visibility: visible !important;
   }
 
   .home-compact section,

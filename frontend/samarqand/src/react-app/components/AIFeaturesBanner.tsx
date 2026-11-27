@@ -14,6 +14,9 @@ import { fetchHomeSections } from "@/react-app/api/site";
 
 type Feature = { id: number; title: string; description: string; badgeText: string };
 
+// Created once at module load instead of on every render.
+const SKELETON_ITEMS = [1, 2, 3];
+
 export default function AIFeaturesBanner() {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +49,7 @@ export default function AIFeaturesBanner() {
     () => [MessageSquare, Brain, FileText, Zap, BarChart, Sparkles],
     [],
   );
+  const visibleFeatures = useMemo(() => features.slice(0, 6), [features]);
 
   return (
     <section className="border-t-2 border-[var(--corp-green)] bg-[var(--corp-dark)] text-white" dir="rtl">
@@ -75,7 +79,7 @@ export default function AIFeaturesBanner() {
         {isLoading ? (
           <div role="status" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
             <span className="sr-only">جارٍ تحميل قائمة الأدوات...</span>
-            {[1, 2, 3].map((item) => (
+            {SKELETON_ITEMS.map((item) => (
               <div key={item} className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
             ))}
           </div>
@@ -98,7 +102,7 @@ export default function AIFeaturesBanner() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {features.slice(0, 6).map((feature, index) => {
+            {visibleFeatures.map((feature, index) => {
               const Icon = icons[index % icons.length] ?? Sparkles;
               return (
                 <article

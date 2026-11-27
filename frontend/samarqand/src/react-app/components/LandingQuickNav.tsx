@@ -28,10 +28,21 @@ export default function LandingQuickNav({
   const [active, setActive] = useState("#home");
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 420);
-    onScroll();
+    let frame = 0;
+    const update = () => setVisible(window.scrollY > 420);
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    };
+    update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {

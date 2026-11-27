@@ -37,6 +37,13 @@ _STALE_META_KEYS = (
     "twitter:url",
 )
 
+# Safe resource hints. The SPA build ships a hardcoded Cairo <link rel=preload>
+# in index.html; it is replaced below by one canonical hint derived from a real
+# static asset, so a stale build artifact can never duplicate the hint or point
+# at a font file that does not exist.
+_CAIRO_FONT_STATIC_PATH = "website/fonts/Cairo.ttf"
+_CAIRO_FONT_FILENAME = "Cairo.ttf"
+
 
 def _text(value: Any) -> str:
     """Return a trimmed string for model / settings values."""
@@ -247,6 +254,58 @@ def _json_ld(data: dict[str, Any]) -> str:
     return '<script type="application/ld+json">' + payload + "</script>"
 
 
+def _cairo_font_available() -> bool:
+    """Only emit a font hint when the shipped asset actually exists."""
+    base_dir = Path(__file__).resolve().parents[1]
+    if (
+        base_dir / "static" / "website" / "fonts" / _CAIRO_FONT_FILENAME
+    ).exists():
+        return True
+    static_root = getattr(settings, "STATIC_ROOT", None)
+    if static_root:
+        return (
+            Path(static_root) / "website" / "fonts" / _CAIRO_FONT_FILENAME
+        ).exists()
+    return False
+
+
+def _strip_duplicate_font_preloads(html: str) -> str:
+    """Drop built-in font preloads so exactly one real hint is emitted."""
+
+    def repl(match: re.Match[str]) -> str:
+        tag = match.group(0).lower()
+        if "cairo" in tag and "font" in tag and "preload" in tag:
+            return ""
+        return match.group(0)
+
+    return re.sub(r"<link\b[^>]*>", repl, html, flags=re.I)
+
+
+def _apply_resource_hints(html: str) -> str:
+    """Emit safe hints backed by real, shipped assets only.
+
+    No dns-prefetch / preconnect: the shell uses no external origin, and
+    speculative hints would only open useless connections. No cover-image
+    preload: the cover is not present on the homepage served by this shell,
+    and any future image hint must be gated on real page data instead.
+    """
+    html = _strip_duplicate_font_preloads(html)
+
+    hints: list[str] = []
+    if _cairo_font_available():
+        font_url = _text(static(_CAIRO_FONT_STATIC_PATH))
+        if font_url:
+            hints.append(
+                '<link rel="preload" href="'
+                + escape(font_url, quote=True)
+                + '" as="font" type="font/ttf" crossorigin>'
+            )
+
+    if hints:
+        html = html.replace("<head>", "<head>\n    " + "\n    ".join(hints), 1)
+    return html
+
+
 def _apply_document_metadata(html: str, context: Any) -> str:
     """Emit SEO metadata derived exclusively from page and company data."""
     request = context.get("request") if context else None
@@ -382,4 +441,5 @@ def samarqand_spa_document(context: Any) -> str:
     html = _normalize_document(html)
     html = _strip_stale_metadata(html)
     html = _apply_document_metadata(html, context)
+    html = _apply_resource_hints(html)
     return mark_safe(html)

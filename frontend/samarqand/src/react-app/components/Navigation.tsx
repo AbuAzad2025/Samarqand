@@ -1,14 +1,26 @@
 import { ArrowLeft, Menu, Phone, Search, X } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
 import BrandMark from "@/react-app/components/BrandMark";
 
-type NavItem = { to: string; label: string; show: boolean };
+type Visibility = SiteConfigPayload["visibility"];
+type NavItem = { to: string; label: string; visibilityKey?: keyof Visibility };
 
 const MENU_ID = "main-mobile-menu";
 const SEARCH_ID = "main-site-search";
+
+// Static link data; only the visibility flags decide which entries survive.
+const NAV_ITEMS: readonly NavItem[] = [
+  { to: "/", label: "الرئيسية" },
+  { to: "/about", label: "من نحن", visibilityKey: "showAbout" },
+  { to: "/projects", label: "مشاريعنا", visibilityKey: "showProjects" },
+  { to: "/showcase", label: "معرض الأعمال", visibilityKey: "showShowcase" },
+  { to: "/services", label: "خدماتنا", visibilityKey: "showServices" },
+  { to: "/tools", label: "الأدوات الذكية", visibilityKey: "showTools" },
+  { to: "/contact", label: "تواصل معنا", visibilityKey: "showContact" },
+];
 
 export default function Navigation() {
   const [company, setCompany] = useState<CompanyPayload | null>(null);
@@ -51,16 +63,17 @@ export default function Navigation() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [menuOpen, searchOpen]);
 
-  const v = config?.visibility;
-  const items: NavItem[] = [
-    { to: "/", label: "الرئيسية", show: true },
-    { to: "/about", label: "من نحن", show: v?.showAbout ?? true },
-    { to: "/projects", label: "مشاريعنا", show: v?.showProjects ?? true },
-    { to: "/showcase", label: "معرض الأعمال", show: v?.showShowcase ?? true },
-    { to: "/services", label: "خدماتنا", show: v?.showServices ?? true },
-    { to: "/tools", label: "الأدوات الذكية", show: v?.showTools ?? true },
-    { to: "/contact", label: "تواصل معنا", show: v?.showContact ?? true },
-  ].filter((item) => item.show);
+  const visibility = config?.visibility;
+  const items = useMemo(
+    () =>
+      NAV_ITEMS.filter(
+        (item) => !item.visibilityKey || visibility?.[item.visibilityKey] !== false,
+      ),
+    [visibility],
+  );
+
+  const trimmedQuery = query.trim();
+  const searchResults = items.filter((item) => item.label.includes(trimmedQuery));
 
   function toggleMenu() {
     if (!menuOpen) setSearchOpen(false);
@@ -177,22 +190,20 @@ export default function Navigation() {
             className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-sq-green focus:outline-none focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-1"
           />
           <div className="mt-2 flex flex-wrap gap-2" aria-live="polite">
-            {items
-              .filter((item) => item.label.includes(query.trim()))
-              .map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => {
-                    setSearchOpen(false);
-                    setQuery("");
-                  }}
-                  className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-sq-green transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sq-green"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            {!items.some((item) => item.label.includes(query.trim())) ? (
+            {searchResults.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => {
+                  setSearchOpen(false);
+                  setQuery("");
+                }}
+                className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-sq-green transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sq-green"
+              >
+                {item.label}
+              </Link>
+            ))}
+            {!searchResults.length ? (
               <span className="text-sm text-slate-500">لا توجد نتائج.</span>
             ) : null}
           </div>

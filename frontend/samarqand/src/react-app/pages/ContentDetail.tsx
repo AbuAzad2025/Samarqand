@@ -221,6 +221,8 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
               <img
                 loading="lazy"
                 decoding="async"
+                width={1200}
+                height={800}
                 src={item.imageUrl}
                 alt={kind === "projects" ? `صورة مشروع ${item.title}` : item.title}
                 className="w-full max-h-96 object-cover rounded-xl"
@@ -318,6 +320,8 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
                         <img
                           loading="lazy"
                           decoding="async"
+                          width={400}
+                          height={224}
                           src={step.imageUrl}
                           alt={`صورة العمل بتاريخ ${formatTimelineDate(step.date)}: ${step.title}`}
                           className="h-28 w-full rounded-lg object-cover"
@@ -351,6 +355,8 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
                     <img
                       loading="lazy"
                       decoding="async"
+                      width={800}
+                      height={500}
                       src={image.url}
                       alt={image.caption ? `صورة من ${item.title}: ${image.caption}` : `صورة من ${item.title}`}
                       className="h-56 w-full object-cover"

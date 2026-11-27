@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Building2, Calendar, MapPin, RefreshCw, Star } from "lucide-react";
 
@@ -12,15 +12,9 @@ import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
 import Footer from "@/react-app/components/Footer";
 import AnimatedStats from "@/react-app/components/AnimatedStats";
-import TrustBadges from "@/react-app/components/TrustBadges";
 import AIChatbot from "@/react-app/components/AIChatbot";
 import AIFeaturesBanner from "@/react-app/components/AIFeaturesBanner";
 import Services from "@/react-app/components/Services";
-import ProcessTimeline from "@/react-app/components/ProcessTimeline";
-import BeforeAfterSlider from "@/react-app/components/BeforeAfterSlider";
-import InteractiveTeam from "@/react-app/components/InteractiveTeam";
-import AIContentShowcase from "@/react-app/components/AIContentShowcase";
-import NewsletterSignup from "@/react-app/components/NewsletterSignup";
 
 import {
   fetchProjects,
@@ -31,6 +25,30 @@ import {
   type TestimonialPayload,
 } from "@/react-app/api/site";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES } from "@/react-app/rfqTemplates";
+
+// Below-the-fold sections are split into their own chunks so the initial shell
+// (hero, stats, navigation and footer) stays eager and paints immediately.
+// These are still part of the first render tree, so the browser fetches their
+// chunks in parallel during initial load and the fallback is only fleeting.
+const TrustBadges = lazy(() => import("@/react-app/components/TrustBadges"));
+const ProcessTimeline = lazy(() => import("@/react-app/components/ProcessTimeline"));
+const BeforeAfterSlider = lazy(() => import("@/react-app/components/BeforeAfterSlider"));
+const InteractiveTeam = lazy(() => import("@/react-app/components/InteractiveTeam"));
+const AIContentShowcase = lazy(() => import("@/react-app/components/AIContentShowcase"));
+const NewsletterSignup = lazy(() => import("@/react-app/components/NewsletterSignup"));
+
+// Minimal accessible placeholder. The min-height mirrors the real section so
+// resolving the chunk does not shift the page (protects CLS / Lighthouse).
+function SectionFallback({ className = "" }: { className?: string }) {
+  return (
+    <div
+      role="status"
+      className={`flex w-full items-center justify-center text-sm text-[var(--corp-muted)] ${className}`}
+    >
+      جارٍ تحميل المحتوى...
+    </div>
+  );
+}
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -130,10 +148,18 @@ export default function Home() {
           </div>
         )}
 
-        {(v?.showHomeTrustBadges ?? true) && <TrustBadges />}
+        {(v?.showHomeTrustBadges ?? true) && (
+          <Suspense fallback={<SectionFallback className="min-h-[9rem]" />}>
+            <TrustBadges />
+          </Suspense>
+        )}
         {(v?.showHomeStats ?? true) && <AnimatedStats />}
         {(v?.showServices ?? true) && <Services />}
-        {(v?.showHomeTimeline ?? true) && <ProcessTimeline />}
+        {(v?.showHomeTimeline ?? true) && (
+          <Suspense fallback={<SectionFallback className="min-h-[28rem]" />}>
+            <ProcessTimeline />
+          </Suspense>
+        )}
 
         {(v?.showRfqTemplates ?? true) && (
           <section id="rfq-templates" className="section-corp-muted" aria-labelledby="rfq-heading">
@@ -305,18 +331,20 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                <BeforeAfterSlider
-                  before="/static/website/images/before-renovation.webp"
-                  after="/static/website/images/after-renovation.webp"
-                  title="تجديد واجهات المباني"
-                />
-                <BeforeAfterSlider
-                  before="/static/website/images/before-interior.webp"
-                  after="/static/website/images/after-interior.webp"
-                  title="تجديد التصميم الداخلي"
-                />
-              </div>
+              <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <BeforeAfterSlider
+                    before="/static/website/images/before-renovation.webp"
+                    after="/static/website/images/after-renovation.webp"
+                    title="تجديد واجهات المباني"
+                  />
+                  <BeforeAfterSlider
+                    before="/static/website/images/before-interior.webp"
+                    after="/static/website/images/after-interior.webp"
+                    title="تجديد التصميم الداخلي"
+                  />
+                </div>
+              </Suspense>
 
               <div className="mt-10 text-center">
                 <Link
@@ -330,7 +358,11 @@ export default function Home() {
           </section>
         )}
 
-        {(v?.showTeam ?? true) && <InteractiveTeam />}
+        {(v?.showTeam ?? true) && (
+          <Suspense fallback={<SectionFallback className="min-h-[28rem]" />}>
+            <InteractiveTeam />
+          </Suspense>
+        )}
 
         {(v?.showTestimonials ?? true) && (
           <section id="testimonials" className="section-corp" aria-labelledby="testimonials-heading">
@@ -405,11 +437,19 @@ export default function Home() {
             <p className="border-b border-slate-200 bg-[var(--corp-surface)] px-4 py-2 text-center text-xs text-[var(--corp-muted)]">
               عرض تعريفي لأدوات الذكاء الاصطناعي؛ تشغيلها الفعلي يعتمد على إعدادات الموقع.
             </p>
-            <AIContentShowcase />
+            <Suspense fallback={<SectionFallback className="min-h-[28rem]" />}>
+              <AIContentShowcase />
+            </Suspense>
           </div>
         )}
 
-        {(v?.showNewsletter ?? true) && <div id="contact"><NewsletterSignup /></div>}
+        {(v?.showNewsletter ?? true) && (
+          <div id="contact">
+            <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
+              <NewsletterSignup />
+            </Suspense>
+          </div>
+        )}
       </div>
 
       <WhatsAppButton />

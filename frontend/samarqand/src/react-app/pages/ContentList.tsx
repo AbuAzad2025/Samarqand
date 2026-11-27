@@ -123,6 +123,8 @@ export default function ContentList({ kind }: { kind: SiteContentKind }) {
                       <img
                         loading="lazy"
                         decoding="async"
+                        width={800}
+                        height={500}
                         src={item.imageUrl}
                         alt={item.title}
                         className="h-full w-full object-cover"

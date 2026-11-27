@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowUpRight,
@@ -25,12 +25,71 @@ import {
 
 import { fetchAuthMe, type SiteConfigPayload } from "@/react-app/api/site";
 
+type Visibility = SiteConfigPayload["visibility"];
+type AuthState = { authenticated: boolean; isStaff: boolean } | null;
 type Entry = {
   label: string;
   to: string;
   icon: LucideIcon;
-  show: boolean;
+  show: true | keyof Visibility | ((auth: AuthState) => boolean);
 };
+
+const SECTION_IDS = [
+  "home",
+  "services",
+  "projects",
+  "tools",
+  "rfq-templates",
+  "testimonials",
+  "contact",
+] as const;
+
+// Static navigation data; visibility/auth filters are applied once per change.
+const SIDEBAR_GROUPS: readonly { title: string; items: readonly Entry[] }[] = [
+  {
+    title: "الحساب",
+    items: [
+      { label: "تسجيل الدخول", to: "/control/login", icon: LogIn, show: (auth) => auth !== null && !auth.authenticated },
+      { label: "لوحة التحكم", to: "/control/dashboard", icon: LayoutDashboard, show: (auth) => Boolean(auth?.authenticated && auth.isStaff) },
+      { label: "كلمة المرور", to: "/control/password", icon: LockKeyhole, show: (auth) => Boolean(auth?.authenticated && auth.isStaff) },
+    ],
+  },
+  {
+    title: "ابدأ من هنا",
+    items: [
+      { label: "الرئيسية", to: "#home", icon: Home, show: true },
+      { label: "من نحن", to: "/about", icon: Info, show: true },
+      { label: "اتصل بنا", to: "#contact", icon: Mail, show: "showNewsletter" },
+    ],
+  },
+  {
+    title: "خدماتنا وأعمالنا",
+    items: [
+      { label: "الخدمات", to: "#services", icon: Wrench, show: "showServices" },
+      { label: "المشاريع", to: "#projects", icon: BriefcaseBusiness, show: "showProjects" },
+      { label: "معرض الأعمال", to: "/showcase", icon: LayoutGrid, show: "showShowcase" },
+    ],
+  },
+  {
+    title: "أدوات وطلبات",
+    items: [
+      { label: "الأدوات الذكية", to: "#tools", icon: Sparkles, show: "showTools" },
+      { label: "نماذج العروض", to: "#rfq-templates", icon: ClipboardList, show: "showRfqTemplates" },
+      { label: "طلب عرض سعر", to: "/request-quote", icon: ArrowUpRight, show: true },
+    ],
+  },
+  {
+    title: "استكشف الموقع",
+    items: [
+      { label: "آراء العملاء", to: "#testimonials", icon: MessageSquareText, show: "showTestimonials" },
+      { label: "فريق العمل", to: "/about", icon: UsersRound, show: "showTeam" },
+      { label: "المدونة", to: "/blog", icon: FileText, show: true },
+      { label: "الفعاليات", to: "/events", icon: Compass, show: true },
+      { label: "مواقعنا", to: "/locations", icon: Compass, show: true },
+      { label: "بحث في الموقع", to: "/search", icon: Compass, show: true },
+    ],
+  },
+];
 
 export default function LandingSidebar({
   visibility,
@@ -40,7 +99,7 @@ export default function LandingSidebar({
   const [active, setActive] = useState("#home");
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  const [auth, setAuth] = useState<{ authenticated: boolean; isStaff: boolean } | null>(null);
+  const [auth, setAuth] = useState<AuthState>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -108,7 +167,6 @@ export default function LandingSidebar({
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return;
-    const ids = ["home", "services", "projects", "tools", "rfq-templates", "testimonials", "contact"];
     const observer = new IntersectionObserver(
       (entries) => {
         const hit = entries
@@ -118,60 +176,27 @@ export default function LandingSidebar({
       },
       { rootMargin: "-110px 0px -65% 0px", threshold: 0 },
     );
-    ids.forEach((id) => {
+    SECTION_IDS.forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
     return () => observer.disconnect();
   }, []);
 
-  const groups: { title: string; items: Entry[] }[] = [
-    {
-      title: "الحساب",
-      items: [
-        { label: "تسجيل الدخول", to: "/control/login", icon: LogIn, show: auth !== null && !auth.authenticated },
-        { label: "لوحة التحكم", to: "/control/dashboard", icon: LayoutDashboard, show: Boolean(auth?.authenticated && auth.isStaff) },
-        { label: "كلمة المرور", to: "/control/password", icon: LockKeyhole, show: Boolean(auth?.authenticated && auth.isStaff) },
-      ],
-    },
-    {
-      title: "ابدأ من هنا",
-      items: [
-        { label: "الرئيسية", to: "#home", icon: Home, show: true },
-        { label: "من نحن", to: "/about", icon: Info, show: true },
-        { label: "اتصل بنا", to: "#contact", icon: Mail, show: visibility?.showNewsletter ?? true },
-      ],
-    },
-    {
-      title: "خدماتنا وأعمالنا",
-      items: [
-        { label: "الخدمات", to: "#services", icon: Wrench, show: visibility?.showServices ?? true },
-        { label: "المشاريع", to: "#projects", icon: BriefcaseBusiness, show: visibility?.showProjects ?? true },
-        { label: "معرض الأعمال", to: "/showcase", icon: LayoutGrid, show: visibility?.showShowcase ?? true },
-      ],
-    },
-    {
-      title: "أدوات وطلبات",
-      items: [
-        { label: "الأدوات الذكية", to: "#tools", icon: Sparkles, show: visibility?.showTools ?? true },
-        { label: "نماذج العروض", to: "#rfq-templates", icon: ClipboardList, show: visibility?.showRfqTemplates ?? true },
-        { label: "طلب عرض سعر", to: "/request-quote", icon: ArrowUpRight, show: true },
-      ],
-    },
-    {
-      title: "استكشف الموقع",
-      items: [
-        { label: "آراء العملاء", to: "#testimonials", icon: MessageSquareText, show: visibility?.showTestimonials ?? true },
-        { label: "فريق العمل", to: "/about", icon: UsersRound, show: visibility?.showTeam ?? true },
-        { label: "المدونة", to: "/blog", icon: FileText, show: true },
-        { label: "الفعاليات", to: "/events", icon: Compass, show: true },
-        { label: "مواقعنا", to: "/locations", icon: Compass, show: true },
-        { label: "بحث في الموقع", to: "/search", icon: Compass, show: true },
-      ],
-    },
-  ]
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
-    .filter((group) => group.items.length);
+  const groups = useMemo(
+    () =>
+      SIDEBAR_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.show === true
+            ? true
+            : typeof item.show === "function"
+              ? item.show(auth)
+              : (visibility?.[item.show] ?? true),
+        ),
+      })).filter((group) => group.items.length > 0),
+    [visibility, auth],
+  );
 
   function toggleGroup(title: string) {
     setCollapsed((prev) =>
@@ -238,7 +263,6 @@ export default function LandingSidebar({
                       onClick={() => toggleGroup(group.title)}
                       aria-expanded={!isCollapsed}
                       aria-controls={groupId}
-                      aria-label={`${isCollapsed ? "توسيع" : "طي"} مجموعة ${group.title}`}
                       className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-extrabold text-slate-500 transition hover:text-sq-green focus-visible:ring-2 focus-visible:ring-sq-green"
                     >
                       <span>{group.title}</span>

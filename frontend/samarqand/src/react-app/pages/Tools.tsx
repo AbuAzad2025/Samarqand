@@ -6,10 +6,8 @@ import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
 import AIChatbot from "@/react-app/components/AIChatbot";
 import AIDesignAnalyzer from "@/react-app/components/AIDesignAnalyzer";
-import ConstructionCalculator from "@/react-app/components/ConstructionCalculator";
-import ArchitecturalVisualizer from "@/react-app/components/ArchitecturalVisualizer";
 import AIContentShowcase from "@/react-app/components/AIContentShowcase";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertCircle,
   Brain,
@@ -21,6 +19,75 @@ import {
 } from "lucide-react";
 
 import { fetchAuthAccess, fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
+
+// Split into separate chunks and mounted only when the user approaches the
+// section, so neither file is fetched/parsed during the initial page load.
+const ConstructionCalculator = lazy(
+  () => import("@/react-app/components/ConstructionCalculator"),
+);
+const ArchitecturalVisualizer = lazy(
+  () => import("@/react-app/components/ArchitecturalVisualizer"),
+);
+
+function ToolLoadingFallback({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      className="flex min-h-[640px] flex-col items-center justify-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center"
+    >
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[var(--corp-green)]"
+        aria-hidden="true"
+      />
+      <p className="text-gray-700">{label}</p>
+    </div>
+  );
+}
+
+type DeferredSectionProps = {
+  id: string;
+  fallbackLabel: string;
+  children: ReactNode;
+};
+
+function DeferredSection({ id, fallbackLabel, children }: DeferredSectionProps) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (shouldLoad) return;
+    const node = anchorRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setShouldLoad(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div ref={anchorRef} id={id}>
+      {shouldLoad ? (
+        <Suspense fallback={<ToolLoadingFallback label={fallbackLabel} />}>
+          {children}
+        </Suspense>
+      ) : (
+        <ToolLoadingFallback label={fallbackLabel} />
+      )}
+    </div>
+  );
+}
 
 type ToolOverview = {
   id: string;
@@ -213,10 +280,14 @@ export default function ToolsPage() {
           </section>
 
           <AIDesignAnalyzer />
-          <ConstructionCalculator />
+          <DeferredSection id="calculator" fallbackLabel="جارٍ تجهيز الحاسبة...">
+            <ConstructionCalculator />
+          </DeferredSection>
           {canUseRestrictedTools ? (
             <>
-              <ArchitecturalVisualizer />
+              <DeferredSection id="visualizer" fallbackLabel="جارٍ تجهيز المصوّر المعماري...">
+                <ArchitecturalVisualizer />
+              </DeferredSection>
               <AIContentShowcase />
             </>
           ) : (

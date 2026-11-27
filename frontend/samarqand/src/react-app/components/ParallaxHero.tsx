@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 
 import {
@@ -9,34 +9,101 @@ import {
 } from "@/react-app/api/site";
 import BrandMark from "@/react-app/components/BrandMark";
 
-export default function ParallaxHero() {
-  const [scrollY, setScrollY] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [company, setCompany] = useState<CompanyPayload | null>(null);
-  const [home, setHome] = useState<HomeSettingsPayload | null>(null);
+const PARALLAX_FACTOR = 0.3;
+const PARALLAX_MAX = 120;
 
-  useEffect(() => {
-    let frame = 0;
-    const handleScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setScrollY(window.scrollY));
-    };
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
+function usePrefersReducedMotion() {
+  const [reduce, setReduce] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduceMotion(query.matches);
+    const update = () => setReduce(query.matches);
     update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+
+  return reduce;
+}
+
+function ParallaxBackground({ bg }: { bg: string }) {
+  const layerRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    if (reduceMotion) {
+      el.style.setProperty("--parallax-y", "0px");
+      return;
+    }
+
+    let frame = 0;
+    let visible = true;
+
+    const apply = () => {
+      frame = 0;
+      if (!visible) return;
+      const offset = Math.min(window.scrollY * PARALLAX_FACTOR, PARALLAX_MAX);
+      el.style.setProperty("--parallax-y", `${offset}px`);
+    };
+
+    // One passive listener; all scroll events are coalesced into one rAF write.
+    const onScroll = () => {
+      if (frame || !visible) return;
+      frame = requestAnimationFrame(apply);
+    };
+
+    // Stop doing any scroll work once the hero leaves the viewport.
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(([entry]) => {
+            visible = Boolean(entry?.isIntersecting);
+            if (visible) onScroll();
+          });
+    observer?.observe(el);
+
+    apply();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      observer?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [reduceMotion]);
+
+  return (
+    <div
+      ref={layerRef}
+      className="absolute"
+      aria-hidden="true"
+      style={{
+        inset: "-6%",
+        backgroundColor: "#0B1220",
+        backgroundImage: bg
+          ? `linear-gradient(to bottom, rgba(0,0,0,0.70), rgba(0,0,0,0.50), rgba(0,0,0,0.70)), url(${bg})`
+          : "linear-gradient(to bottom, rgba(10,20,40,1), rgba(10,20,40,0.75), rgba(10,20,40,1))",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        // Written imperatively via --parallax-y so scrolling never re-renders React.
+        transform: "translateY(var(--parallax-y, 0px)) scale(1.06)",
+        willChange: "transform",
+      }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,122,61,0.22),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(206,17,38,0.18),transparent_48%)]" />
+    </div>
+  );
+}
+
+export default function ParallaxHero() {
+  const [company, setCompany] = useState<CompanyPayload | null>(null);
+  const [home, setHome] = useState<HomeSettingsPayload | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -68,31 +135,12 @@ export default function ParallaxHero() {
     };
   }, [company?.brandTitle, company?.slogan, home]);
 
-  // Clamp the offset and slightly overscale the layer so no empty edge appears.
-  const parallaxOffset = reduceMotion ? 0 : Math.min(scrollY * 0.3, 120);
-
   return (
     <section
       aria-labelledby="hero-title"
       className="relative h-[78vh] min-h-[560px] max-h-[820px] overflow-hidden"
     >
-      <div
-        className="absolute"
-        aria-hidden="true"
-        style={{
-          inset: "-6%",
-          backgroundColor: "#0B1220",
-          backgroundImage: hero.bg
-            ? `linear-gradient(to bottom, rgba(0,0,0,0.70), rgba(0,0,0,0.50), rgba(0,0,0,0.70)), url(${hero.bg})`
-            : "linear-gradient(to bottom, rgba(10,20,40,1), rgba(10,20,40,0.75), rgba(10,20,40,1))",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          transform: `translateY(${parallaxOffset}px) scale(1.06)`,
-          willChange: "transform",
-        }}
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,122,61,0.22),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(206,17,38,0.18),transparent_48%)]" />
-      </div>
+      <ParallaxBackground bg={hero.bg} />
 
       <div className="relative z-10 flex h-full items-center justify-center px-4 text-center" dir="rtl">
         <div className="max-w-4xl">

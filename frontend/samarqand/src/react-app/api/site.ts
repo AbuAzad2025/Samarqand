@@ -106,11 +106,15 @@ export function apiUrl(input: string): string {
  * traces, SQL, file paths, HTML) must never reach the UI, so anything that is
  * not a plain identifier is replaced with a generic code.
  */
+const API_CODE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
 function normalizeApiErrorCode(raw: unknown): string {
   if (typeof raw !== "string") return "error";
   const code = raw.trim();
-  return /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(code) ? code : "error";
+  return API_CODE_PATTERN.test(code) ? code : "error";
 }
+
+const SAFE_METHODS = ["GET", "HEAD", "OPTIONS"];
 
 /** Expose only the path of a URL through app events, never query parameters. */
 function safeEventUrl(input: string): string {
@@ -124,11 +128,14 @@ function safeEventUrl(input: string): string {
 
 export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const method = (init?.method || "GET").toUpperCase();
-  const isUnsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
-  const headers = new Headers(init?.headers || {});
+  const isUnsafe = !SAFE_METHODS.includes(method);
+  // Safe reads need no header normalisation, so don't allocate a Headers
+  // object on the hot path. Unsafe requests still get the CSRF token added.
+  let headers = init?.headers;
   if (isUnsafe) {
     // An explicitly empty header must not prevent the cookie-backed CSRF
     // token from being sent (many call sites pass `getCookie(...) || ""`).
+    headers = new Headers(headers || {});
     if (!headers.get("X-CSRFToken")) {
       const token = getCookie("csrftoken");
       if (token) headers.set("X-CSRFToken", token);
@@ -145,7 +152,26 @@ export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
 type ApiError = { code: string; message?: string; details?: unknown };
 type ApiResponse<T> = { ok: true; result: T } | { ok: false; error: ApiError };
 
-export async function fetchJson<T>(url: string): Promise<T> {
+// Concurrent reads of the same resource share a single request. Entries are
+// dropped as soon as the promise settles (success or failure), so a later call
+// always performs a fresh request. Mutations use apiFetch directly and are
+// never deduplicated.
+const inFlightGet = new Map<string, Promise<unknown>>();
+
+export function fetchJson<T>(url: string): Promise<T> {
+  const existing = inFlightGet.get(url);
+  if (existing) return existing as Promise<T>;
+  const pending = loadJson<T>(url);
+  inFlightGet.set(url, pending);
+  const release = () => {
+    // Don't evict a newer request that replaced this entry in the meantime.
+    if (inFlightGet.get(url) === pending) inFlightGet.delete(url);
+  };
+  void pending.then(release, release);
+  return pending;
+}
+
+async function loadJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url);
   if (!res.ok) {
     const failed = await readApiResponse<unknown>(res);
@@ -252,6 +278,9 @@ function cachedPublic<T>(key: string, loader: () => Promise<T>): Promise<T> {
 
 export function clearPublicCache(): void {
   publicCache.clear();
+  // Also drop transient GET dedup entries on logout/settings changes so a
+  // later call cannot reuse a response started under the previous state.
+  inFlightGet.clear();
 }
 
 export async function fetchCompany(): Promise<CompanyPayload> {

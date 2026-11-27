@@ -10,8 +10,23 @@ import {
 } from "@/react-app/api/site";
 import { BRAND } from "@/react-app/brand";
 
+type Visibility = SiteConfigPayload["visibility"];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const LINK_CLASS =
+  "transition hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60";
+
+const SITE_LINKS: readonly { to: string; label: string; visibilityKey?: keyof Visibility }[] = [
+  { to: "/", label: "الرئيسية" },
+  { to: "/about", label: "من نحن", visibilityKey: "showAbout" },
+  { to: "/projects", label: "مشاريعنا", visibilityKey: "showProjects" },
+  { to: "/showcase", label: "معرض الأعمال", visibilityKey: "showShowcase" },
+  { to: "/services", label: "خدماتنا", visibilityKey: "showServices" },
+  { to: "/tools", label: "الأدوات الذكية", visibilityKey: "showTools" },
+  { to: "/contact", label: "تواصل معنا", visibilityKey: "showContact" },
+];
+
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
 
@@ -25,18 +40,9 @@ export default function Footer() {
 
   const logoLabel = company?.brandTitle || BRAND.samarqand.name;
 
-  const siteLinks = [
-    { to: "/", label: "الرئيسية", show: true },
-    { to: "/about", label: "من نحن", show: v?.showAbout ?? true },
-    { to: "/projects", label: "مشاريعنا", show: v?.showProjects ?? true },
-    { to: "/showcase", label: "معرض الأعمال", show: v?.showShowcase ?? true },
-    { to: "/services", label: "خدماتنا", show: v?.showServices ?? true },
-    { to: "/tools", label: "الأدوات الذكية", show: v?.showTools ?? true },
-    { to: "/contact", label: "تواصل معنا", show: v?.showContact ?? true },
-  ].filter((item) => item.show);
-
-  const linkClass =
-    "transition hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60";
+  const siteLinks = SITE_LINKS.filter(
+    (item) => !item.visibilityKey || v?.[item.visibilityKey] !== false,
+  );
 
   return (
     <footer className="bg-sq-black text-white" dir="rtl">
@@ -66,7 +72,7 @@ export default function Footer() {
               <a
                 href={`tel:${company.phone1.replace(/\s+/g, "")}`}
                 dir="ltr"
-                className={`mt-3 inline-flex items-center gap-2 text-sm text-white/90 ${linkClass}`}
+                className={`mt-3 inline-flex items-center gap-2 text-sm text-white/90 ${LINK_CLASS}`}
               >
                 <Phone size={15} aria-hidden="true" />
                 {company.phone1}
@@ -80,7 +86,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-2">
               {siteLinks.map((item) => (
                 <li key={item.to}>
-                  <Link to={item.to} className={`text-sm text-white/70 ${linkClass}`}>
+                  <Link to={item.to} className={`text-sm text-white/70 ${LINK_CLASS}`}>
                     {item.label}
                   </Link>
                 </li>
@@ -93,7 +99,7 @@ export default function Footer() {
             <h2 id="footer-developer-heading" className="mb-3 text-sm font-bold text-white">تطوير وبرمجة</h2>
             <a
               href={`tel:${BRAND.azad.phone}`}
-              className={`inline-flex max-w-full items-center gap-3 rounded-lg text-white/70 ${linkClass}`}
+              className={`inline-flex max-w-full items-center gap-3 rounded-lg text-white/70 ${LINK_CLASS}`}
             >
               <img
                 src={BRAND.azad.icon}
@@ -113,11 +119,11 @@ export default function Footer() {
 
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-4 text-[11px] text-white/60 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {currentYear} {BRAND.samarqand.name}. جميع الحقوق محفوظة.
+            © {CURRENT_YEAR} {BRAND.samarqand.name}. جميع الحقوق محفوظة.
           </p>
           <nav aria-label="روابط قانونية" className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Link to="/privacy" className={linkClass}>الخصوصية</Link>
-            <Link to="/terms" className={linkClass}>الشروط</Link>
+            <Link to="/privacy" className={LINK_CLASS}>الخصوصية</Link>
+            <Link to="/terms" className={LINK_CLASS}>الشروط</Link>
           </nav>
         </div>
       </div>

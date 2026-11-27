@@ -244,7 +244,7 @@ export default function ConstructionCalculator() {
   const projectInvalid = Boolean(error && error.includes('نوع المشروع'));
 
   return (
-    <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50" id="calculator">
+    <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--corp-green)] text-white mb-6">

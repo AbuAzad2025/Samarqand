@@ -178,7 +178,7 @@ export default function ArchitecturalVisualizer() {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50" id="visualizer">
+    <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
           <div className="inline-block p-4 bg-[var(--corp-green)] mb-6">

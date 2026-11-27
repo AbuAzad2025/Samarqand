@@ -1,16 +1,17 @@
 import { CheckCircle, FileSearch, HardHat, PenTool, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchHomeSections } from "@/react-app/api/site";
 
 type Step = { id: number; title: string; description: string };
 type LoadState = "loading" | "ready" | "error";
 
+const STEP_ICONS = [FileSearch, PenTool, HardHat, CheckCircle] as const;
+
 export default function ProcessTimeline() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const requestId = useRef(0);
-  const icons = useMemo(() => [FileSearch, PenTool, HardHat, CheckCircle], []);
 
   const load = useCallback(() => {
     const id = ++requestId.current;
@@ -28,6 +29,10 @@ export default function ProcessTimeline() {
 
   useEffect(() => {
     load();
+    return () => {
+      // Invalidate in-flight requests so they can't set state after unmount.
+      requestId.current += 1;
+    };
   }, [load]);
 
   return (
@@ -74,7 +79,7 @@ export default function ProcessTimeline() {
             <div className="absolute inset-x-0 top-8 hidden h-px bg-slate-200 md:block" aria-hidden="true" />
             <div className="relative grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, index) => {
-                const Icon = icons[index % icons.length] ?? FileSearch;
+                const Icon = STEP_ICONS[index % STEP_ICONS.length] ?? FileSearch;
                 return (
                   <article key={step.id ?? index} className="card-corp flex flex-col p-6">
                     <div className="mb-4 flex items-center gap-3">

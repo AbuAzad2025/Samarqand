@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Award, Briefcase, Building2, Users } from "lucide-react";
 
 import { fetchHomeSections } from "@/react-app/api/site";
@@ -40,6 +40,15 @@ const PARTICLES = [
   { left: "91%", top: "64%", delay: "5s", duration: "15s" },
 ] as const;
 
+const FLOAT_STYLES = `
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(-100vh) translateX(20px); }
+  }
+  .animate-float { animation: float linear infinite; }
+`;
+
 function parseStatValue(raw: string | undefined, fallback: number) {
   const text = String(raw ?? "").trim();
   const match = /^(\d+(?:\.\d+)?)\s*(.*)$/.exec(text);
@@ -54,79 +63,11 @@ function parseStatValue(raw: string | undefined, fallback: number) {
 }
 
 function AnimatedCounter({ target, suffix }: { target: number; suffix: string }) {
+  // The figure is always truthful and stable: no zero flash, no count-up jump.
   const safeTarget = Number.isFinite(target) ? Math.max(0, Math.round(target)) : 0;
-  const counterRef = useRef<HTMLSpanElement>(null);
-  const firstSample = useRef(true);
-  // `null` means "not started yet" — render the real value instead of a false 0.
-  const [count, setCount] = useState<number | null>(null);
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    const el = counterRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      setCount(safeTarget);
-      return;
-    }
-
-    let active = true;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!active || !entry) return;
-        const intersecting = entry.isIntersecting;
-
-        if (firstSample.current) {
-          firstSample.current = false;
-          // Already on screen at mount: show the final value, never flash a zero.
-          if (intersecting) {
-            active = false;
-            observer.disconnect();
-            setCount(safeTarget);
-          }
-          return;
-        }
-
-        if (!intersecting) return;
-        active = false;
-        observer.disconnect();
-        setAnimate(true);
-      },
-      { threshold: 0.3 },
-    );
-
-    observer.observe(el);
-    return () => {
-      active = false;
-      observer.disconnect();
-    };
-  }, [safeTarget]);
-
-  useEffect(() => {
-    if (!animate) return;
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-
-    if (safeTarget <= 0 || reduceMotion) {
-      setCount(safeTarget);
-      return;
-    }
-
-    const duration = 1200;
-    const startedAt = performance.now();
-    let frame = 0;
-    const tick = (now: number) => {
-      const progress = Math.min((now - startedAt) / duration, 1);
-      const eased = 1 - (1 - progress) ** 3;
-      setCount(Math.max(1, Math.round(safeTarget * eased)));
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [animate, safeTarget]);
-
   return (
-    <span ref={counterRef}>
-      {count === null ? safeTarget : count}
+    <span className="tabular-nums">
+      {safeTarget}
       {suffix}
     </span>
   );
@@ -214,14 +155,7 @@ export default function AnimatedStats() {
         </dl>
       </div>
 
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
-          50% { opacity: 1; }
-          100% { transform: translateY(-100vh) translateX(20px); }
-        }
-        .animate-float { animation: float linear infinite; }
-      `}</style>
+      <style>{FLOAT_STYLES}</style>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Brain,
@@ -21,6 +21,29 @@ interface AnalysisResult {
 const MAX_AREA = 100000;
 const MAX_DESCRIPTION_LENGTH = 1000;
 
+// Stable values created once at module load instead of on every render.
+const MAX_AREA_LABEL = MAX_AREA.toLocaleString('en-US');
+const PROJECT_TYPES = [
+  'منزل سكني',
+  'بناية تجارية',
+  'فيلا',
+  'عمارة سكنية',
+  'مكتب',
+  'مطعم',
+  'محل تجاري',
+  'مستودع',
+];
+const EMPTY_STRING_ARRAY: string[] = [];
+const ANALYZER_STYLES = `
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+`;
+
 function readErrorCode(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const obj = payload as { error?: { code?: string }; errorCode?: string };
@@ -35,24 +58,20 @@ export default function AIDesignAnalyzer() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const companyRequested = useRef(false);
 
+  // Company data is only needed for the quote link in the result panel, so
+  // request it on first analysis instead of on initial page load.
   useEffect(() => {
+    if (!result || companyRequested.current) return;
+    companyRequested.current = true;
     fetchCompany().then(setCompany).catch(() => {});
-  }, []);
+  }, [result]);
 
-  const quoteLink =
-    whatsappUrl(company?.phone1, 'أريد الحصول على عرض سعر دقيق لمشروعي') || '/contact';
-
-  const projectTypes = [
-    'منزل سكني',
-    'بناية تجارية',
-    'فيلا',
-    'عمارة سكنية',
-    'مكتب',
-    'مطعم',
-    'محل تجاري',
-    'مستودع',
-  ];
+  const quoteLink = useMemo(
+    () => whatsappUrl(company?.phone1, 'أريد الحصول على عرض سعر دقيق لمشروعي') || '/contact',
+    [company],
+  );
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +87,7 @@ export default function AIDesignAnalyzer() {
       return;
     }
     if (areaValue > MAX_AREA) {
-      setError(`لا يمكن أن تتجاوز المساحة ${MAX_AREA.toLocaleString('en-US')} متر مربع.`);
+      setError(`لا يمكن أن تتجاوز المساحة ${MAX_AREA_LABEL} متر مربع.`);
       return;
     }
     if (description.length > MAX_DESCRIPTION_LENGTH) {
@@ -153,7 +172,7 @@ export default function AIDesignAnalyzer() {
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
-                    {projectTypes.map((type) => (
+                    {PROJECT_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {type}
                       </option>
@@ -179,7 +198,7 @@ export default function AIDesignAnalyzer() {
                     step="0.01"
                   />
                   <p id="ada-area-hint" className="mt-1 text-xs text-gray-600">
-                    أدخل قيمة أكبر من صفر ولا تتجاوز {MAX_AREA.toLocaleString('en-US')} متر مربع.
+                    أدخل قيمة أكبر من صفر ولا تتجاوز {MAX_AREA_LABEL} متر مربع.
                   </p>
                 </div>
 
@@ -307,21 +326,21 @@ export default function AIDesignAnalyzer() {
                       <h4 className="font-bold text-gray-800">المواد المقترحة</h4>
                     </div>
                     <ul className="text-gray-700 text-sm space-y-1">
-                      {(result.materials ?? []).map((material, idx) => (
+                      {(result.materials ?? EMPTY_STRING_ARRAY).map((material, idx) => (
                         <li key={idx}>• {material}</li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Tips */}
-                  {(result.tips ?? []).length > 0 && (
+                  {(result.tips ?? EMPTY_STRING_ARRAY).length > 0 && (
                     <div className="bg-white rounded-lg p-4 shadow">
                       <div className="flex items-center gap-2 mb-2">
                         <Lightbulb className="text-yellow-500" />
                         <h4 className="font-bold text-gray-800">نصائح هندسية</h4>
                       </div>
                       <ul className="text-gray-700 text-sm space-y-1">
-                        {(result.tips ?? []).map((tip, idx) => (
+                        {(result.tips ?? EMPTY_STRING_ARRAY).map((tip, idx) => (
                           <li key={idx}>💡 {tip}</li>
                         ))}
                       </ul>
@@ -343,15 +362,7 @@ export default function AIDesignAnalyzer() {
         </div>
       </div>
 
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-      `}</style>
+      <style>{ANALYZER_STYLES}</style>
     </section>
   );
 }

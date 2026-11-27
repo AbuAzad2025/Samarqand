@@ -240,6 +240,8 @@ export default function Projects() {
                         <img
                           loading="lazy"
                           decoding="async"
+                          width={800}
+                          height={500}
                           src={project.imageUrl}
                           alt={
                             project.category

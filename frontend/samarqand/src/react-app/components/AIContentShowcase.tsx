@@ -4,6 +4,17 @@ import { apiFetch } from '@/react-app/api/site';
 
 const MAX_TOPIC_LENGTH = 200;
 
+// Created once at module load instead of on every render.
+const SHOWCASE_STYLES = `
+  @keyframes fade-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+`;
+
 function readErrorCode(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const obj = payload as { error?: { code?: string }; errorCode?: string };
@@ -255,15 +266,7 @@ export default function AIContentShowcase() {
         </div>
       </div>
 
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
+      <style>{SHOWCASE_STYLES}</style>
     </section>
   );
 }

@@ -8,6 +8,24 @@ interface Message {
   content: string;
 }
 
+// Created once at module load instead of on every render.
+const INITIAL_MESSAGES: Message[] = [
+  {
+    role: 'assistant',
+    content:
+      'مرحباً بك في سمر قند. المساعد الذكي غير مُفعّل حالياً؛ يمكنك تصفح صفحات الموقع أو التواصل معنا مباشرة عبر صفحة اتصل بنا.',
+  },
+];
+
+const CHAT_STYLES = `
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+  .animation-delay-400 {
+    animation-delay: 0.4s;
+  }
+`;
+
 function readErrorCode(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const obj = payload as { error?: { code?: string }; errorCode?: string };
@@ -17,13 +35,7 @@ function readErrorCode(payload: unknown): string | undefined {
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content:
-        'مرحباً بك في سمر قند. المساعد الذكي غير مُفعّل حالياً؛ يمكنك تصفح صفحات الموقع أو التواصل معنا مباشرة عبر صفحة اتصل بنا.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const footerVisible = useFooterVisible();
   const [isLoading, setIsLoading] = useState(false);
@@ -290,14 +302,7 @@ export default function AIChatbot() {
         </div>
       )}
 
-      <style>{`
-        .animation-delay-200 {
-          animation-delay: 0.2s;
-        }
-        .animation-delay-400 {
-          animation-delay: 0.4s;
-        }
-      `}</style>
+      <style>{CHAT_STYLES}</style>
     </>
   );
 }
