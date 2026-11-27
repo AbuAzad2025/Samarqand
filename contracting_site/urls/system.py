@@ -9,11 +9,13 @@ from wagtail.documents import urls as wagtaildocs_urls
 from website import api as api_views
 
 from ._views import cms_redirect
+from ._views import health
 from ._views import robots_txt
 from ._views import sitemap_xml
 from ._views import spa_shell
 
 urlpatterns = [
+    path("health", health, name="health"),
     path("admin-backup/", api_views.admin_backup_portal),
     re_path("^cms/.*$", cms_redirect),
     path("robots.txt", robots_txt),

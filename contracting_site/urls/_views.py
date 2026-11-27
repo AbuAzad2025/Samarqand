@@ -1,6 +1,8 @@
 """Small view helpers shared by the URL modules."""
 
+from django.db import connection
 from django.http import HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.shortcuts import render
 
@@ -52,3 +54,15 @@ def sitemap_xml(request, *args, **kwargs):
         + "</urlset>"
     )
     return HttpResponse(xml, content_type="application/xml; charset=utf-8")
+
+
+def health(request, *args, **kwargs):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:
+        return JsonResponse(
+            {"status": "error", "database": "error"}, status=503
+        )
+    return JsonResponse({"status": "ok", "database": "ok"})

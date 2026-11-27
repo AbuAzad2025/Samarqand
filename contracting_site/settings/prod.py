@@ -1,4 +1,5 @@
 from .base import *  # noqa: F403
+from .base import BASE_DIR
 from .base import _env
 from .base import _env_list
 
@@ -63,7 +64,7 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": BASE_DIR / "cache",  # noqa
+        "LOCATION": _env("CACHE_LOCATION", str(BASE_DIR / "cache")),
         "KEY_PREFIX": "coderedcms",
         "TIMEOUT": 14400,  # in seconds
     }

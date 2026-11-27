@@ -407,3 +407,6 @@ cache/
 # Temp debug artifacts
 webbridge-*.json
 samarqand-*.png
+
+# Local-only deployment files and secrets
+.local/
