@@ -84,6 +84,7 @@ export default function ControlLayout() {
   const navigate = useNavigate();
   const meRequestId = useRef(0);
   const visibilityRequestId = useRef(0);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   const refreshMe = useCallback(() => {
     const reqId = ++meRequestId.current;
@@ -126,6 +127,24 @@ export default function ControlLayout() {
       })
       .catch(() => {});
   }, [me?.authenticated]);
+
+  // Close the mobile drawer on any route change (including browser back and
+  // links outside the sidebar) so navigation never leaves it covering content.
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+        mobileMenuButtonRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
 
   // One source of truth: the same access map drives both the route guard and
   // the menu, so a link can never appear for a path the user cannot open.
@@ -327,6 +346,12 @@ export default function ControlLayout() {
 
   return (
     <div className="min-h-screen bg-sq-black text-white" dir="rtl">
+      <a
+        href="#control-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:right-2 focus:z-[60] focus:bg-white focus:text-sq-black focus:px-4 focus:py-2 focus:rounded-lg focus:font-bold"
+      >
+        تخطى إلى المحتوى
+      </a>
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[520px] h-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="absolute top-64 -left-52 w-[620px] h-[620px] rounded-full bg-red-500/20 blur-3xl" />
@@ -376,12 +401,12 @@ export default function ControlLayout() {
                 </Link>
                 <button
                   type="button"
-                  onClick={onLogout}
+                  onClick={() => void onLogout()}
                   aria-label="تسجيل الخروج"
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-sm font-extrabold shadow-lg hover:shadow-xl transition"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-sm font-extrabold shadow-lg hover:shadow-xl transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 >
                   <LogOut size={16} />
-                  <span className="hidden sm:inline">خروج</span>
+                  <span>خروج</span>
                 </button>
               </div>
             ) : (
@@ -394,10 +419,13 @@ export default function ControlLayout() {
             )}
 
             <button
+              ref={mobileMenuButtonRef}
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
               aria-label={mobileMenuOpen ? "إغلاق القائمة" : "فتح القائمة"}
-              className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="control-sidebar"
+              className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -416,7 +444,8 @@ export default function ControlLayout() {
                     <Link
                       key={it.to}
                       to={it.to}
-                      className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                      aria-current={active ? "page" : undefined}
+                      className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                         active
                           ? "bg-white/10 border-white/20 text-white"
                           : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
@@ -435,14 +464,31 @@ export default function ControlLayout() {
 
       <div className="relative max-w-7xl mx-auto px-4 py-4">
         {isLogin ? (
-          <div className="max-w-md mx-auto pt-4">
+          <div
+            id="control-main"
+            tabIndex={-1}
+            className="max-w-md mx-auto pt-4 focus:outline-none"
+          >
             <div className="bg-white/5 border border-white/10 rounded-3xl p-6 shadow-xl">
               <Outlet />
             </div>
           </div>
         ) : (
           <div className="grid lg:grid-cols-[280px_1fr] gap-5 items-start">
-            <aside className={`lg:block lg:sticky lg:top-24 lg:self-start ${mobileMenuOpen ? "block" : "hidden"}`}>
+            {mobileMenuOpen && (
+              <button
+                type="button"
+                aria-label="إغلاق القائمة"
+                onClick={() => setMobileMenuOpen(false)}
+                className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+              />
+            )}
+            <aside
+              id="control-sidebar"
+              className={`relative z-40 lg:sticky lg:top-24 lg:self-start lg:block ${
+                mobileMenuOpen ? "block" : "hidden"
+              }`}
+            >
               <div className="bg-white/5 border border-white/10 rounded-3xl shadow-xl lg:max-h-[calc(100vh-170px)] lg:overflow-y-auto">
                 <div className="p-4 border-b border-white/10">
                   <div className="flex items-center justify-between gap-3">
@@ -456,11 +502,14 @@ export default function ControlLayout() {
                   </div>
                 </div>
 
-                <nav className="p-3 space-y-2">
+                <nav aria-label="القائمة الجانبية" className="p-3 space-y-2">
                   <Link
                     to="/control/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
+                    aria-current={
+                      isActive("/control/dashboard") ? "page" : undefined
+                    }
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                       isActive("/control/dashboard")
                         ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
                         : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
@@ -474,15 +523,30 @@ export default function ControlLayout() {
 
                   {navGroups.map((g) => {
                     const collapsed = collapsedGroups.includes(g.key);
+                    const groupActive = g.items.some((it) =>
+                      isActive(it.to.split("?")[0] || it.to),
+                    );
                     return (
                       <div key={g.key} className="space-y-1">
                         <button
                           type="button"
                           onClick={() => toggleGroup(g.key)}
                           aria-expanded={!collapsed}
-                          className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[11px] font-extrabold tracking-wide text-white/50 hover:text-white/80 transition"
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[11px] font-extrabold tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                            groupActive
+                              ? "text-white"
+                              : "text-white/50 hover:text-white/80"
+                          }`}
                         >
-                          <span>{g.title}</span>
+                          <span className="flex items-center gap-2">
+                            {groupActive && (
+                              <span
+                                aria-hidden="true"
+                                className="w-1.5 h-1.5 rounded-full bg-sq-green shrink-0"
+                              />
+                            )}
+                            {g.title}
+                          </span>
                           <ChevronDown
                             size={14}
                             className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`}
@@ -498,7 +562,8 @@ export default function ControlLayout() {
                                   key={it.to}
                                   to={it.to}
                                   onClick={() => setMobileMenuOpen(false)}
-                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition ${
+                                  aria-current={active ? "page" : undefined}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                                     active
                                       ? "bg-gradient-to-r from-sq-green/25 via-white/5 to-sq-red/25 border-white/20 text-white shadow-sm"
                                       : "bg-white/0 border-white/0 text-white/85 hover:bg-white/5 hover:border-white/10 hover:text-white"
@@ -532,7 +597,11 @@ export default function ControlLayout() {
               </div>
             </aside>
 
-            <section className="bg-white/5 border border-white/10 rounded-3xl p-5 shadow-xl text-white lg:max-h-[calc(100vh-170px)] lg:overflow-y-auto">
+            <section
+              id="control-main"
+              tabIndex={-1}
+              className="bg-white/5 border border-white/10 rounded-3xl p-5 shadow-xl text-white lg:max-h-[calc(100vh-170px)] lg:overflow-y-auto focus:outline-none"
+            >
               <Outlet />
             </section>
           </div>

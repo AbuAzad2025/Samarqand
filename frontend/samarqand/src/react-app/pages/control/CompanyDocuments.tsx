@@ -36,6 +36,7 @@ export default function ControlCompanyDocuments() {
   const [uploading, setUploading] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [notice, setNotice] = useState("");
 
   const [q, setQ] = useState("");
   const [uploadTitle, setUploadTitle] = useState("");
@@ -46,11 +47,13 @@ export default function ControlCompanyDocuments() {
   const load = useCallback(async () => {
     setLoading(true);
     setStatus("idle");
+    setNotice("");
     try {
       const res = await fetchAdminCompanyDocuments(category);
       setItems(res);
     } catch {
       setStatus("error");
+      setNotice("تعذر تحميل المستندات.");
       setItems([]);
     } finally {
       setLoading(false);
@@ -73,6 +76,7 @@ export default function ControlCompanyDocuments() {
     if (!uploadFile) return;
     setUploading(true);
     setStatus("idle");
+    setNotice("");
     try {
       const res = await uploadAdminCompanyDocument({
         category,
@@ -83,8 +87,10 @@ export default function ControlCompanyDocuments() {
       setUploadFile(null);
       setUploadTitle("");
       await load();
+      setNotice(res.ok ? "تم رفع الملف." : "تعذر رفع الملف.");
     } catch {
       setStatus("error");
+      setNotice("تعذر رفع الملف.");
     } finally {
       setUploading(false);
       setTimeout(() => setStatus("idle"), 1500);
@@ -159,11 +165,11 @@ export default function ControlCompanyDocuments() {
 
       {status === "saved" ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
-          تم الحفظ.
+          {notice || "تم الحفظ."}
         </div>
       ) : status === "error" ? (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر تنفيذ العملية.
+          {notice || "تعذر تنفيذ العملية."}
         </div>
       ) : null}
 
@@ -171,7 +177,9 @@ export default function ControlCompanyDocuments() {
         <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
           <div>
             <div className="text-lg font-bold text-gray-900">{categoryLabel}</div>
-            <div className="text-sm text-gray-600 mt-1">{items.length} ملف</div>
+            <div className="text-sm text-gray-600 mt-1">
+              {q.trim() ? `عرض ${filtered.length} من ${items.length} ملف` : `${items.length} ملف`}
+            </div>
             {q.trim() ? <div className="text-xs text-gray-500 mt-1">الترتيب معطل أثناء البحث.</div> : null}
           </div>
         </div>
@@ -259,10 +267,12 @@ export default function ControlCompanyDocuments() {
                     type="button"
                     onClick={async () => {
                       setStatus("idle");
+                      setNotice("");
                       const res = await updateAdminCompanyDocument(d.id, { title: d.title || "" }).catch(() => ({ ok: false }));
                       setStatus(res.ok ? "saved" : "error");
                       setTimeout(() => setStatus("idle"), 1500);
                       await load();
+                      setNotice(res.ok ? "تم حفظ العنوان." : "تعذر حفظ العنوان.");
                     }}
                     className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition"
                   >
@@ -291,12 +301,14 @@ export default function ControlCompanyDocuments() {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!confirm("حذف الملف؟")) return;
+                      if (!confirm("حذف الملف نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) return;
                       setStatus("idle");
+                      setNotice("");
                       const res = await removeAdminCompanyDocument(d.id).catch(() => ({ ok: false }));
                       setStatus(res.ok ? "saved" : "error");
                       setTimeout(() => setStatus("idle"), 1500);
                       await load();
+                      setNotice(res.ok ? "تم حذف الملف." : "تعذر حذف الملف.");
                     }}
                     className="text-red-700 font-bold text-sm hover:underline"
                   >
@@ -305,7 +317,11 @@ export default function ControlCompanyDocuments() {
                 </div>
               </div>
             ))}
-            {!filtered.length ? <div className="text-gray-600">لا يوجد ملفات.</div> : null}
+            {!filtered.length ? (
+              <div className="text-gray-600">
+                {q.trim() ? "لا توجد ملفات مطابقة للبحث." : "لا يوجد ملفات في هذه الفئة."}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

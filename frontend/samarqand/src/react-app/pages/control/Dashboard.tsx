@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import {
@@ -13,16 +13,120 @@ import {
 } from "@/react-app/api/site";
 import { isManagerRole, useControlRole } from "@/react-app/utils/controlRole";
 
-export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "team" }) {
-  const [data, setData] = useState<{
-    warnings: string[];
-    counts: Record<string, number>;
-    links: { backup: string; publicSite: string; tools: string };
-  } | null>(null);
+type Summary = {
+  warnings: string[];
+  counts: Record<string, number>;
+  links: { backup: string; publicSite: string; tools: string };
+};
+
+type Access = "manager" | "ops" | "all";
+
+type CardDef = {
+  key: string;
+  label: string;
+  description: string;
+  to: string;
+  access: Access;
+};
+
+// Ordered by priority: work that needs attention first, then site content.
+const CARD_DEFS: CardDef[] = [
+  {
+    key: "leads",
+    label: "العملاء المحتملون",
+    description: "الطلبات الواردة من الزوار",
+    to: "/control/leads",
+    access: "manager",
+  },
+  {
+    key: "rfqDocuments",
+    label: "نماذج عروض الأسعار",
+    description: "قوالب عروض الأسعار المحفوظة",
+    to: "/control/rfq",
+    access: "ops",
+  },
+  {
+    key: "projects",
+    label: "المشاريع",
+    description: "المشاريع المنشورة",
+    to: "/control/projects",
+    access: "ops",
+  },
+  {
+    key: "services",
+    label: "الخدمات",
+    description: "الخدمات المعروضة للزوار",
+    to: "/control/services",
+    access: "manager",
+  },
+  {
+    key: "team",
+    label: "فريق العمل",
+    description: "أعضاء الفريق",
+    to: "/control/team",
+    access: "manager",
+  },
+  {
+    key: "testimonials",
+    label: "آراء العملاء",
+    description: "الشهادات المنشورة",
+    to: "/control/testimonials",
+    access: "manager",
+  },
+  {
+    key: "trustBadges",
+    label: "ميزات الثقة",
+    description: "عناصر الثقة في الصفحة الرئيسية",
+    to: "/control/home-sections",
+    access: "manager",
+  },
+  {
+    key: "stats",
+    label: "إحصاءات الهوم",
+    description: "أرقام الصفحة الرئيسية",
+    to: "/control/home-sections",
+    access: "manager",
+  },
+  {
+    key: "timeline",
+    label: "خطوات العمل",
+    description: "مراحل العمل في الصفحة الرئيسية",
+    to: "/control/home-sections",
+    access: "manager",
+  },
+  {
+    key: "aiFeatures",
+    label: "ميزات AI",
+    description: "ميزات الذكاء الاصطناعي",
+    to: "/control/home-sections",
+    access: "manager",
+  },
+  {
+    key: "aiMetrics",
+    label: "مؤشرات AI",
+    description: "مؤشرات الذكاء الاصطناعي",
+    to: "/control/home-sections",
+    access: "manager",
+  },
+];
+
+const CARD_CLASS =
+  "block bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition";
+
+export default function ControlDashboard({
+  mode = "full",
+}: {
+  mode?: "full" | "team";
+}) {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState(false);
 
   const [team, setTeam] = useState<AdminTeamMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
-  const [teamStatus, setTeamStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [teamStatus, setTeamStatus] = useState<"idle" | "saved" | "error">(
+    "idle",
+  );
   const [creatingTeam, setCreatingTeam] = useState(false);
   const [savingTeamId, setSavingTeamId] = useState<number | null>(null);
   const [uploadingTeamId, setUploadingTeamId] = useState<number | null>(null);
@@ -34,52 +138,111 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
   const [newTeamBio, setNewTeamBio] = useState("");
   const [newTeamImage, setNewTeamImage] = useState<File | null>(null);
 
-  async function loadSummary() {
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(false);
     try {
-      const res = await fetchAdminSummary();
-      setData(res);
+      setSummary(await fetchAdminSummary());
     } catch {
-      setData(null);
+      // No cached or invented numbers: an error is shown instead.
+      setSummary(null);
+      setSummaryError(true);
+    } finally {
+      setSummaryLoading(false);
     }
-  }
+  }, []);
 
-  async function loadTeam() {
+  const loadTeam = useCallback(async () => {
     setTeamLoading(true);
     try {
-      const items = await fetchAdminTeam();
-      setTeam(items);
+      setTeam(await fetchAdminTeam());
     } catch {
       setTeamStatus("error");
     } finally {
       setTeamLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    if (mode === "full") loadSummary();
-    if (mode === "team") loadTeam();
-  }, [mode]);
+    if (mode === "full") void loadSummary();
+    if (mode === "team") void loadTeam();
+  }, [mode, loadSummary, loadTeam]);
 
   const controlRole = useControlRole();
+  const canManage = isManagerRole(controlRole);
+  const isSuperuser =
+    controlRole.isSuperuser || controlRole.role === "superadmin";
+  const role = controlRole.role;
+
+  function canOpen(access: Access): boolean {
+    if (access === "all") return true;
+    if (access === "manager") return canManage;
+    return (
+      canManage ||
+      role === "accountant" ||
+      role === "registrar" ||
+      role === "employee"
+    );
+  }
+
   const cards = useMemo(() => {
-    const c = data?.counts || {};
-    const all = [
-      { label: "الخدمات", value: c.services ?? 0 },
-      { label: "المشاريع", value: c.projects ?? 0 },
-      { label: "فريق العمل", value: c.team ?? 0 },
-      { label: "آراء العملاء", value: c.testimonials ?? 0 },
-      { label: "نماذج عروض الأسعار", value: c.rfqDocuments ?? 0 },
-  { label: "العملاء المحتملون", value: c.leads ?? 0 },
-      { label: "ميزات الثقة", value: c.trustBadges ?? 0 },
-      { label: "إحصاءات الهوم", value: c.stats ?? 0 },
-      { label: "خطوات العمل", value: c.timeline ?? 0 },
-      { label: "ميزات AI", value: c.aiFeatures ?? 0 },
-      { label: "مؤشرات AI", value: c.aiMetrics ?? 0 },
-    ];
-    return isManagerRole(controlRole)
-      ? all
-      : all.filter((card) => card.label !== "العملاء المحتملون");
-  }, [data, controlRole]);
+    if (!summary) return [];
+    const counts = summary.counts || {};
+    return CARD_DEFS.map((def) => ({
+      ...def,
+      value: counts[def.key] ?? 0,
+      clickable: canOpen(def.access),
+    }));
+    // controlRole is a small object recreated on each render; depend on its
+    // primitive fields so the memo is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, canManage, role]);
+
+  const totalItems = cards.reduce((sum, card) => sum + card.value, 0);
+
+  const quickActions = useMemo(
+    () =>
+      [
+        {
+          label: "العملاء المحتملون",
+          description: "متابعة الطلبات الجديدة",
+          to: "/control/leads",
+          show: canManage,
+        },
+        {
+          label: "المشاريع",
+          description: "إضافة أو تحرير مشروع",
+          to: "/control/projects",
+          show: canOpen("ops"),
+        },
+        {
+          label: "نماذج عروض الأسعار",
+          description: "تجهيز عرض سعر جديد",
+          to: "/control/rfq",
+          show: canOpen("ops"),
+        },
+        {
+          label: "محتوى الصفحة الرئيسية",
+          description: "تحديث ما يراه الزوار",
+          to: "/control/home-sections",
+          show: canManage,
+        },
+        {
+          label: "النسخ الاحتياطي",
+          description: "تنزيل نسخة من البيانات",
+          to: summary?.links.backup || "/control/backup",
+          show: isSuperuser,
+        },
+        {
+          label: "تغيير كلمة المرور",
+          description: "تأمين حسابك",
+          to: "/control/password",
+          show: true,
+        },
+      ].filter((action) => action.show),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canManage, isSuperuser, role, summary],
+  );
 
   async function onCreateTeamMember() {
     const name = newTeamName.trim();
@@ -111,7 +274,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
       setNewTeamBio("");
       setNewTeamImage(null);
       await loadTeam();
-      await loadSummary();
+      if (mode === "full") await loadSummary();
       setTeamStatus("saved");
       setTimeout(() => setTeamStatus("idle"), 1500);
     } catch {
@@ -165,7 +328,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
         return;
       }
       await loadTeam();
-      await loadSummary();
+      if (mode === "full") await loadSummary();
       setTeamStatus("saved");
       setTimeout(() => setTeamStatus("idle"), 1500);
     } catch {
@@ -210,7 +373,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
         </div>
         <button
           type="button"
-          onClick={loadTeam}
+          onClick={() => void loadTeam()}
           disabled={teamLoading}
           className="bg-white border border-gray-200 text-gray-900 px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
         >
@@ -219,13 +382,19 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
       </div>
 
       {teamStatus === "saved" && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
+        <div
+          role="status"
+          className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800"
+        >
           تم الحفظ.
         </div>
       )}
       {teamStatus === "error" && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر تنفيذ العملية.
+        <div
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700"
+        >
+          تعذر تنفيذ العملية. حاول مرة أخرى.
         </div>
       )}
 
@@ -236,30 +405,35 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
             value={newTeamName}
             onChange={(e) => setNewTeamName(e.target.value)}
             placeholder="الاسم"
+            aria-label="اسم العضو"
             className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
           />
           <input
             value={newTeamPosition}
             onChange={(e) => setNewTeamPosition(e.target.value)}
             placeholder="المنصب"
+            aria-label="المنصب"
             className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
           />
           <input
             value={newTeamSpecialization}
             onChange={(e) => setNewTeamSpecialization(e.target.value)}
             placeholder="التخصص"
+            aria-label="التخصص"
             className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
           />
           <input
             value={newTeamExperience}
             onChange={(e) => setNewTeamExperience(e.target.value)}
             placeholder="الخبرة"
+            aria-label="الخبرة"
             className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
           />
           <textarea
             value={newTeamBio}
             onChange={(e) => setNewTeamBio(e.target.value)}
             placeholder="نبذة مختصرة"
+            aria-label="نبذة مختصرة"
             className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900 md:col-span-2"
             rows={4}
           />
@@ -278,8 +452,8 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
         <div className="flex items-center justify-end mt-4">
           <button
             type="button"
-            onClick={onCreateTeamMember}
-            disabled={creatingTeam}
+            onClick={() => void onCreateTeamMember()}
+            disabled={creatingTeam || !newTeamName.trim()}
             className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {creatingTeam ? "جارٍ الإضافة..." : "إضافة"}
@@ -288,9 +462,11 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
       </div>
 
       {teamLoading ? (
-        <div className="text-gray-600">جارٍ التحميل...</div>
+        <p role="status" className="text-gray-600">
+          جارٍ تحميل أعضاء الفريق…
+        </p>
       ) : !team.length ? (
-        <div className="text-gray-600">لا يوجد أعضاء في فريق العمل حالياً.</div>
+        <p className="text-gray-600">لا يوجد أعضاء في فريق العمل حالياً.</p>
       ) : (
         <div className="space-y-4">
           {team.map((m, idx) => (
@@ -313,16 +489,20 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => onMoveTeam(idx, -1)}
+                    onClick={() => void onMoveTeam(idx, -1)}
                     disabled={idx === 0}
+                    aria-label={`تقديم ${m.name || "العضو"}`}
+                    title="تقديم"
                     className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
                   >
                     ↑
                   </button>
                   <button
                     type="button"
-                    onClick={() => onMoveTeam(idx, 1)}
+                    onClick={() => void onMoveTeam(idx, 1)}
                     disabled={idx === team.length - 1}
+                    aria-label={`تأخير ${m.name || "العضو"}`}
+                    title="تأخير"
                     className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
                   >
                     ↓
@@ -377,15 +557,15 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
 
                   <button
                     type="button"
-                    onClick={() => onSaveTeamMember(m)}
-                    disabled={savingTeamId === m.id}
+                    onClick={() => void onSaveTeamMember(m)}
+                    disabled={savingTeamId === m.id || !m.name.trim()}
                     className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
                   >
                     {savingTeamId === m.id ? "حفظ..." : "حفظ"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => onDeleteTeamMember(m.id)}
+                    onClick={() => void onDeleteTeamMember(m.id)}
                     className="bg-white border border-red-200 text-red-700 px-4 py-2 rounded-lg font-bold hover:shadow-sm transition"
                   >
                     حذف
@@ -402,6 +582,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                     )
                   }
                   placeholder="الاسم"
+                  aria-label={`اسم العضو ${idx + 1}`}
                   className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 />
                 <input
@@ -412,6 +593,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                     )
                   }
                   placeholder="المنصب"
+                  aria-label={`منصب العضو ${idx + 1}`}
                   className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 />
                 <input
@@ -424,6 +606,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                     )
                   }
                   placeholder="التخصص"
+                  aria-label={`تخصص العضو ${idx + 1}`}
                   className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 />
                 <input
@@ -434,6 +617,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                     )
                   }
                   placeholder="الخبرة"
+                  aria-label={`خبرة العضو ${idx + 1}`}
                   className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900"
                 />
                 <textarea
@@ -444,6 +628,7 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                     )
                   }
                   placeholder="نبذة مختصرة"
+                  aria-label={`نبذة العضو ${idx + 1}`}
                   className="border border-gray-200 rounded-xl px-4 py-3 text-gray-900 md:col-span-2"
                   rows={4}
                 />
@@ -483,14 +668,15 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
         <div>
           <h1 className="text-3xl font-bold text-white">لوحة التحكم</h1>
           <p className="text-white/60 mt-1">
-            إدارة سريعة للإعدادات والمزايا الأساسية.
+            نظرة سريعة على بيانات الموقع والإجراءات الأكثر استخداماً.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <a
-            href={data?.links.publicSite || "/"}
+            href={summary?.links.publicSite || "/"}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="فتح الموقع في تبويب جديد"
             className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
           >
             فتح الموقع
@@ -504,30 +690,105 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
         </div>
       </div>
 
-      {!!data?.warnings?.length && (
+      {summary?.warnings && summary.warnings.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-8">
-          <div className="font-bold text-amber-900 mb-2">تنبيهات</div>
-          <ul className="text-amber-900/90 space-y-1">
-            {data.warnings.map((w, idx) => (
+          <div className="font-bold text-amber-900 mb-2">تنبيهات تحتاج مراجعة</div>
+          <ul className="text-amber-900/90 space-y-1 list-disc pr-5">
+            {summary.warnings.map((w, idx) => (
               <li key={idx}>{w}</li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm"
+      <section aria-labelledby="quick-actions-title" className="mb-10">
+        <h2 id="quick-actions-title" className="text-xl font-bold text-white mb-1">
+          الإجراءات الأكثر استخداماً
+        </h2>
+        <p className="text-white/60 text-sm mb-4">
+          اختصارات للوظائف التي تحتاجها بشكل متكرر، مرتبة حسب الأولوية.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {quickActions.map((action) => (
+            <Link
+              key={action.to}
+              to={action.to}
+              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition"
+            >
+              <div className="font-semibold text-gray-900">{action.label}</div>
+              <div className="text-sm text-gray-600 mt-1">{action.description}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {summaryLoading ? (
+        <div
+          role="status"
+          className="bg-white border border-gray-200 rounded-2xl p-8 text-center text-gray-600 mb-10"
+        >
+          جارٍ تحميل بيانات لوحة التحكم…
+        </div>
+      ) : summaryError ? (
+        <div
+          role="alert"
+          className="bg-white border border-red-200 rounded-2xl p-8 text-center mb-10"
+        >
+          <p className="font-bold text-red-700">
+            تعذر تحميل بيانات لوحة التحكم.
+          </p>
+          <p className="text-sm text-gray-600 mt-1">
+            الأرقام مخفية حتى نتمكن من عرض بيانات صحيحة من الخادم.
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadSummary()}
+            className="mt-4 bg-white border border-gray-200 text-gray-900 px-5 py-2 rounded-lg font-bold hover:shadow-sm transition"
           >
-            <div className="text-sm text-gray-600">{c.label}</div>
-            <div className="text-3xl font-bold text-gray-900 mt-1">
-              {c.value}
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : summary ? (
+        <section aria-labelledby="summary-title" className="mb-10">
+            <h2 id="summary-title" className="text-xl font-bold text-white mb-1">
+              نظرة على المحتوى
+            </h2>
+            <p className="text-white/60 text-sm mb-4">
+              الأرقام أدناه قادمة من الخادم مباشرة، مرتبة من الأكثر أهمية إلى الأقل.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cards.map((c) => {
+                const inner = (
+                  <>
+                    <div className="text-sm text-gray-600">{c.label}</div>
+                    <div className="text-3xl font-bold text-gray-900 mt-1" dir="ltr">
+                      {c.value}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{c.description}</div>
+                  </>
+                );
+                return c.clickable ? (
+                  <Link key={c.key} to={c.to} className={CARD_CLASS}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={c.key} className={CARD_CLASS}>
+                    {inner}
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        ))}
-      </div>
+            {totalItems === 0 && (
+              <p
+                role="status"
+                className="mt-4 bg-white/10 border border-white/15 rounded-xl p-4 text-sm text-white/80"
+              >
+                لا توجد بيانات مسجلة بعد. ابدأ من الإجراءات السريعة أعلاه لإضافة
+                المحتوى.
+              </p>
+            )}
+        </section>
+      ) : null}
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
@@ -639,9 +900,10 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
               </div>
             </Link>
             <a
-              href={data?.links.tools || "/tools"}
+              href={summary?.links.tools || "/tools"}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="فتح الأدوات في تبويب جديد"
               className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
             >
               <div className="font-semibold text-gray-900">الأدوات</div>
@@ -649,17 +911,15 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
                 عرض الأدوات وتأكد من صلاحيات الوصول
               </div>
             </a>
-            <a
-              href={data?.links.backup || "/control/backup"}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to={summary?.links.backup || "/control/backup"}
               className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
             >
               <div className="font-semibold text-gray-900">النسخ الاحتياطي</div>
               <div className="text-sm text-gray-600 mt-1">
                 نسخ واستعادة بيانات المنظومة (سوبر أدمن)
               </div>
-            </a>
+            </Link>
           </div>
         </div>
       </div>

@@ -16,15 +16,20 @@ export function useControlRole(): ControlRole {
   });
 
   useEffect(() => {
+    let active = true;
     fetchAuthMe()
-      .then((me) =>
+      .then((me) => {
+        if (!active) return;
         setValue({
           isSuperuser: Boolean(me.isSuperuser),
-          role: me.role || "",
-          groups: me.groups || [],
-        }),
-      )
+          role: typeof me.role === "string" ? me.role : "",
+          groups: Array.isArray(me.groups) ? me.groups : [],
+        });
+      })
       .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   return value;

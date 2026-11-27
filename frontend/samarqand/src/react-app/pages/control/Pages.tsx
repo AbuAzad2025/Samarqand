@@ -27,7 +27,8 @@ export default function ControlPages() {
     null,
   );
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const [allowedTypes, setAllowedTypes] = useState<{ type: string; typeName: string }[]>([]);
   const [creating, setCreating] = useState(false);
@@ -37,17 +38,25 @@ export default function ControlPages() {
 
   const currentParentId = useMemo(() => data?.parent?.id || parentId || 0, [data?.parent?.id, parentId]);
 
+  function notify(kind: "success" | "error", text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice(null), 4000);
+  }
+
+  function clearNotice() {
+    setNotice(null);
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
-    setStatus("idle");
     try {
       const tree = await fetchAdminPagesTree(parentId);
       setData({ parent: { id: tree.parent.id, title: tree.parent.title }, items: tree.items });
       const types = await fetchAdminPagesAllowedTypes(tree.parent.id).catch(() => []);
       setAllowedTypes(types);
-      setNewType(types[0]?.type || "");
+      setNewType((prev) => prev || types[0]?.type || "");
     } catch {
-      setStatus("error");
+      notify("error", "تعذر تحميل الصفحات. يرجى الضغط على «تحديث».");
       setData(null);
     } finally {
       setLoading(false);
@@ -99,81 +108,121 @@ export default function ControlPages() {
         </div>
       </div>
 
-      {status === "saved" ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
-          تم الحفظ.
-        </div>
-      ) : status === "error" ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر تنفيذ العملية.
+      {notice ? (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`border rounded-2xl p-4 mb-6 font-semibold ${
+            notice.kind === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {notice.text}
         </div>
       ) : null}
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-8">
-        <div className="text-lg font-bold text-gray-900 mb-4">إضافة صفحة</div>
-        <div className="grid md:grid-cols-2 gap-3">
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
-            className="border border-gray-200 rounded-xl px-4 py-3"
-          >
-            {allowedTypes.length ? null : <option value="">لا يوجد أنواع متاحة هنا</option>}
-            {allowedTypes.map((t) => (
-              <option key={t.type} value={t.type}>
-                {t.typeName}
-              </option>
-            ))}
-          </select>
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="عنوان الصفحة"
-            className="border border-gray-200 rounded-xl px-4 py-3"
-          />
-          <input
-            value={newSlug}
-            onChange={(e) => setNewSlug(e.target.value)}
-            placeholder="Slug (اختياري)"
-            className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2"
-            dir="ltr"
-          />
-        </div>
-        <div className="flex items-center justify-end mt-4">
-          <button
-            type="button"
-            disabled={!newType || !newTitle.trim() || creating}
-            onClick={async () => {
-              if (!data?.parent?.id) return;
-              setCreating(true);
-              setStatus("idle");
-              try {
-                const res = await createAdminPage({
-                  parentId: data.parent.id,
-                  type: newType,
-                  title: newTitle,
-                  slug: newSlug || undefined,
-                  live: true,
-                });
-                if (!res.ok) {
-                  setStatus("error");
-                  return;
-                }
+        <div className="text-lg font-bold text-gray-900">إضافة صفحة</div>
+        <p className="text-sm text-gray-600 mt-1 mb-4">الحقول المميزة بـ * إلزامية.</p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newType) {
+              notify("error", "اختر نوع الصفحة أولاً.");
+              return;
+            }
+            if (!newTitle.trim()) {
+              notify("error", "عنوان الصفحة مطلوب.");
+              return;
+            }
+            if (!data?.parent?.id) return;
+            setCreating(true);
+            clearNotice();
+            try {
+              const res = await createAdminPage({
+                parentId: data.parent.id,
+                type: newType,
+                title: newTitle,
+                slug: newSlug || undefined,
+                live: true,
+              });
+              if (!res.ok) {
+                notify("error", "تعذر إنشاء الصفحة. يرجى المحاولة مرة أخرى.");
+                return;
+              }
+              setNewTitle("");
+              setNewSlug("");
+              notify("success", "تم إنشاء الصفحة بنجاح.");
+              await load();
+            } catch {
+              notify("error", "تعذر إنشاء الصفحة. يرجى المحاولة مرة أخرى.");
+            } finally {
+              setCreating(false);
+            }
+          }}
+          className="grid md:grid-cols-2 gap-4"
+        >
+          <div>
+            <label htmlFor="new-page-type" className="block text-sm font-semibold text-gray-700 mb-2">نوع الصفحة *</label>
+            <select
+              id="new-page-type"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3"
+              required
+            >
+              {allowedTypes.length ? null : <option value="">لا يوجد أنواع متاحة هنا</option>}
+              {allowedTypes.map((t) => (
+                <option key={t.type} value={t.type}>
+                  {t.typeName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="new-page-title" className="block text-sm font-semibold text-gray-700 mb-2">عنوان الصفحة *</label>
+            <input
+              id="new-page-title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="عنوان الصفحة"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3"
+              required
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="new-page-slug" className="block text-sm font-semibold text-gray-700 mb-2">Slug (اختياري)</label>
+            <input
+              id="new-page-slug"
+              value={newSlug}
+              onChange={(e) => setNewSlug(e.target.value)}
+              placeholder="Slug (اختياري)"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3"
+              dir="ltr"
+            />
+          </div>
+          <div className="md:col-span-2 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
                 setNewTitle("");
                 setNewSlug("");
-                setStatus("saved");
-                setTimeout(() => setStatus("idle"), 1500);
-                await load();
-              } catch {
-                setStatus("error");
-              } finally {
-                setCreating(false);
-              }
-            }}
-            className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
-          >
-            {creating ? "جارٍ الإنشاء..." : "إنشاء"}
-          </button>
-        </div>
+                setNewType(allowedTypes[0]?.type || "");
+                clearNotice();
+              }}
+              className="bg-white border border-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:shadow-sm transition"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              disabled={!newType || !newTitle.trim() || creating}
+              className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            >
+              {creating ? "جارٍ الإنشاء..." : "إنشاء"}
+            </button>
+          </div>
+        </form>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -185,7 +234,11 @@ export default function ControlPages() {
         {loading ? (
           <div className="p-6 text-gray-600">جارٍ التحميل...</div>
         ) : !items.length ? (
-          <div className="p-6 text-gray-600">لا يوجد صفحات هنا.</div>
+          <div className="p-10 text-center">
+            <div className="text-3xl mb-2" aria-hidden="true">📄</div>
+            <div className="font-bold text-gray-900">لا توجد صفحات في هذا المجلد</div>
+            <p className="text-sm text-gray-600 mt-2">أضف صفحة جديدة من النموذج أعلاه، أو افتح مجلداً آخر.</p>
+          </div>
         ) : (
           <div className="divide-y">
             {items.map((p) => (
@@ -198,6 +251,7 @@ export default function ControlPages() {
                   }}
                   disabled={!p.hasChildren}
                   className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-40"
+                  aria-label={p.hasChildren ? `فتح المجلد ${p.title}` : `لا توجد صفحات فرعية في ${p.title}`}
                   title={p.hasChildren ? "فتح المجلد" : "لا يوجد صفحات فرعية"}
                 >
                   {p.hasChildren ? "↩" : "—"}
@@ -241,37 +295,52 @@ export default function ControlPages() {
                   </Link>
                   <button
                     type="button"
+                    aria-label={p.live ? `إلغاء نشر ${p.title}` : `نشر ${p.title}`}
+                    disabled={busyId === p.id}
                     onClick={async () => {
-                      setStatus("idle");
-                      const res = p.live ? await unpublishAdminPage(p.id) : await publishAdminPage(p.id);
-                      if (!res.ok) {
-                        setStatus("error");
-                        return;
+                      clearNotice();
+                      setBusyId(p.id);
+                      try {
+                        const res = p.live ? await unpublishAdminPage(p.id) : await publishAdminPage(p.id);
+                        if (!res.ok) {
+                          notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+                          return;
+                        }
+                        notify("success", p.live ? "تم إلغاء النشر." : "تم نشر الصفحة.");
+                        await load();
+                      } catch {
+                        notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+                      } finally {
+                        setBusyId(null);
                       }
-                      setStatus("saved");
-                      setTimeout(() => setStatus("idle"), 1500);
-                      await load();
                     }}
-                    className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+                    className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
                   >
-                    {p.live ? "إلغاء النشر" : "نشر"}
+                    {busyId === p.id ? "جارٍ التنفيذ..." : p.live ? "إلغاء النشر" : "نشر"}
                   </button>
                   <button
                     type="button"
+                    aria-label={`حذف ${p.title}`}
+                    disabled={busyId === p.id}
                     onClick={async () => {
-                      const ok = window.confirm("حذف الصفحة؟ سيتم حذف كل الصفحات تحتها أيضاً.");
-                      if (!ok) return;
-                      setStatus("idle");
-                      const res = await deleteAdminPage(p.id);
-                      if (!res.ok) {
-                        setStatus("error");
-                        return;
+                      if (!window.confirm("حذف الصفحة؟ سيتم حذف كل الصفحات تحتها أيضاً.")) return;
+                      clearNotice();
+                      setBusyId(p.id);
+                      try {
+                        const res = await deleteAdminPage(p.id);
+                        if (!res.ok) {
+                          notify("error", "تعذر حذف الصفحة. يرجى المحاولة مرة أخرى.");
+                          return;
+                        }
+                        notify("success", "تم حذف الصفحة.");
+                        await load();
+                      } catch {
+                        notify("error", "تعذر حذف الصفحة. يرجى المحاولة مرة أخرى.");
+                      } finally {
+                        setBusyId(null);
                       }
-                      setStatus("saved");
-                      setTimeout(() => setStatus("idle"), 1500);
-                      await load();
                     }}
-                    className="bg-white border border-red-200 text-red-700 px-4 py-2 rounded-lg font-bold hover:shadow-sm transition"
+                    className="bg-white border border-red-200 text-red-700 px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
                   >
                     حذف
                   </button>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, Minimize2, Maximize2, Sparkles, User } from 'lucide-react';
+import { Bot, Send, X, Minimize2, Maximize2, User } from 'lucide-react';
 import { apiFetch } from '@/react-app/api/site';
 import { useFooterVisible } from '@/react-app/utils/useFooterVisible';
 
@@ -8,18 +8,26 @@ interface Message {
   content: string;
 }
 
+function readErrorCode(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const obj = payload as { error?: { code?: string }; errorCode?: string };
+  return obj.error?.code ?? obj.errorCode;
+}
+
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'مرحباً! أنا المساعد الذكي لشركة سمر قند. كيف يمكنني مساعدتك اليوم؟ 🏗️',
+      content:
+        'مرحباً بك في سمر قند. المساعد الذكي غير مُفعّل حالياً؛ يمكنك تصفح صفحات الموقع أو التواصل معنا مباشرة عبر صفحة اتصل بنا.',
     },
   ]);
   const [input, setInput] = useState('');
   const footerVisible = useFooterVisible();
   const [isLoading, setIsLoading] = useState(false);
+  const [aiUnavailable, setAiUnavailable] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
@@ -38,6 +46,10 @@ export default function AIChatbot() {
       setHasNewMessage(false);
     }
   }, [isOpen, messages]);
+
+  const appendAssistant = (content: string) => {
+    setMessages((prev) => [...prev, { role: 'assistant', content }]);
+  };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,53 +73,80 @@ export default function AIChatbot() {
         }),
       });
 
-      if (!response.ok) throw new Error('فشل الاتصال بالمساعد الذكي');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const code = readErrorCode(payload);
+
+        if (code === 'ai_not_configured' || response.status === 503) {
+          setAiUnavailable(true);
+          appendAssistant(
+            'المساعد الذكي غير مُفعّل حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يرجى التواصل معنا مباشرة عبر صفحة اتصل بنا.',
+          );
+          return;
+        }
+        if (code === 'rate_limit' || response.status === 429) {
+          appendAssistant('وصلنا إلى حد الطلبات المسموح بها حالياً. يرجى المحاولة بعد قليل.');
+          return;
+        }
+        appendAssistant('تعذّر الاتصال بالمساعد حالياً. يرجى المحاولة لاحقاً أو التواصل معنا مباشرة.');
+        return;
+      }
+
+      setAiUnavailable(false);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = '';
 
+      if (!reader) {
+        appendAssistant('لم يتم الحصول على رد حالياً. يرجى المحاولة لاحقاً.');
+        return;
+      }
+
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      let finished = false;
+      while (!finished) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') break;
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') {
+            finished = true;
+            break;
+          }
 
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.text) {
-                  assistantMessage += parsed.text;
-                  setMessages((prev) => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1].content = assistantMessage;
-                    return newMessages;
-                  });
-                }
-              } catch {
-                // Ignore parsing errors
-              }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.text) {
+              assistantMessage += parsed.text;
+              setMessages((prev) => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1].content = assistantMessage;
+                return newMessages;
+              });
             }
+          } catch {
+            // Ignore malformed stream chunks.
           }
         }
       }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'عذراً، حدث خطأ. يرجى المحاولة مرة أخرى أو التواصل معنا مباشرة عبر الواتساب.',
-        },
-      ]);
+
+      if (!assistantMessage.trim()) {
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].content =
+            'لم يتم الحصول على رد حالياً. يرجى المحاولة لاحقاً.';
+          return newMessages;
+        });
+      }
+    } catch {
+      appendAssistant('تعذّر الاتصال بالمساعد حالياً. يرجى المحاولة لاحقاً أو التواصل معنا مباشرة.');
     } finally {
       setIsLoading(false);
     }
@@ -134,9 +173,6 @@ export default function AIChatbot() {
           {hasNewMessage && (
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse" />
           )}
-          <div className="absolute -top-2 -left-2">
-            <Sparkles className="text-yellow-400 animate-pulse" size={20} />
-          </div>
         </button>
       )}
 
@@ -154,8 +190,10 @@ export default function AIChatbot() {
                 <Bot className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="text-white font-bold">مساعد سمر قند الذكي</h3>
-                <p className="text-white/80 text-xs">مدعوم بالذكاء الاصطناعي 🤖</p>
+                <h3 className="text-white font-bold">مساعد سمر قند</h3>
+                <p className="text-white/80 text-xs">
+                  {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -226,22 +264,32 @@ export default function AIChatbot() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Quick Questions */}
-              {messages.length === 1 && (
+              {aiUnavailable ? (
                 <div className="px-4 pb-2">
-                  <p className="text-xs text-gray-500 mb-2">أسئلة شائعة:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {quickQuestions.map((q, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setInput(q)}
-                        className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition"
-                      >
-                        {q}
-                      </button>
-                    ))}
+                  <div className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                    المساعد الذكي غير مُفعّل حالياً.{' '}
+                    <a href="/contact" className="font-semibold underline">
+                      تواصل معنا مباشرة
+                    </a>
                   </div>
                 </div>
+              ) : (
+                messages.length === 1 && (
+                  <div className="px-4 pb-2">
+                    <p className="text-xs text-gray-500 mb-2">أسئلة شائعة:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {quickQuestions.map((q, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setInput(q)}
+                          className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
               )}
 
               <form onSubmit={sendMessage} className="p-4 border-t">

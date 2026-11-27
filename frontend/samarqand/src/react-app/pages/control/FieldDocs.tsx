@@ -224,6 +224,14 @@ export default function ControlFieldDocs() {
           </select>
           <button
             type="button"
+            onClick={() => window.print()}
+            disabled={!selectedProjectId}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition text-white disabled:opacity-50 print:hidden"
+          >
+            طباعة
+          </button>
+          <button
+            type="button"
             onClick={refreshAll}
             disabled={!selectedProjectId || loading}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition text-white disabled:opacity-50"
@@ -467,6 +475,10 @@ function CorrespondenceSection({
   }
 
   async function handleSave() {
+    if (!String(form.referenceNumber || "").trim() || !String(form.subject || "").trim()) {
+      onShowError("missing_reference_or_subject");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateCorrespondence(projectId, editingId, payload)
@@ -580,6 +592,7 @@ function CorrespondenceSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -664,6 +677,10 @@ function MeetingsSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.meetingNumber || "").trim()) {
+      onShowError("missing_number");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateMeeting(projectId, editingId, payload)
@@ -764,6 +781,7 @@ function MeetingsSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -859,6 +877,10 @@ function MeetingActionItemsModal({
   }, [projectId, meeting.id, onShowError]);
 
   async function handleSave() {
+    if (!String(form.itemNumber || "").trim()) {
+      onShowError("missing_number");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateMeetingActionItem(projectId, meeting.id, editingId, payload)
@@ -947,6 +969,8 @@ function MeetingActionItemsModal({
         {loading ? (
           <div className="text-center py-8 text-white/50">جاري التحميل…</div>
         ) : (
+        <>
+          <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
           <div className="overflow-x-auto rounded-2xl border border-white/10">
             <table className="w-full text-sm">
               <thead className="bg-white/5 text-white/70">
@@ -1002,6 +1026,7 @@ function MeetingActionItemsModal({
               </tbody>
             </table>
           </div>
+        </>
         )}
       </div>
     </div>
@@ -1025,6 +1050,10 @@ function DailyReportsSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.date || "").trim()) {
+      onShowError("missing_date");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateDailyReport(projectId, editingId, payload)
@@ -1126,6 +1155,7 @@ function DailyReportsSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -1200,6 +1230,10 @@ function DeliveryNotesSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.deliveryDate || "").trim()) {
+      onShowError("missing_date");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateDeliveryNote(projectId, editingId, payload)
@@ -1271,6 +1305,7 @@ function DeliveryNotesSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -1361,6 +1396,10 @@ function DeliveryItemsModal({
   }, [note.id, projectId]);
 
   async function handleSave() {
+    if (!String(form.description || "").trim()) {
+      onShowError("الوصف مطلوب.");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateDeliveryNoteItem(projectId, note.id, editingId, payload)
@@ -1439,6 +1478,7 @@ function DeliveryItemsModal({
           </div>
         </div>
 
+        <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
         <div className="overflow-x-auto rounded-2xl border border-white/10">
           <table className="w-full text-sm">
             <thead className="bg-white/5 text-white/70">
@@ -1516,6 +1556,10 @@ function RfiSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.rfiNumber || "").trim() || !String(form.subject || "").trim()) {
+      onShowError("missing_number_or_subject");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateRfiItem(projectId, editingId, payload)
@@ -1621,6 +1665,7 @@ function RfiSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -1703,6 +1748,10 @@ function NcrSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.ncrNumber || "").trim()) {
+      onShowError("missing_number");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateNcrItem(projectId, editingId, payload)
@@ -1802,6 +1851,7 @@ function NcrSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -1884,6 +1934,10 @@ function SubmittalsSection({
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function handleSave() {
+    if (!String(form.submittalNumber || "").trim() || !String(form.title || "").trim()) {
+      onShowError("missing_number_or_title");
+      return;
+    }
     const payload = { ...form };
     const res = editingId
       ? await updateSubmittalItem(projectId, editingId, payload)
@@ -1970,6 +2024,7 @@ function SubmittalsSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">

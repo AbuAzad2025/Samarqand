@@ -229,6 +229,13 @@ export default function ControlHR() {
           )}
           <button
             type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition text-white print:hidden"
+          >
+            طباعة
+          </button>
+          <button
+            type="button"
             onClick={refresh}
             disabled={loading}
             className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition text-white disabled:opacity-50"
@@ -379,6 +386,17 @@ function statusLabel(status: string): string {
     pending: "معلقة",
     approved: "معتمدة",
     rejected: "مرفوضة",
+    open: "مفتوحة",
+    in_progress: "قيد التنفيذ",
+    completed: "مكتملة",
+    answered: "تم الرد",
+    action_taken: "تم اتخاذ إجراء",
+    submitted: "مرسلة",
+    under_review: "قيد المراجعة",
+    approved_with_comments: "معتمدة بملاحظات",
+    implemented: "منفذة",
+    closed: "مغلقة",
+    draft: "مسودة",
   };
   return map[status] || status;
 }
@@ -547,6 +565,7 @@ function LeaveSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -779,6 +798,7 @@ function ContractsSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -991,6 +1011,7 @@ function OvertimeSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -1213,6 +1234,7 @@ function SocialSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">

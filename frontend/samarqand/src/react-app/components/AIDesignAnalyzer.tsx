@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Brain, Sparkles, DollarSign, Clock, Package, Lightbulb } from 'lucide-react';
+import {
+  AlertCircle,
+  Brain,
+  Clock,
+  DollarSign,
+  Lightbulb,
+  Package,
+} from 'lucide-react';
 import { apiFetch, fetchCompany, type CompanyPayload } from '@/react-app/api/site';
 import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
@@ -11,6 +18,15 @@ interface AnalysisResult {
   tips: string[];
 }
 
+const MAX_AREA = 100000;
+const MAX_DESCRIPTION_LENGTH = 1000;
+
+function readErrorCode(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const obj = payload as { error?: { code?: string }; errorCode?: string };
+  return obj.error?.code ?? obj.errorCode;
+}
+
 export default function AIDesignAnalyzer() {
   const [projectType, setProjectType] = useState('');
   const [area, setArea] = useState('');
@@ -18,6 +34,8 @@ export default function AIDesignAnalyzer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [aiUnavailable, setAiUnavailable] = useState(true);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -39,7 +57,25 @@ export default function AIDesignAnalyzer() {
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectType || !area) return;
+    setError(null);
+
+    if (!projectType) {
+      setError('يرجى اختيار نوع المشروع.');
+      return;
+    }
+    const areaValue = Number(area);
+    if (!area.trim() || !Number.isFinite(areaValue) || areaValue <= 0) {
+      setError('يرجى إدخال مساحة صحيحة أكبر من صفر.');
+      return;
+    }
+    if (areaValue > MAX_AREA) {
+      setError(`لا يمكن أن تتجاوز المساحة ${MAX_AREA.toLocaleString('en-US')} متر مربع.`);
+      return;
+    }
+    if (description.length > MAX_DESCRIPTION_LENGTH) {
+      setError(`لا يجب أن تتجاوز التفاصيل الإضافية ${MAX_DESCRIPTION_LENGTH} حرفاً.`);
+      return;
+    }
 
     setIsAnalyzing(true);
     setResult(null);
@@ -48,16 +84,33 @@ export default function AIDesignAnalyzer() {
       const response = await apiFetch('/api/ai/analyze-design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectType, area, description }),
+        body: JSON.stringify({ projectType, area: areaValue, description: description.trim() }),
       });
 
-      if (!response.ok) throw new Error('فشل التحليل');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const code = readErrorCode(payload);
 
-      const data = await response.json();
+        if (code === 'ai_not_configured' || response.status === 503) {
+          setAiUnavailable(true);
+          setError(
+            'هذا التحليل غير مُفعّل حالياً؛ لم يتم ضبط مفتاح الخدمة بعد. يمكنك التواصل معنا مباشرة لمناقشة مشروعك.',
+          );
+          return;
+        }
+        if (code === 'rate_limit' || response.status === 429) {
+          setError('تم تجاوز عدد الطلبات المسموح بها. يرجى المحاولة بعد قليل.');
+          return;
+        }
+        setError('تعذّر إكمال التحليل حالياً. يرجى المحاولة لاحقاً.');
+        return;
+      }
+
+      const data = (await response.json()) as AnalysisResult;
       setResult(data);
-    } catch (error) {
-      console.error('Analysis error:', error);
-      alert('حدث خطأ في التحليل. يرجى المحاولة مرة أخرى.');
+      setAiUnavailable(false);
+    } catch {
+      setError('تعذّر إكمال التحليل حالياً. يرجى المحاولة لاحقاً.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -71,15 +124,21 @@ export default function AIDesignAnalyzer() {
             <Brain className="text-white" size={48} />
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-            محلل التصاميم بالذكاء الاصطناعي
+            محلل التصاميم
           </h2>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            احصل على تحليل شامل لمشروعك في ثوانٍ - مدعوم بتقنية Gemini AI
+            أدخل مواصفات مشروعك للحصول على تحليل أولي منظّم للتكلفة والمدة والمواد
           </p>
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <Sparkles className="text-yellow-500" size={20} />
-            <span className="text-sm text-gray-500">تقنية متقدمة • نتائج فورية • توصيات احترافية</span>
-            <Sparkles className="text-yellow-500" size={20} />
+          <div className="mt-4">
+            <span
+              className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${
+                aiUnavailable
+                  ? 'bg-amber-50 text-amber-800'
+                  : 'bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              {aiUnavailable ? 'غير مُفعّل حالياً' : 'متاح الآن'}
+            </span>
           </div>
         </div>
 
@@ -92,7 +151,7 @@ export default function AIDesignAnalyzer() {
                 معلومات المشروع
               </h3>
 
-              <form onSubmit={handleAnalyze} className="space-y-6">
+              <form onSubmit={handleAnalyze} className="space-y-6" noValidate>
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
                   <select aria-label="نوع المشروع"
@@ -116,12 +175,15 @@ export default function AIDesignAnalyzer() {
                   </label>
                   <input aria-label="مساحة المشروع"
                     type="number"
+                    inputMode="decimal"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="مثال: 200"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
                     required
                     min="1"
+                    max={MAX_AREA}
+                    step="0.01"
                   />
                 </div>
 
@@ -134,8 +196,19 @@ export default function AIDesignAnalyzer() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="أخبرنا عن متطلباتك الخاصة، التصميم المفضل، عدد الطوابق، إلخ..."
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition h-32 resize-none"
+                    maxLength={MAX_DESCRIPTION_LENGTH}
                   />
+                  <p className="mt-1 text-left text-xs text-gray-500" dir="ltr">
+                    {description.length} / {MAX_DESCRIPTION_LENGTH}
+                  </p>
                 </div>
+
+                {error ? (
+                  <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                ) : null}
 
                 <button
                   type="submit"
@@ -150,7 +223,7 @@ export default function AIDesignAnalyzer() {
                   ) : (
                     <>
                       <Brain size={24} />
-                      تحليل بالذكاء الاصطناعي
+                      اطلب التحليل
                     </>
                   )}
                 </button>
@@ -159,23 +232,33 @@ export default function AIDesignAnalyzer() {
 
             {/* Results */}
             <div className="card-corp p-8">
-              {!result && !isAnalyzing && (
+              {!result && !isAnalyzing && !error && (
                 <div className="h-full flex flex-col items-center justify-center text-center">
-                  <Sparkles className="text-purple-400 mb-4" size={64} />
+                  <Brain className="text-purple-400 mb-4" size={64} />
                   <p className="text-gray-600 text-lg">
-                    أدخل معلومات مشروعك للحصول على تحليل شامل بالذكاء الاصطناعي
+                    أدخل معلومات مشروعك لطلب تحليل أولي منظم
+                  </p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    {aiUnavailable
+                      ? 'هذه الميزة غير مُفعّلة حالياً؛ ستحصل على رسالة واضحة عند المحاولة.'
+                      : 'ستظهر النتائج هنا بعد تجهيزها.'}
                   </p>
                 </div>
               )}
 
+              {!result && !isAnalyzing && error && (
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <AlertCircle className="mb-4 text-red-400" size={64} />
+                  <p className="text-gray-700 text-lg font-semibold">لم يتم إنتاج تحليل</p>
+                  <p className="mt-2 text-sm text-gray-600">راجع الرسالة أعلاه أو حاول مرة أخرى لاحقاً.</p>
+                </div>
+              )}
+
               {isAnalyzing && (
-                <div className="h-full flex flex-col items-center justify-center">
-                  <div className="relative">
-                    <Brain className="text-purple-500 animate-pulse" size={80} />
-                    <Sparkles className="absolute -top-2 -right-2 text-yellow-500 animate-bounce" size={24} />
-                  </div>
+                <div className="h-full flex flex-col items-center justify-center" aria-busy="true">
+                  <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
                   <p className="text-gray-700 text-lg mt-6 font-semibold">
-                    الذكاء الاصطناعي يحلل مشروعك...
+                    جارٍ تحليل المعلومات...
                   </p>
                   <p className="text-gray-500 text-sm mt-2">هذا قد يستغرق بضع ثوانٍ</p>
                 </div>
@@ -184,9 +267,13 @@ export default function AIDesignAnalyzer() {
               {result && (
                 <div className="space-y-6 animate-fade-in">
                   <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="text-purple-500" size={24} />
-                    <h3 className="text-2xl font-bold text-gray-800">نتائج التحليل</h3>
+                    <Brain className="text-purple-500" size={24} />
+                    <h3 className="text-2xl font-bold text-gray-800">نتيجة التحليل</h3>
                   </div>
+
+                  <p className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                    النتائج تقديرية وليست بديلاً عن الاستشارة الهندسية أو عرض السعر المعتمد.
+                  </p>
 
                   {/* Design */}
                   <div className="bg-white rounded-lg p-4 shadow">
@@ -219,33 +306,35 @@ export default function AIDesignAnalyzer() {
                   <div className="bg-white rounded-lg p-4 shadow">
                     <div className="flex items-center gap-2 mb-2">
                       <Package className="text-orange-500" />
-                      <h4 className="font-bold text-gray-800">المواد الموصى بها</h4>
+                      <h4 className="font-bold text-gray-800">المواد المقترحة</h4>
                     </div>
                     <ul className="text-gray-700 text-sm space-y-1">
-                      {result.materials.map((material, idx) => (
+                      {(result.materials ?? []).map((material, idx) => (
                         <li key={idx}>• {material}</li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Tips */}
-                  <div className="bg-white rounded-lg p-4 shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Lightbulb className="text-yellow-500" />
-                      <h4 className="font-bold text-gray-800">نصائح هندسية</h4>
+                  {(result.tips ?? []).length > 0 && (
+                    <div className="bg-white rounded-lg p-4 shadow">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lightbulb className="text-yellow-500" />
+                        <h4 className="font-bold text-gray-800">نصائح هندسية</h4>
+                      </div>
+                      <ul className="text-gray-700 text-sm space-y-1">
+                        {(result.tips ?? []).map((tip, idx) => (
+                          <li key={idx}>💡 {tip}</li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="text-gray-700 text-sm space-y-1">
-                      {result.tips.map((tip, idx) => (
-                        <li key={idx}>💡 {tip}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  )}
 
                   <a
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
+                    className="block w-full btn-corp-primary font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر دقيق
                   </a>

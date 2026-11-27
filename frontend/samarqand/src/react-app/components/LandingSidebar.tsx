@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowUpRight,
@@ -41,28 +41,73 @@ export default function LandingSidebar({
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [auth, setAuth] = useState<{ authenticated: boolean; isStaff: boolean } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    let activeRequest = true;
     fetchAuthMe()
-      .then((me) =>
+      .then((me) => {
+        if (!activeRequest) return;
         setAuth({
           authenticated: Boolean(me.authenticated),
           isStaff: Boolean(me.isStaff),
-        }),
-      )
-      .catch(() => setAuth({ authenticated: false, isStaff: false }));
+        });
+      })
+      .catch(() => {
+        if (activeRequest) setAuth({ authenticated: false, isStaff: false });
+      });
+    return () => {
+      activeRequest = false;
+    };
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    setOpen(false);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
   }, []);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    (closeRef.current ?? dialog?.querySelector<HTMLElement>("a[href], button:not([disabled])"))?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSidebar();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.closest("[hidden]"));
+      if (!focusable.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, closeSidebar]);
 
   useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
     const ids = ["home", "services", "projects", "tools", "rfq-templates", "testimonials", "contact"];
     const observer = new IntersectionObserver(
       (entries) => {
@@ -84,7 +129,7 @@ export default function LandingSidebar({
     {
       title: "الحساب",
       items: [
-        { label: "تسجيل الدخول", to: "/control/login", icon: LogIn, show: !auth?.authenticated },
+        { label: "تسجيل الدخول", to: "/control/login", icon: LogIn, show: auth !== null && !auth.authenticated },
         { label: "لوحة التحكم", to: "/control/dashboard", icon: LayoutDashboard, show: Boolean(auth?.authenticated && auth.isStaff) },
         { label: "كلمة المرور", to: "/control/password", icon: LockKeyhole, show: Boolean(auth?.authenticated && auth.isStaff) },
       ],
@@ -137,10 +182,13 @@ export default function LandingSidebar({
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label="فتح دليل الصفحة"
-        className="fixed inset-inline-start-4 top-32 z-40 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-md transition hover:border-sq-green hover:text-sq-green md:top-36"
+        aria-expanded={open}
+        aria-controls="landing-sidebar"
+        className="fixed inset-inline-start-4 top-32 z-40 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-md transition hover:border-sq-green hover:text-sq-green focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2 md:top-36"
       >
         <Menu size={16} aria-hidden="true" />
         <span className="hidden sm:inline">دليل الصفحة</span>
@@ -148,46 +196,60 @@ export default function LandingSidebar({
 
       {open && (
         <>
-          <button
-            type="button"
-            aria-label="إغلاق دليل الصفحة"
-            onClick={() => setOpen(false)}
+          <div
+            role="presentation"
+            aria-hidden="true"
+            onClick={closeSidebar}
             className="fixed inset-0 z-40 bg-sq-black/50"
           />
           <aside
-            aria-label="دليل صفحة الرئيسية"
+            id="landing-sidebar"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="landing-sidebar-title"
             className="fixed inset-block-0 inset-inline-end-0 z-50 flex w-[min(22rem,90vw)] flex-col bg-white text-slate-900 shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <div className="text-lg font-extrabold">دليل الصفحة</div>
+                <div id="landing-sidebar-title" className="text-lg font-extrabold">
+                  دليل الصفحة
+                </div>
                 <div className="text-xs text-slate-500">كل ما تحتاجه في مكان واحد</div>
               </div>
               <button
+                ref={closeRef}
                 type="button"
-                onClick={() => setOpen(false)}
-                aria-label="إغلاق"
-                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+                onClick={closeSidebar}
+                aria-label="إغلاق دليل الصفحة"
+                className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-sq-green"
               >
-                <X size={18} />
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto p-4 space-y-4">
-              {groups.map((group) => {
+            <nav aria-label="أقسام الصفحة" className="flex-1 space-y-4 overflow-y-auto p-4">
+              {groups.map((group, groupIndex) => {
                 const isCollapsed = collapsed.includes(group.title);
+                const groupId = `landing-sidebar-group-${groupIndex}`;
                 return (
                   <div key={group.title} className="space-y-1">
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.title)}
                       aria-expanded={!isCollapsed}
-                      className="flex w-full items-center justify-between px-2 py-1 text-xs font-extrabold text-slate-500 hover:text-sq-green"
+                      aria-controls={groupId}
+                      aria-label={`${isCollapsed ? "توسيع" : "طي"} مجموعة ${group.title}`}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-extrabold text-slate-500 transition hover:text-sq-green focus-visible:ring-2 focus-visible:ring-sq-green"
                     >
                       <span>{group.title}</span>
-                      <ChevronDown size={12} className={isCollapsed ? "-rotate-90" : ""} />
+                      <ChevronDown
+                        size={12}
+                        aria-hidden="true"
+                        className={isCollapsed ? "-rotate-90" : ""}
+                      />
                     </button>
-                    {!isCollapsed &&
-                      group.items.map((item) => {
+                    <div id={groupId} hidden={isCollapsed} className="space-y-1">
+                      {group.items.map((item) => {
                         const Icon = item.icon;
                         const isActive = item.to.startsWith("#") && active === item.to;
                         const content = (
@@ -196,7 +258,7 @@ export default function LandingSidebar({
                             <span className="truncate text-sm font-semibold">{item.label}</span>
                           </>
                         );
-                        const className = `flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-right transition ${
+                        const className = `flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-right transition focus-visible:ring-2 focus-visible:ring-sq-green ${
                           isActive
                             ? "bg-emerald-50 text-sq-green"
                             : "text-slate-700 hover:bg-slate-50 hover:text-sq-green"
@@ -205,18 +267,19 @@ export default function LandingSidebar({
                           <a
                             key={item.to}
                             href={item.to}
-                            onClick={() => setOpen(false)}
+                            onClick={closeSidebar}
                             aria-current={isActive ? "location" : undefined}
                             className={className}
                           >
                             {content}
                           </a>
                         ) : (
-                          <Link key={item.to} to={item.to} onClick={() => setOpen(false)} className={className}>
+                          <Link key={item.to} to={item.to} onClick={closeSidebar} className={className}>
                             {content}
                           </Link>
                         );
                       })}
+                    </div>
                   </div>
                 );
               })}

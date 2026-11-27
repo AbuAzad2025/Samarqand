@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown } from "lucide-react";
 
 import {
   fetchCompany,
@@ -11,18 +11,38 @@ import BrandMark from "@/react-app/components/BrandMark";
 
 export default function ParallaxHero() {
   const [scrollY, setScrollY] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [home, setHome] = useState<HomeSettingsPayload | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    let frame = 0;
+    const handleScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setScrollY(window.scrollY));
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   useEffect(() => {
-    fetchCompany().then(setCompany).catch(() => {});
-    fetchHomeSettings().then(setHome).catch(() => {});
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduceMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchCompany().then((data) => { if (active) setCompany(data); }).catch(() => {});
+    fetchHomeSettings().then((data) => { if (active) setHome(data); }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
   const hero = useMemo(() => {
@@ -48,70 +68,79 @@ export default function ParallaxHero() {
     };
   }, [company?.brandTitle, company?.slogan, home]);
 
+  // Clamp the offset and slightly overscale the layer so no empty edge appears.
+  const parallaxOffset = reduceMotion ? 0 : Math.min(scrollY * 0.3, 120);
+
   return (
-    <section className="relative h-[78vh] min-h-[560px] max-h-[820px] overflow-hidden">
-      {/* Background Image with Parallax */}
+    <section
+      aria-labelledby="hero-title"
+      className="relative h-[78vh] min-h-[560px] max-h-[820px] overflow-hidden"
+    >
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute"
+        aria-hidden="true"
         style={{
+          inset: "-6%",
           backgroundColor: "#0B1220",
           backgroundImage: hero.bg
             ? `linear-gradient(to bottom, rgba(0,0,0,0.70), rgba(0,0,0,0.50), rgba(0,0,0,0.70)), url(${hero.bg})`
             : "linear-gradient(to bottom, rgba(10,20,40,1), rgba(10,20,40,0.75), rgba(10,20,40,1))",
-          transform: `translateY(${scrollY * 0.5}px)`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          transform: `translateY(${parallaxOffset}px) scale(1.06)`,
+          willChange: "transform",
         }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,122,61,0.22),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(206,17,38,0.18),transparent_48%)]" />
       </div>
 
-      <div className="relative z-10 h-full flex items-center justify-center text-center px-4" dir="rtl">
+      <div className="relative z-10 flex h-full items-center justify-center px-4 text-center" dir="rtl">
         <div className="max-w-4xl">
-          {/* Logo */}
           <div className="mb-8 animate-fade-in">
-            <div className="w-28 h-28 md:w-32 md:h-32 mx-auto drop-shadow-2xl">
+            <div className="mx-auto h-28 w-28 drop-shadow-2xl md:h-32 md:w-32">
               <BrandMark
                 logoUrl={company?.logoUrl || undefined}
                 label={company?.name || hero.title1}
                 size={128}
-                className="w-full h-full object-contain"
+                className="h-full w-full object-contain"
               />
             </div>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 animate-fade-in-up">
-            <span className="text-white">
-              {hero.title1}
-            </span>
+          <h1 id="hero-title" className="mb-6 animate-fade-in-up text-5xl font-bold text-white md:text-7xl">
+            <span className="text-white">{hero.title1}</span>
             <br />
-            <span className="text-4xl md:text-5xl text-[#A7D7BC]">{hero.title2}</span>
+            <span className="text-4xl text-[#A7D7BC] md:text-5xl">{hero.title2}</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-white/90 mb-12 animate-fade-in-up animation-delay-200">
+          <p className="mb-12 animate-fade-in-up animation-delay-200 text-xl text-white/90 md:text-2xl">
             {hero.lead}
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-wrap gap-4 justify-center animate-fade-in-up animation-delay-400">
+          <div className="flex animate-fade-in-up flex-wrap justify-center gap-4 animation-delay-400">
             <a
               href={hero.primaryUrl}
-              className="btn-corp-primary text-lg font-bold hover:shadow-2xl hover:scale-105 transition-all"
+              className="btn-corp-primary text-lg font-bold transition-all hover:scale-105 hover:shadow-2xl focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sq-black"
             >
               {hero.primaryLabel}
             </a>
             <a
               href={hero.secondaryUrl}
-              className="bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/20 transition-all border-2 border-white/50"
+              className="rounded-full border-2 border-white/50 bg-white/10 px-8 py-4 text-lg font-bold text-white backdrop-blur-sm transition-all hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sq-black"
             >
               {hero.secondaryLabel}
             </a>
           </div>
-
-          {/* Scroll Indicator */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-            <ArrowDown className="text-white" size={32} />
-          </div>
         </div>
       </div>
+
+      <a
+        href="#services"
+        aria-label="الانتقال إلى قسم الخدمات"
+        className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full p-1 text-white transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white"
+      >
+        <ArrowDown size={32} aria-hidden="true" />
+      </a>
     </section>
   );
 }

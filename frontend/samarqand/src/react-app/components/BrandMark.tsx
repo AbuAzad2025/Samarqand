@@ -7,6 +7,8 @@ type BrandMarkProps = {
   label?: string;
   size?: number;
   className?: string;
+  /** Text alternative; pass an empty string when the mark is purely decorative. */
+  alt?: string;
 };
 
 export default function BrandMark({
@@ -14,8 +16,14 @@ export default function BrandMark({
   label,
   size = 80,
   className,
+  alt,
 }: BrandMarkProps) {
   const [failed, setFailed] = useState(false);
+
+  const dimension = Number.isFinite(size) && size > 0 ? Math.round(size) : 80;
+  const accessibleName =
+    alt !== undefined ? alt : label?.trim() || BRAND.samarqand.name;
+  const classes = ["object-contain", className].filter(Boolean).join(" ");
 
   const src = useMemo(() => {
     const raw = (logoUrl || "").trim();
@@ -41,30 +49,26 @@ export default function BrandMark({
     setFailed(false);
   }, [src]);
 
+  const sharedProps = {
+    width: dimension,
+    height: dimension,
+    className: classes,
+    alt: accessibleName,
+    "aria-hidden": accessibleName === "" || undefined,
+    loading: "eager" as const,
+    decoding: "async" as const,
+    draggable: false,
+  };
+
   if (src && !failed) {
     return (
       <img
+        {...sharedProps}
         src={src}
-        alt={label || "شعار الشركة"}
-        width={size}
-        height={size}
-        className={className}
-        loading="eager"
-        decoding="async"
         onError={() => setFailed(true)}
       />
     );
   }
 
-  return (
-    <img
-      src={BRAND.samarqand.icon}
-      alt={label || BRAND.samarqand.name}
-      width={size}
-      height={size}
-      className={className}
-      loading="eager"
-      decoding="async"
-    />
-  );
+  return <img {...sharedProps} src={BRAND.samarqand.icon} />;
 }

@@ -4,6 +4,7 @@ import {
   getCookie,
   readApiErrorCode,
   readApiResponse,
+  readItems,
 } from "@/react-app/api/site";
 
 export type BoqProjectItem = {
@@ -105,7 +106,7 @@ export type FinalAccount = {
 
 export async function fetchBoqProjects(): Promise<BoqProjectItem[]> {
   const data = await fetchJson<{ items: BoqProjectItem[] }>("/api/admin/boq/projects");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchBoqItems(projectId: number): Promise<{ projectTitle: string; items: BoqItem[] }> {
@@ -462,7 +463,7 @@ export async function fetchVariationOrderItems(
   const data = await fetchJson<{ items: VariationOrderItem[] }>(
     `/api/admin/boq/projects/${projectId}/variation-orders/${variationId}/items`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createVariationOrder(

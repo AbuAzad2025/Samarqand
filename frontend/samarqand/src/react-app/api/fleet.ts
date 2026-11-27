@@ -4,6 +4,7 @@ import {
   getCookie,
   readApiErrorCode,
   readApiResponse,
+  readItems,
 } from "@/react-app/api/site";
 
 export type VehicleType =
@@ -95,7 +96,7 @@ export async function fetchVehicles(params?: {
   const data = await fetchJson<{ items: VehicleItem[] }>(
     `/api/admin/fleet/vehicles${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createVehicle(payload: {
@@ -174,7 +175,7 @@ export async function fetchFuelLogs(params?: {
   const data = await fetchJson<{ items: FuelLogItem[] }>(
     `/api/admin/fleet/fuel-logs${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createFuelLog(payload: {
@@ -246,7 +247,7 @@ export async function fetchMaintenance(params?: {
   const data = await fetchJson<{ items: MaintenanceItem[] }>(
     `/api/admin/fleet/maintenance${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createMaintenance(payload: {

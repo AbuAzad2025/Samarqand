@@ -92,6 +92,7 @@ export default function ControlFleet() {
 
   const [filterVehicleId, setFilterVehicleId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<VehicleStatus | "">("");
+  const [query, setQuery] = useState("");
   const [filterYear, setFilterYear] = useState<number>(currentYear());
   const [filterMonth, setFilterMonth] = useState<number>(currentMonth());
 
@@ -217,6 +218,21 @@ export default function ControlFleet() {
               </Select>
             </>
           )}
+          {tab === "vehicles" && (
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="بحث بالاسم أو اللوحة..."
+              className="w-52 print:hidden"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition text-white print:hidden"
+          >
+            طباعة
+          </button>
           <button
             type="button"
             onClick={refresh}
@@ -264,6 +280,7 @@ export default function ControlFleet() {
             <VehiclesSection
               workers={workers}
               vehicles={vehicles}
+              query={query}
               onRefresh={refresh}
               onShowError={showError}
               onShowSuccess={showSuccess}
@@ -369,12 +386,14 @@ function WorkerSelect({
 function VehiclesSection({
   workers,
   vehicles,
+  query,
   onRefresh,
   onShowError,
   onShowSuccess,
 }: {
   workers: WorkerItem[];
   vehicles: VehicleItem[];
+  query: string;
   onRefresh: () => void;
   onShowError: (err: unknown) => void;
   onShowSuccess: (msg: string) => void;
@@ -384,6 +403,15 @@ function VehiclesSection({
     vehicleType: "truck",
   });
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  const term = query.trim().toLowerCase();
+  const visible = term
+    ? vehicles.filter((v) =>
+        [v.name, v.plateNumber, v.brand, v.modelName]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term)),
+      )
+    : vehicles;
 
   async function handleSave() {
     if (!form.name || !form.plateNumber) {
@@ -555,6 +583,9 @@ function VehiclesSection({
         </div>
       </div>
 
+      <div className="flex items-center justify-between text-sm text-white/60 px-1">
+        <span>عدد النتائج: {visible.length}{term ? ` من ${vehicles.length}` : ""}</span>
+      </div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -570,7 +601,7 @@ function VehiclesSection({
             </tr>
           </thead>
           <tbody>
-            {vehicles.map((v) => (
+            {visible.map((v) => (
               <tr key={v.id} className="border-t border-white/10 hover:bg-white/5">
                 <td className="px-4 py-3 text-white font-bold">{v.name}</td>
                 <td className="px-4 py-3 text-white/80">{v.plateNumber}</td>
@@ -608,10 +639,10 @@ function VehiclesSection({
                 </td>
               </tr>
             ))}
-            {vehicles.length === 0 && (
+            {visible.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-white/60">
-                  لا توجد مركبات.
+                  {term ? "لا توجد مركبات مطابقة للبحث." : "لا توجد مركبات."}
                 </td>
               </tr>
             )}
@@ -773,6 +804,7 @@ function FuelSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">
@@ -973,6 +1005,7 @@ function MaintenanceSection({
         </div>
       </div>
 
+      <div className="text-sm text-white/60 px-1">عدد النتائج: {items.length}</div>
       <div className="overflow-x-auto rounded-2xl border border-white/10">
         <table className="w-full text-sm">
           <thead className="bg-white/5 text-white/70">

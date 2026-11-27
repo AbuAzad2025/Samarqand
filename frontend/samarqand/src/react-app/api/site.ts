@@ -101,13 +101,39 @@ export function apiUrl(input: string): string {
   return `${_apiBaseUrl}/${input}`;
 }
 
+/**
+ * API error codes are short, stable identifiers. Free-form server text (stack
+ * traces, SQL, file paths, HTML) must never reach the UI, so anything that is
+ * not a plain identifier is replaced with a generic code.
+ */
+function normalizeApiErrorCode(raw: unknown): string {
+  if (typeof raw !== "string") return "error";
+  const code = raw.trim();
+  return /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(code) ? code : "error";
+}
+
+/** Expose only the path of a URL through app events, never query parameters. */
+function safeEventUrl(input: string): string {
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+    return new URL(input, origin).pathname;
+  } catch {
+    return input.split(/[?#]/, 1)[0] || "";
+  }
+}
+
 export function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const method = (init?.method || "GET").toUpperCase();
   const isUnsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
   const headers = new Headers(init?.headers || {});
-  if (isUnsafe && !headers.has("X-CSRFToken")) {
-    const token = getCookie("csrftoken");
-    if (token) headers.set("X-CSRFToken", token);
+  if (isUnsafe) {
+    // An explicitly empty header must not prevent the cookie-backed CSRF
+    // token from being sent (many call sites pass `getCookie(...) || ""`).
+    if (!headers.get("X-CSRFToken")) {
+      const token = getCookie("csrftoken");
+      if (token) headers.set("X-CSRFToken", token);
+      else headers.delete("X-CSRFToken");
+    }
   }
   return fetch(apiUrl(input), {
     ...init,
@@ -122,33 +148,44 @@ type ApiResponse<T> = { ok: true; result: T } | { ok: false; error: ApiError };
 export async function fetchJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url);
   if (!res.ok) {
+    const failed = await readApiResponse<unknown>(res);
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("sq-api-error", {
-          detail: { url, status: res.status },
+          detail: { url: safeEventUrl(url), status: res.status },
         }),
       );
     }
-    throw new Error(`${apiUrl(url)} ${res.status}`);
+    throw new Error(readApiErrorCode(failed));
   }
-  const payload = (await res.json()) as ApiResponse<T>;
+  const payload = await readApiResponse<T>(res);
   if (!payload || payload.ok !== true) {
-    const code = (payload as { error?: ApiError } | null)?.error?.code || "error";
-    throw new Error(code);
+    throw new Error(readApiErrorCode(payload));
   }
   return payload.result;
 }
 
 export async function readApiResponse<T>(res: Response): Promise<ApiResponse<T> | null> {
+  let parsed: unknown;
   try {
-    return (await res.json()) as ApiResponse<T>;
+    parsed = await res.json();
   } catch {
     return null;
   }
+  if (!parsed || typeof parsed !== "object") return null;
+  const candidate = parsed as { ok?: unknown };
+  if (typeof candidate.ok !== "boolean") return null;
+  return parsed as ApiResponse<T>;
 }
 
 export function readApiErrorCode(payload: ApiResponse<unknown> | null): string {
-  return payload && payload.ok === false ? payload.error.code : "error";
+  if (!payload || payload.ok !== false) return "error";
+  return normalizeApiErrorCode(payload.error?.code);
+}
+
+/** List endpoints return `{ items }`; normalise missing/malformed data to []. */
+export function readItems<T>(data: { items?: T[] | null } | null | undefined): T[] {
+  return Array.isArray(data?.items) ? data.items : [];
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -181,11 +218,17 @@ async function postResult(
 }
 
 export function getCookie(name: string): string | null {
+  if (typeof document === "undefined" || !name) return null;
   const cookies = document.cookie ? document.cookie.split(";") : [];
   for (const c of cookies) {
     const cookie = c.trim();
     if (cookie.startsWith(`${name}=`)) {
-      return decodeURIComponent(cookie.slice(name.length + 1));
+      const raw = cookie.slice(name.length + 1);
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
     }
   }
   return null;
@@ -382,7 +425,7 @@ export async function fetchAdminUsersList(input?: { limit?: number }): Promise<A
   const limit = Number(input?.limit) || 200;
   const qs = `?limit=${encodeURIComponent(String(limit))}`;
   const data = await fetchJson<{ items: AdminUserListItem[] }>(`/api/admin/users/list${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function logout(): Promise<{ ok: boolean }> {
@@ -661,7 +704,7 @@ export type AdminTeamMember = {
 
 export async function fetchAdminTeam(): Promise<AdminTeamMember[]> {
   const data = await fetchJson<{ items: AdminTeamMember[] }>("/api/admin/team");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminTeamMember(payload: {
@@ -742,7 +785,7 @@ export type AdminServiceListItem = {
 
 export async function fetchAdminServices(): Promise<AdminServiceListItem[]> {
   const data = await fetchJson<{ items: AdminServiceListItem[] }>("/api/admin/services");
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminServiceDetail = {
@@ -836,7 +879,7 @@ export type AdminTestimonial = {
 
 export async function fetchAdminTestimonials(): Promise<AdminTestimonial[]> {
   const data = await fetchJson<{ items: AdminTestimonial[] }>("/api/admin/testimonials");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminTestimonial(payload: {
@@ -904,7 +947,7 @@ export type AdminHomeTrustBadge = {
 
 export async function fetchAdminHomeTrustBadges(): Promise<AdminHomeTrustBadge[]> {
   const data = await fetchJson<{ items: AdminHomeTrustBadge[] }>("/api/admin/home/trust-badges");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminHomeTrustBadge(payload: {
@@ -971,7 +1014,7 @@ export type AdminHomeStat = {
 
 export async function fetchAdminHomeStats(): Promise<AdminHomeStat[]> {
   const data = await fetchJson<{ items: AdminHomeStat[] }>("/api/admin/home/stats");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminHomeStat(payload: {
@@ -1038,7 +1081,7 @@ export type AdminHomeTimelineStep = {
 
 export async function fetchAdminHomeTimeline(): Promise<AdminHomeTimelineStep[]> {
   const data = await fetchJson<{ items: AdminHomeTimelineStep[] }>("/api/admin/home/timeline");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminHomeTimelineStep(payload: {
@@ -1105,7 +1148,7 @@ export type AdminHomeAIFeature = {
 
 export async function fetchAdminHomeAIFeatures(): Promise<AdminHomeAIFeature[]> {
   const data = await fetchJson<{ items: AdminHomeAIFeature[] }>("/api/admin/home/ai-features");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminHomeAIFeature(payload: {
@@ -1171,7 +1214,7 @@ export type AdminHomeAIMetric = {
 
 export async function fetchAdminHomeAIMetrics(): Promise<AdminHomeAIMetric[]> {
   const data = await fetchJson<{ items: AdminHomeAIMetric[] }>("/api/admin/home/ai-metrics");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminHomeAIMetric(payload: {
@@ -1245,7 +1288,7 @@ export type AdminProjectListItem = {
 
 export async function fetchAdminProjects(): Promise<AdminProjectListItem[]> {
   const data = await fetchJson<{ items: AdminProjectListItem[] }>("/api/admin/projects");
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminProjectDetail = {
@@ -1370,7 +1413,7 @@ export type AdminOpsClient = {
 
 export async function fetchAdminOpsClients(): Promise<AdminOpsClient[]> {
   const data = await fetchJson<{ items: AdminOpsClient[] }>("/api/admin/ops/clients");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsClient(payload: {
@@ -1436,7 +1479,7 @@ export type AdminOpsSupplier = {
 
 export async function fetchAdminOpsSuppliers(): Promise<AdminOpsSupplier[]> {
   const data = await fetchJson<{ items: AdminOpsSupplier[] }>("/api/admin/ops/suppliers");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsSupplier(payload: {
@@ -1509,7 +1552,7 @@ export type AdminOpsContract = {
 
 export async function fetchAdminOpsContracts(): Promise<AdminOpsContract[]> {
   const data = await fetchJson<{ items: AdminOpsContract[] }>("/api/admin/ops/contracts");
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminOpsContractAddendum = {
@@ -1523,7 +1566,7 @@ export type AdminOpsContractAddendum = {
 
 export async function fetchAdminOpsContractAddendums(contractId: number): Promise<AdminOpsContractAddendum[]> {
   const data = await fetchJson<{ items: AdminOpsContractAddendum[] }>(`/api/admin/ops/contracts/${contractId}/addendums`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsContractAddendum(
@@ -1560,7 +1603,7 @@ export type AdminOpsContractPayment = {
 
 export async function fetchAdminOpsContractPayments(contractId: number): Promise<AdminOpsContractPayment[]> {
   const data = await fetchJson<{ items: AdminOpsContractPayment[] }>(`/api/admin/ops/contracts/${contractId}/payments`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsContractPayment(
@@ -1695,7 +1738,7 @@ export type AdminOpsPurchaseOrder = {
 
 export async function fetchAdminOpsPurchaseOrders(): Promise<AdminOpsPurchaseOrder[]> {
   const data = await fetchJson<{ items: AdminOpsPurchaseOrder[] }>("/api/admin/ops/purchase-orders");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsPurchaseOrder(payload: {
@@ -1765,7 +1808,7 @@ export type AdminOpsInventoryItem = {
 
 export async function fetchAdminOpsInventoryItems(): Promise<AdminOpsInventoryItem[]> {
   const data = await fetchJson<{ items: AdminOpsInventoryItem[] }>("/api/admin/ops/inventory/items");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsInventoryItem(payload: {
@@ -1840,7 +1883,7 @@ export async function fetchAdminOpsInventoryTransactions(input?: {
 }): Promise<AdminOpsInventoryTransaction[]> {
   const qs = input?.itemId ? `?itemId=${encodeURIComponent(String(input.itemId))}` : "";
   const data = await fetchJson<{ items: AdminOpsInventoryTransaction[] }>(`/api/admin/ops/inventory/transactions${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsInventoryTransaction(payload: {
@@ -1881,7 +1924,7 @@ export type AdminOpsWorker = {
 
 export async function fetchAdminOpsWorkers(): Promise<AdminOpsWorker[]> {
   const data = await fetchJson<{ items: AdminOpsWorker[] }>("/api/admin/ops/workers");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsWorker(payload: {
@@ -1969,7 +2012,7 @@ export async function fetchAdminOpsAttendance(input?: {
   if (input?.month) qsParts.push(`month=${encodeURIComponent(String(input.month))}`);
   const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
   const data = await fetchJson<{ items: AdminOpsAttendance[] }>(`/api/admin/ops/attendance${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsAttendance(payload: {
@@ -2092,7 +2135,7 @@ export async function fetchAdminOpsTimeclockRuns(input?: {
   const limit = Number(input?.limit) || 50;
   const qs = `?limit=${encodeURIComponent(String(limit))}`;
   const data = await fetchJson<{ items: AdminOpsTimeclockImportRun[] }>(`/api/admin/ops/timeclock/runs${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminOpsAuditLog = {
@@ -2132,7 +2175,7 @@ export async function fetchAdminOpsAuditLogs(input?: {
   qsParts.push(`limit=${encodeURIComponent(String(limit))}`);
   const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
   const data = await fetchJson<{ items: AdminOpsAuditLog[] }>(`/api/admin/ops/audit-logs${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function updateAdminOpsAttendance(
@@ -2209,7 +2252,7 @@ export async function fetchAdminOpsPayroll(input?: {
   if (input?.month) qsParts.push(`month=${encodeURIComponent(String(input.month))}`);
   const qs = qsParts.length ? `?${qsParts.join("&")}` : "";
   const data = await fetchJson<{ items: AdminOpsPayrollEntry[] }>(`/api/admin/ops/payroll${qs}`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function generateAdminOpsPayrollFromAttendance(input: {
@@ -2353,7 +2396,7 @@ export type AdminOpsEquipment = {
 
 export async function fetchAdminOpsEquipment(): Promise<AdminOpsEquipment[]> {
   const data = await fetchJson<{ items: AdminOpsEquipment[] }>("/api/admin/ops/equipment");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsEquipment(payload: {
@@ -2425,7 +2468,7 @@ export type AdminOpsAssignment = {
 
 export async function fetchAdminOpsAssignments(): Promise<AdminOpsAssignment[]> {
   const data = await fetchJson<{ items: AdminOpsAssignment[] }>("/api/admin/ops/assignments");
-  return data.items;
+  return readItems(data);
 }
 
 export async function createAdminOpsAssignment(payload: {
@@ -2501,7 +2544,7 @@ export type AdminKpiProjectItem = {
 
 export async function fetchAdminKpiProjects(): Promise<AdminKpiProjectItem[]> {
   const data = await fetchJson<{ items: AdminKpiProjectItem[] }>("/api/admin/kpi/projects");
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminArticleListItem = {
@@ -2516,7 +2559,7 @@ export type AdminArticleListItem = {
 
 export async function fetchAdminArticles(): Promise<AdminArticleListItem[]> {
   const data = await fetchJson<{ items: AdminArticleListItem[] }>("/api/admin/articles");
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminArticleDetail = {
@@ -2616,7 +2659,7 @@ export type AdminRfqDocumentDetail = AdminRfqDocumentListItem & {
 
 export async function fetchAdminRfqDocuments(): Promise<AdminRfqDocumentListItem[]> {
   const data = await fetchJson<{ items: AdminRfqDocumentListItem[] }>("/api/admin/rfq/documents");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchAdminRfqDocumentDetail(docId: number): Promise<AdminRfqDocumentDetail> {
@@ -2811,7 +2854,7 @@ export async function fetchAdminPagesAllowedTypes(parentId: number): Promise<{ t
   const data = await fetchJson<{ items: { type: string; typeName: string }[] }>(
     `/api/admin/pages/allowed-types?parentId=${parentId}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export type AdminPageDetail = {
@@ -2947,7 +2990,7 @@ export type AdminProjectDocument = {
 
 export async function fetchAdminProjectDocuments(projectId: number): Promise<AdminProjectDocument[]> {
   const data = await fetchJson<{ items: AdminProjectDocument[] }>(`/api/admin/projects/${projectId}/documents`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function reorderAdminProjectDocuments(
@@ -3044,7 +3087,7 @@ export async function fetchAdminCompanyDocuments(category: CompanyDocumentCatego
   const data = await fetchJson<{ items: AdminCompanyDocument[] }>(
     `/api/admin/company-documents?category=${encodeURIComponent(category)}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function reorderAdminCompanyDocuments(input: {
@@ -3258,7 +3301,7 @@ export async function fetchSiteContentList(
   const data = await fetchJson<{ items: SiteContentItem[] }>(
     `/api/site/${kind}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchSiteContentDetail(
@@ -3291,24 +3334,24 @@ export async function fetchHomeSettings(): Promise<HomeSettingsPayload> {
 
 export async function fetchServices(): Promise<ServicePayload[]> {
   const data = await fetchJson<{ items: ServicePayload[] }>("/api/site/services");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchProjects(): Promise<ProjectPayload[]> {
   const data = await fetchJson<{ items: ProjectPayload[] }>("/api/site/projects");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchTeam(): Promise<TeamMemberPayload[]> {
   const data = await fetchJson<{ items: TeamMemberPayload[] }>("/api/site/team");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchTestimonials(): Promise<TestimonialPayload[]> {
   const data = await fetchJson<{ items: TestimonialPayload[] }>(
     "/api/site/testimonials",
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchHomeSections(): Promise<HomeSectionPayload> {
@@ -3369,7 +3412,7 @@ export async function fetchAdminLeads(
   const data = await fetchJson<{ items: LeadPayload[] }>(
     `/api/admin/leads${suffix}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchLeadAssignees(): Promise<
@@ -3378,7 +3421,7 @@ export async function fetchLeadAssignees(): Promise<
   const data = await fetchJson<{
     items: { id: number; username: string }[];
   }>("/api/admin/leads/assignees");
-  return data.items;
+  return readItems(data);
 }
 
 export async function updateAdminLead(

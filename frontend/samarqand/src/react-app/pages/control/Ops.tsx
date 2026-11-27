@@ -84,6 +84,26 @@ import {
 } from "@/react-app/api/site";
 import { formatMoney, baseHumanizeErrorCode } from "@/react-app/utils/common";
 
+function contractStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    draft: "مسودة",
+    active: "ساري",
+    closed: "مغلق",
+    cancelled: "ملغي",
+  };
+  return map[String(status || "")] || String(status || "—");
+}
+
+function contractStatusTone(status: string): string {
+  const map: Record<string, string> = {
+    draft: "bg-gray-100 text-gray-800",
+    active: "bg-emerald-50 text-emerald-700",
+    closed: "bg-slate-100 text-slate-700",
+    cancelled: "bg-red-50 text-red-700",
+  };
+  return map[String(status || "")] || "bg-gray-100 text-gray-800";
+}
+
 type Tab = "clients" | "contracts" | "procurement" | "resources" | "kpi" | "audit";
 type ProcurementTab = "suppliers" | "purchaseOrders" | "inventory";
 type ResourcesTab = "workers" | "attendance" | "timeclock" | "payroll" | "equipment" | "assignments";
@@ -133,6 +153,13 @@ export default function ControlOps() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  function showSuccess(message: string) {
+    setError("");
+    setSuccess(message);
+    setTimeout(() => setSuccess(""), 3000);
+  }
 
   const [clients, setClients] = useState<AdminOpsClient[]>([]);
   const [suppliers, setSuppliers] = useState<AdminOpsSupplier[]>([]);
@@ -446,6 +473,7 @@ export default function ControlOps() {
       }
       setClientEditingId(null);
       setClientForm({ name: "", phone: "", email: "", address: "", notes: "" });
+      showSuccess(clientEditingId ? "تم تحديث العميل." : "تمت إضافة العميل.");
       setClients(await fetchAdminOpsClients());
     } catch {
       setError("تعذر حفظ العميل.");
@@ -461,6 +489,7 @@ export default function ControlOps() {
     try {
       const res = await deleteAdminOpsClient(id);
       if (!res.ok) throw new Error(res.error || "error");
+      showSuccess("تم حذف العميل.");
       setClients(await fetchAdminOpsClients());
     } catch {
       setError("تعذر حذف العميل.");
@@ -487,6 +516,7 @@ export default function ControlOps() {
       }
       setSupplierEditingId(null);
       setSupplierForm({ name: "", category: "", phone: "", email: "", address: "", notes: "" });
+      showSuccess(supplierEditingId ? "تم تحديث المورد." : "تمت إضافة المورد.");
       setSuppliers(await fetchAdminOpsSuppliers());
     } catch {
       setError("تعذر حفظ المورد.");
@@ -502,6 +532,7 @@ export default function ControlOps() {
     try {
       const res = await deleteAdminOpsSupplier(id);
       if (!res.ok) throw new Error(res.error || "error");
+      showSuccess("تم حذف المورد.");
       setSuppliers(await fetchAdminOpsSuppliers());
     } catch {
       setError("تعذر حذف المورد.");
@@ -558,6 +589,7 @@ export default function ControlOps() {
         amount: "",
         notes: "",
       });
+      showSuccess(contractEditingId ? "تم تحديث العقد." : "تمت إضافة العقد.");
       setContracts(await fetchAdminOpsContracts());
     } catch {
       setError("تعذر حفظ العقد.");
@@ -578,6 +610,7 @@ export default function ControlOps() {
         setContractAddendums([]);
         setContractPayments([]);
       }
+      showSuccess("تم حذف العقد.");
       setContracts(await fetchAdminOpsContracts());
     } catch {
       setError("تعذر حذف العقد.");
@@ -1080,6 +1113,7 @@ export default function ControlOps() {
         monthlySalary: "",
         notes: "",
       });
+      showSuccess(workerEditingId ? "تم تحديث الموظف/العامل." : "تمت إضافة الموظف/العامل.");
       setWorkers(await fetchAdminOpsWorkers());
     } catch (e) {
       const msg = e instanceof Error ? String(e.message || "").trim() : "";
@@ -1097,6 +1131,7 @@ export default function ControlOps() {
     try {
       const res = await deleteAdminOpsWorker(id);
       if (!res.ok) throw new Error(res.error || "error");
+      showSuccess("تم حذف الموظف/العامل.");
       setWorkers(await fetchAdminOpsWorkers());
     } catch {
       setError("تعذر حذف الموظف/العامل.");
@@ -1495,13 +1530,22 @@ export default function ControlOps() {
           <h1 className="text-2xl font-bold text-white">إدارة العمليات</h1>
           <p className="text-slate-300 mt-1">العملاء • العقود • المشتريات • الموارد • تقارير KPI</p>
         </div>
-        <button
-          type="button"
-          onClick={() => reloadCurrent()}
-          className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
-        >
-          تحديث
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition print:hidden"
+          >
+            طباعة
+          </button>
+          <button
+            type="button"
+            onClick={() => reloadCurrent()}
+            className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+          >
+            تحديث
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
@@ -1514,6 +1558,7 @@ export default function ControlOps() {
       </div>
 
       {error ? <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">{error}</div> : null}
+      {success ? <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4">{success}</div> : null}
 
       {tab === "clients" ? (
         <div className="space-y-8">
@@ -1591,6 +1636,7 @@ export default function ControlOps() {
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div className="font-bold text-gray-900">قائمة العملاء</div>
+              <div className="text-sm text-gray-600">عدد النتائج: {clients.length}</div>
               {loading ? <div className="text-sm text-gray-600">جارٍ التنفيذ...</div> : null}
             </div>
             <div className="divide-y">
@@ -1939,6 +1985,7 @@ export default function ControlOps() {
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div className="font-bold text-gray-900">قائمة العقود</div>
+              <div className="text-sm text-gray-600">عدد النتائج: {contracts.length}</div>
               {loading ? <div className="text-sm text-gray-600">جارٍ التنفيذ...</div> : null}
             </div>
             <div className="divide-y">
@@ -1956,6 +2003,11 @@ export default function ControlOps() {
                       {[c.startDate, c.endDate].filter(Boolean).join(" → ") || "—"}
                     </div>
                   </div>
+                  <span
+                    className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${contractStatusTone(c.status)}`}
+                  >
+                    {contractStatusLabel(c.status)}
+                  </span>
                   <div className="text-sm font-bold text-gray-900 min-w-[140px]" dir="ltr">
                     {formatMoney(Number(c.amount || 0))}
                   </div>
@@ -2397,6 +2449,7 @@ export default function ControlOps() {
               <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                   <div className="font-bold text-gray-900">قائمة الموردين</div>
+                  <div className="text-sm text-gray-600">عدد النتائج: {suppliers.length}</div>
                   {loading ? <div className="text-sm text-gray-600">جارٍ التنفيذ...</div> : null}
                 </div>
                 <div className="divide-y">

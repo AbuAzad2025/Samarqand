@@ -147,7 +147,10 @@ export async function markMailRead(msgId: number): Promise<{ ok: boolean; error?
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     credentials: "same-origin",
   });
-  if (!res.ok) return { ok: false };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
   return { ok: true };
 }
 
@@ -157,7 +160,10 @@ export async function markMailUnread(msgId: number): Promise<{ ok: boolean; erro
     headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
     credentials: "same-origin",
   });
-  if (!res.ok) return { ok: false };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
   return { ok: true };
 }
 
@@ -168,7 +174,10 @@ export async function moveMailMessage(msgId: number, folder: string): Promise<{ 
     body: JSON.stringify({ folder }),
     credentials: "same-origin",
   });
-  if (!res.ok) return { ok: false };
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
   return { ok: true };
 }
 

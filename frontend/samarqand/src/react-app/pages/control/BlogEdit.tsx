@@ -102,7 +102,8 @@ export default function ControlBlogEdit() {
   const id = Number(params.id || 0);
   const [data, setData] = useState<AdminArticleDetail | null>(null);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -112,15 +113,24 @@ export default function ControlBlogEdit() {
   const [coverImageId, setCoverImageId] = useState<number | null>(null);
   const [coverUrl, setCoverUrl] = useState("");
 
+  function notify(kind: "success" | "error", text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice(null), 4000);
+  }
+
   const load = useCallback(async () => {
-    const d = await fetchAdminArticleDetail(id);
-    setData(d);
-    setTitle(d.title || "");
-    setSlug(d.slug || "");
-    setSearchDescription(d.searchDescription || "");
-    setBodyHtml(d.bodyHtml || "");
-    setCoverImageId(d.coverImageId ?? null);
-    setCoverUrl(d.coverUrl || "");
+    try {
+      const d = await fetchAdminArticleDetail(id);
+      setData(d);
+      setTitle(d.title || "");
+      setSlug(d.slug || "");
+      setSearchDescription(d.searchDescription || "");
+      setBodyHtml(d.bodyHtml || "");
+      setCoverImageId(d.coverImageId ?? null);
+      setCoverUrl(d.coverUrl || "");
+    } catch {
+      notify("error", "تعذر تحميل بيانات المقال. يرجى الرجوع والمحاولة مرة أخرى.");
+    }
   }, [id]);
 
   useEffect(() => {
@@ -138,22 +148,43 @@ export default function ControlBlogEdit() {
 
   const onSave = useCallback(async () => {
     if (!id) return;
+    if (!title.trim()) {
+      notify("error", "عنوان المقال مطلوب قبل الحفظ.");
+      return;
+    }
     setSaving(true);
-    setStatus("idle");
+    setNotice(null);
     try {
-      const res = await updateAdminArticle(id, { title, slug, searchDescription, bodyHtml, coverImageId });
+      const res = await updateAdminArticle(id, {
+        title: title.trim(),
+        slug,
+        searchDescription,
+        bodyHtml,
+        coverImageId,
+      });
       if (!res.ok) {
-        setStatus("error");
+        notify("error", "تعذر حفظ المقال. يرجى المحاولة مرة أخرى.");
         return;
       }
       await load();
-      setStatus("saved");
+      notify("success", "تم حفظ المقال بنجاح.");
     } catch {
-      setStatus("error");
+      notify("error", "تعذر حفظ المقال. يرجى المحاولة مرة أخرى.");
     } finally {
       setSaving(false);
     }
   }, [bodyHtml, coverImageId, id, load, searchDescription, slug, title]);
+
+  function discardChanges() {
+    if (!data) return;
+    setTitle(data.title || "");
+    setSlug(data.slug || "");
+    setSearchDescription(data.searchDescription || "");
+    setBodyHtml(data.bodyHtml || "");
+    setCoverImageId(data.coverImageId ?? null);
+    setCoverUrl(data.coverUrl || "");
+    setNotice(null);
+  }
 
   if (!id) {
     return (
@@ -165,8 +196,8 @@ export default function ControlBlogEdit() {
 
   if (!data) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl p-8">
-        <div className="text-gray-700">جارٍ التحميل...</div>
+      <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center" role="status">
+        <div className="text-gray-600">جارٍ تحميل بيانات المقال...</div>
       </div>
     );
   }
@@ -196,33 +227,48 @@ export default function ControlBlogEdit() {
           >
             رجوع
           </Link>
-          {data.live ? (
-            <button
-              type="button"
-              onClick={async () => {
-                await unpublishAdminArticle(id).catch(() => {});
-                await load().catch(() => {});
-              }}
-              className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
-            >
-              إلغاء النشر
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => {
-                await publishAdminArticle(id).catch(() => {});
-                await load().catch(() => {});
-              }}
-              className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
-            >
-              نشر
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={busy || saving}
+            aria-label={data.live ? "إلغاء نشر المقال" : "نشر المقال"}
+            onClick={async () => {
+              setBusy(true);
+              setNotice(null);
+              try {
+                const res = data.live ? await unpublishAdminArticle(id) : await publishAdminArticle(id);
+                if (!res.ok) {
+                  notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+                  return;
+                }
+                await load();
+                notify("success", data.live ? "تم إلغاء النشر." : "تم نشر المقال.");
+              } catch {
+                notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className={`px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50 ${
+              data.live
+                ? "bg-white border border-gray-200 text-gray-800 hover:shadow-sm"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:shadow-sm"
+            }`}
+          >
+            {busy ? "جارٍ التنفيذ..." : data.live ? "إلغاء النشر" : "نشر"}
+          </button>
+          <button
+            type="button"
+            onClick={discardChanges}
+            disabled={!hasChanges || saving || busy}
+            aria-label="إلغاء التعديلات والعودة للبيانات المحفوظة"
+            className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
+          >
+            إلغاء
+          </button>
           <button
             type="button"
             onClick={onSave}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || saving || busy || !title.trim()}
             className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
@@ -230,14 +276,16 @@ export default function ControlBlogEdit() {
         </div>
       </div>
 
-      {status === "saved" ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800 font-semibold">
-          تم الحفظ بنجاح.
-        </div>
-      ) : null}
-      {status === "error" ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-800 font-semibold">
-          حصل خطأ أثناء الحفظ.
+      {notice ? (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`border rounded-2xl p-4 mb-6 font-semibold ${
+            notice.kind === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {notice.text}
         </div>
       ) : null}
 
@@ -246,8 +294,9 @@ export default function ControlBlogEdit() {
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">العنوان</label>
+                <label htmlFor="article-title" className="block text-sm font-semibold text-gray-700 mb-2">العنوان *</label>
                 <input
+                  id="article-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -281,6 +330,16 @@ export default function ControlBlogEdit() {
 
         <div className="space-y-6">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="text-lg font-bold text-gray-900 mb-4">معاينة موجزة</div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="font-bold text-gray-900">{title.trim() || "بدون عنوان"}</div>
+              <div className="text-xs text-gray-600 mt-1" dir="ltr">/{slug || "—"}</div>
+              <p className="text-sm text-gray-700 mt-3">{searchDescription.trim() || "لا يوجد وصف مختصر."}</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">معاينة سريعة لما يظهر في قائمة المقالات ونتائج البحث.</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
             <div className="text-lg font-bold text-gray-900 mb-4">صورة الغلاف</div>
             {coverUrl ? (
               <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 mb-4">
@@ -304,12 +363,18 @@ export default function ControlBlogEdit() {
                     const file = e.target.files?.[0];
                     if (!file) return;
                     setUploadingCover(true);
+                    setNotice(null);
                     try {
                       const res = await uploadAdminImage(file, title || file.name);
                       if (res.ok && res.id) {
                         setCoverImageId(res.id);
                         setCoverUrl(res.url || "");
+                        notify("success", "تم رفع الصورة. اضغط «حفظ» لتثبيتها.");
+                      } else {
+                        notify("error", "تعذر رفع الصورة. تأكد من النوع (JPG/PNG/WebP) والحجم (حتى 5 ميغابايت).");
                       }
+                    } catch {
+                      notify("error", "تعذر رفع الصورة. يرجى المحاولة مرة أخرى.");
                     } finally {
                       setUploadingCover(false);
                       e.target.value = "";
@@ -328,6 +393,7 @@ export default function ControlBlogEdit() {
                 إزالة
               </button>
             </div>
+            <p className="text-xs text-gray-500 mt-3">الصور المقبولة: JPG / PNG / WebP، وبحد أقصى 5 ميغابايت.</p>
           </div>
 
           <div className="bg-white border border-red-200 rounded-2xl p-6 shadow-sm">
@@ -335,17 +401,27 @@ export default function ControlBlogEdit() {
             <p className="text-red-800 mb-4">سيتم حذف المقال نهائياً.</p>
             <button
               type="button"
+              disabled={busy}
+              aria-label={`حذف المقال ${data.title}`}
               onClick={async () => {
-                const ok = window.confirm("هل أنت متأكد من الحذف؟");
-                if (!ok) return;
-                const res = await deleteAdminArticle(id).catch(() => ({ ok: false }));
-                if (res.ok) {
-                  navigate("/control/blogs", { replace: true });
+                if (!window.confirm(`سيتم حذف «${data.title}» نهائياً. هل أنت متأكد؟`)) return;
+                setBusy(true);
+                try {
+                  const res = await deleteAdminArticle(id);
+                  if (res.ok) {
+                    navigate("/control/blogs", { replace: true });
+                  } else {
+                    notify("error", "تعذر حذف المقال. يرجى المحاولة مرة أخرى.");
+                  }
+                } catch {
+                  notify("error", "تعذر حذف المقال. يرجى المحاولة مرة أخرى.");
+                } finally {
+                  setBusy(false);
                 }
               }}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition"
+              className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-50"
             >
-              حذف
+              {busy ? "جارٍ الحذف..." : "حذف"}
             </button>
           </div>
         </div>

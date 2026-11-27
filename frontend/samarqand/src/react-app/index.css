@@ -244,3 +244,270 @@ h1, h2, h3, h4 {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Additive accessibility / state helpers. Existing class names are untouched.
+   --------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 3px solid #005a31 !important;
+  outline-offset: 3px !important;
+}
+
+*,
+*::before,
+*::after {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@keyframes sq-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sq-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.state-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  min-height: 6rem;
+  color: var(--corp-muted, #475569);
+  font-size: 14px;
+}
+.state-loading::before {
+  content: "";
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: sq-spin 0.8s linear infinite;
+}
+
+.state-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2, 8px);
+  min-height: 6rem;
+  padding: var(--space-8, 32px) var(--space-4, 16px);
+  border: 1px dashed var(--corp-border, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  color: var(--corp-muted, #475569);
+  text-align: center;
+}
+
+.skeleton-corp {
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm, 8px);
+  animation: sq-shimmer 1.4s ease-in-out infinite;
+}
+
+.print-only {
+  display: none !important;
+}
+
+/* RTL-only refinements: LTR pages/panels keep their original layout. */
+:where(html[dir="rtl"]) .state-loading,
+:where(html[dir="rtl"]) .state-empty {
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------------
+   Print stylesheet.
+   The dedicated RFQ block above is preserved; these are general, additive
+   rules applied to every other printed page as well.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    direction: rtl;
+    text-align: right;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #root,
+  main,
+  article {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Interactive chrome: navigation, top bar, footer, buttons and overlays. */
+  nav,
+  footer,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="dialog"],
+  [aria-modal="true"],
+  [role="alert"],
+  .toast,
+  .modal,
+  .overlay,
+  .fixed:not(#rfq-print),
+  .sticky,
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-lg,
+  .bg-sq-whatsapp,
+  .legal-actions,
+  .legal-print-button,
+  .print\:hidden,
+  [data-print="hide"],
+  [class*="bg-[#0D131D]"],
+  [class*="bg-gradient-to-r"] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Decorative backgrounds and motion do not belong on paper. RFQ output
+     keeps its own styling so existing document templates are unaffected. */
+  body:not(.rfq-printing) *,
+  body:not(.rfq-printing) *::before,
+  body:not(.rfq-printing) *::after {
+    color: #000 !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Use the full sheet width for content containers. */
+  body:not(.rfq-printing) section,
+  body:not(.rfq-printing) .container,
+  body:not(.rfq-printing) .mx-auto,
+  body:not(.rfq-printing) .max-w-sm,
+  body:not(.rfq-printing) .max-w-md,
+  body:not(.rfq-printing) .max-w-lg,
+  body:not(.rfq-printing) .max-w-xl,
+  body:not(.rfq-printing) .max-w-2xl,
+  body:not(.rfq-printing) .max-w-3xl,
+  body:not(.rfq-printing) .max-w-4xl,
+  body:not(.rfq-printing) .max-w-5xl,
+  body:not(.rfq-printing) .max-w-6xl,
+  body:not(.rfq-printing) .max-w-7xl,
+  body:not(.rfq-printing) .max-w-full {
+    width: 100% !important;
+    max-width: none !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+  }
+
+  .home-compact section,
+  .home-compact #home section,
+  .section-corp,
+  .section-corp-muted {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .card-corp {
+    border-color: #999 !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep headings with their content; avoid broken cards, rows and images. */
+  h1, h2, h3, h4, h5, h6, caption, th {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  p, li, blockquote {
+    orphans: 3;
+    widows: 3;
+  }
+  .card-corp, figure, table, pre, blockquote, img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tfoot {
+    display: table-footer-group;
+  }
+  tr, td, th {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: underline !important;
+  }
+
+  /* Printed documents follow the site's RTL reading order; explicit LTR
+     snippets (numbers, codes, foreign text) stay readable. */
+  body,
+  #root,
+  main,
+  article {
+    direction: rtl;
+    text-align: right;
+  }
+  [dir="ltr"],
+  table[dir="ltr"],
+  th[dir="ltr"],
+  td[dir="ltr"] {
+    direction: ltr !important;
+    text-align: left !important;
+  }
+}

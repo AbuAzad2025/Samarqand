@@ -167,6 +167,14 @@ export default function ControlBOQ() {
 
   async function handleSaveBoqItem() {
     if (!selectedProjectId) return;
+    if (!String(boqForm.description || "").trim() || !String(boqForm.unit || "").trim()) {
+      showError("missing_description_or_unit");
+      return;
+    }
+    if (Number(boqForm.quantity || 0) < 0 || Number(boqForm.unitPrice || 0) < 0) {
+      showError("invalid_quantity_or_price");
+      return;
+    }
     const payload = {
       description: boqForm.description || "",
       unit: boqForm.unit || "",
@@ -203,6 +211,10 @@ export default function ControlBOQ() {
 
   async function handleSavePayment() {
     if (!selectedProjectId) return;
+    if (!String(paymentForm.applicationNumber || "").trim() || !String(paymentForm.applicationDate || "").trim()) {
+      showError("missing_number_or_date");
+      return;
+    }
     const payload = {
       applicationNumber: paymentForm.applicationNumber || "",
       applicationDate: paymentForm.applicationDate || todayInputValue(),
@@ -282,6 +294,10 @@ export default function ControlBOQ() {
 
   async function handleSavePaymentItem() {
     if (!selectedProjectId || !activePayment) return;
+    if (!Number(paymentItemForm.boqItemId)) {
+      showError("اختر بند الكميات.");
+      return;
+    }
     const payload = {
       boqItemId: Number(paymentItemForm.boqItemId) || 0,
       currentQuantity: Number(paymentItemForm.currentQuantity) || 0,
@@ -320,6 +336,10 @@ export default function ControlBOQ() {
 
   async function handleSaveVariation() {
     if (!selectedProjectId) return;
+    if (!String(variationForm.variationNumber || "").trim() || !String(variationForm.title || "").trim()) {
+      showError("missing_number_or_title");
+      return;
+    }
     const payload = {
       variationNumber: variationForm.variationNumber || "",
       title: variationForm.title || "",
@@ -366,6 +386,10 @@ export default function ControlBOQ() {
 
   async function handleSaveVariationItem() {
     if (!selectedProjectId || !activeVariation) return;
+    if (!Number(variationItemForm.boqItemId) && !String(variationItemForm.description || "").trim()) {
+      showError("الوصف أو بند الكميات مطلوب.");
+      return;
+    }
     const payload = {
       boqItemId: variationItemForm.boqItemId || undefined,
       description: variationItemForm.description || "",
@@ -470,6 +494,14 @@ export default function ControlBOQ() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            disabled={!selectedProjectId}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition text-white disabled:opacity-50 print:hidden"
+          >
+            طباعة
+          </button>
           <button
             type="button"
             onClick={refreshAll}
@@ -606,6 +638,7 @@ export default function ControlBOQ() {
                 </div>
               </div>
 
+              <div className="text-sm text-white/60">عدد النتائج: {boqItems.length}</div>
               <div className="overflow-x-auto rounded-2xl border border-white/10">
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
@@ -685,6 +718,7 @@ export default function ControlBOQ() {
                 </button>
               </div>
 
+              <div className="text-sm text-white/60">عدد النتائج: {payments.length}</div>
               <div className="overflow-x-auto rounded-2xl border border-white/10">
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
@@ -818,6 +852,7 @@ export default function ControlBOQ() {
                 </button>
               </div>
 
+              <div className="text-sm text-white/60">عدد النتائج: {variations.length}</div>
               <div className="overflow-x-auto rounded-2xl border border-white/10">
                 <table className="w-full text-sm">
                   <thead className="bg-white/5 text-white/70">
@@ -1203,6 +1238,7 @@ export default function ControlBOQ() {
               </div>
             </div>
 
+            <div className="text-sm text-white/60">عدد النتائج: {(paymentDetail.items || []).length}</div>
             <div className="overflow-x-auto rounded-2xl border border-white/10">
               <table className="w-full text-sm">
                 <thead className="bg-white/5 text-white/70">
@@ -1252,6 +1288,13 @@ export default function ControlBOQ() {
                       </td>
                     </tr>
                   ))}
+                  {!(paymentDetail.items || []).length && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-8 text-center text-white/60">
+                        لا توجد بنود في هذا المستخلص.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1443,6 +1486,7 @@ export default function ControlBOQ() {
               </div>
             </div>
 
+            <div className="text-sm text-white/60">عدد النتائج: {(activeVariation.items || []).length}</div>
             <div className="overflow-x-auto rounded-2xl border border-white/10">
               <table className="w-full text-sm">
                 <thead className="bg-white/5 text-white/70">
@@ -1488,6 +1532,13 @@ export default function ControlBOQ() {
                       </td>
                     </tr>
                   ))}
+                  {!(activeVariation.items || []).length && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-white/60">
+                        لا توجد بنود في هذا الأمر التغييري.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

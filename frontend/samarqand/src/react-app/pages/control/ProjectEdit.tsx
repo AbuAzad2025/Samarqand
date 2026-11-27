@@ -28,6 +28,7 @@ export default function ControlProjectEdit() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [statusMessage, setStatusMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -70,10 +71,38 @@ export default function ControlProjectEdit() {
     return `${val} B`;
   }
 
+  function validate(): string {
+    if (!data) return "";
+    if (!data.title.trim()) return "العنوان مطلوب.";
+    if (data.slug.trim() && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug.trim())) {
+      return "الرابط (Slug) يجب أن يتكون من حروف لاتينية صغيرة وأرقام وشرطات فقط.";
+    }
+    const progress = Number(data.progressPercent || 0);
+    if (!Number.isFinite(progress) || progress < 0 || progress > 100) {
+      return "نسبة الإنجاز يجب أن تكون بين 0 و 100.";
+    }
+    if (data.startDate && data.targetEndDate && data.startDate > data.targetEndDate) {
+      return "تاريخ البدء يجب أن يكون قبل تاريخ الانتهاء المستهدف.";
+    }
+    const year = data.completionYear;
+    if (year != null && (!Number.isFinite(Number(year)) || Number(year) < 1900 || Number(year) > 2100)) {
+      return "سنة الإنجاز غير صحيحة.";
+    }
+    return "";
+  }
+
   async function onSave() {
     if (!data) return;
+    const validationError = validate();
+    if (validationError) {
+      setStatus("error");
+      setStatusMessage(validationError);
+      setTimeout(() => setStatus("idle"), 4000);
+      return;
+    }
     setSaving(true);
     setStatus("idle");
+    setStatusMessage("");
     try {
       const res = await updateAdminProject(projectId, {
         title: data.title,
@@ -101,40 +130,71 @@ export default function ControlProjectEdit() {
         scopeOfWork: data.scopeOfWork,
       });
       setStatus(res.ok ? "saved" : "error");
+      setStatusMessage(res.ok ? "تم حفظ التغييرات." : "تعذر حفظ التغييرات.");
       await load();
     } catch {
       setStatus("error");
+      setStatusMessage("تعذر حفظ التغييرات.");
     } finally {
       setSaving(false);
-      setTimeout(() => setStatus("idle"), 1500);
+      setTimeout(() => setStatus("idle"), 3000);
     }
+  }
+
+  async function onCancel() {
+    setStatus("idle");
+    setStatusMessage("");
+    setFile(null);
+    setCaption("");
+    setDocFile(null);
+    setDocTitle("");
+    await load().catch(() => {});
+    await loadDocs().catch(() => {});
   }
 
   async function onUpload() {
     if (!file) return;
     setUploading(true);
+    setStatus("idle");
     try {
       const up = await uploadAdminImage(file);
-      if (!up.ok || !up.id) return;
+      if (!up.ok || !up.id) {
+        setStatus("error");
+        setStatusMessage("تعذر رفع الصورة.");
+        return;
+      }
       await addAdminProjectGalleryItem(projectId, { imageId: up.id, caption });
       setCaption("");
       setFile(null);
+      setStatus("saved");
+      setStatusMessage("تمت إضافة الصورة.");
       await load();
+    } catch {
+      setStatus("error");
+      setStatusMessage("تعذر رفع الصورة.");
     } finally {
       setUploading(false);
+      setTimeout(() => setStatus("idle"), 3000);
     }
   }
 
   async function onDocUpload() {
     if (!docFile) return;
     setDocUploading(true);
+    setStatus("idle");
     try {
-      await uploadAdminProjectDocument(projectId, docFile, docTitle.trim() || undefined);
+      const res = await uploadAdminProjectDocument(projectId, docFile, docTitle.trim() || undefined);
+      setStatus(res?.ok === false ? "error" : "saved");
+      setStatusMessage(res?.ok === false ? "تعذر رفع المستند." : "تم رفع المستند.");
       setDocTitle("");
       setDocFile(null);
       await loadDocs();
+    } catch {
+      setStatus("error");
+      setStatusMessage("تعذر رفع المستند.");
     } finally {
       setDocUploading(false);
+      setTimeout(() => setStatus("idle"), 3000);
     }
   }
 
@@ -154,12 +214,19 @@ export default function ControlProjectEdit() {
 
   async function onTogglePublish() {
     if (!data) return;
-    if (data.live) {
-      await unpublishAdminProject(projectId);
-    } else {
-      await publishAdminProject(projectId);
+    const wasLive = data.live;
+    setStatus("idle");
+    try {
+      const res = wasLive
+        ? await unpublishAdminProject(projectId)
+        : await publishAdminProject(projectId);
+      setStatus(res.ok === false ? "error" : "saved");
+      setStatusMessage(res.ok === false ? "تعذر تحديث حالة النشر." : wasLive ? "تم إلغاء النشر." : "تم نشر المشروع.");
+      await load();
+    } catch {
+      setStatus("error");
+      setStatusMessage("تعذر تحديث حالة النشر.");
     }
-    await load();
   }
 
   async function onDelete() {
@@ -195,7 +262,14 @@ export default function ControlProjectEdit() {
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="bg-white/10 border border-white/20 text-white px-5 py-3 rounded-lg font-bold hover:bg-white/20 transition print:hidden"
+          >
+            طباعة
+          </button>
           <button
             type="button"
             onClick={onTogglePublish}
@@ -213,7 +287,15 @@ export default function ControlProjectEdit() {
             disabled={saving}
             className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
-            {saving ? "جارٍ الحفظ..." : "حفظ"}
+            {saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="bg-white border border-gray-200 text-gray-800 px-5 py-3 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+          >
+            إلغاء (استرجاع)
           </button>
           <button
             type="button"
@@ -227,18 +309,19 @@ export default function ControlProjectEdit() {
 
       {status === "saved" && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
-          تم الحفظ.
+          {statusMessage || "تم الحفظ."}
         </div>
       )}
       {status === "error" && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر الحفظ.
+          {statusMessage || "تعذر الحفظ."}
         </div>
       )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="text-lg font-bold text-gray-900">تفاصيل</div>
+          <div className="text-lg font-bold text-gray-900">تفاصيل المشروع</div>
+          <div className="text-xs font-bold text-sq-green border-b border-gray-200 pb-2">١) الأساسيات</div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">العنوان</label>
             <input
@@ -379,6 +462,7 @@ export default function ControlProjectEdit() {
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green min-h-24"
             />
           </div>
+          <div className="text-xs font-bold text-sq-green border-b border-gray-200 pb-2 pt-3">٢) بيانات العقد والمحتوى</div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">العميل</label>
@@ -431,7 +515,7 @@ export default function ControlProjectEdit() {
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
             <div>
-              <div className="text-lg font-bold text-gray-900">معرض الصور</div>
+              <div className="text-lg font-bold text-gray-900">٣) معرض الصور</div>
               <div className="text-sm text-gray-600 mt-1">{sortedGallery.length} صورة</div>
             </div>
           </div>
@@ -477,8 +561,17 @@ export default function ControlProjectEdit() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await removeAdminProjectGalleryItem(projectId, g.id);
-                      await load();
+                      if (!confirm("حذف هذه الصورة؟")) return;
+                      setStatus("idle");
+                      try {
+                        await removeAdminProjectGalleryItem(projectId, g.id);
+                        setStatus("saved");
+                        setStatusMessage("تم حذف الصورة.");
+                        await load();
+                      } catch {
+                        setStatus("error");
+                        setStatusMessage("تعذر حذف الصورة.");
+                      }
                     }}
                     className="text-red-700 font-bold text-sm hover:underline"
                   >
@@ -498,7 +591,7 @@ export default function ControlProjectEdit() {
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mt-6">
         <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
           <div>
-            <div className="text-lg font-bold text-gray-900">مستندات المشروع</div>
+            <div className="text-lg font-bold text-gray-900">٤) مستندات المشروع (التوثيق)</div>
             <div className="text-sm text-gray-600 mt-1">{documents.length} مستند</div>
           </div>
         </div>
@@ -576,8 +669,17 @@ export default function ControlProjectEdit() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await updateAdminProjectDocument(projectId, d.id, { title: d.title || "" });
-                      await loadDocs();
+                      setStatus("idle");
+                      setStatusMessage("");
+                      try {
+                        const res = await updateAdminProjectDocument(projectId, d.id, { title: d.title || "" });
+                        setStatus(res.ok === false ? "error" : "saved");
+                        setStatusMessage(res.ok === false ? "تعذر حفظ عنوان المستند." : "تم حفظ عنوان المستند.");
+                        await loadDocs();
+                      } catch {
+                        setStatus("error");
+                        setStatusMessage("تعذر حفظ عنوان المستند.");
+                      }
                     }}
                     className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold hover:shadow-sm transition"
                   >
@@ -596,9 +698,17 @@ export default function ControlProjectEdit() {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!confirm("حذف المستند؟")) return;
-                      await removeAdminProjectDocument(projectId, d.id);
-                      await loadDocs();
+                      if (!confirm("حذف المستند نهائياً؟")) return;
+                      setStatus("idle");
+                      try {
+                        const res = await removeAdminProjectDocument(projectId, d.id);
+                        setStatus(res.ok === false ? "error" : "saved");
+                        setStatusMessage(res.ok === false ? "تعذر حذف المستند." : "تم حذف المستند.");
+                        await loadDocs();
+                      } catch {
+                        setStatus("error");
+                        setStatusMessage("تعذر حذف المستند.");
+                      }
                     }}
                     className="text-red-700 font-bold text-sm hover:underline"
                   >

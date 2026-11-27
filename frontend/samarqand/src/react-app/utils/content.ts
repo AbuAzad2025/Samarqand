@@ -39,15 +39,22 @@ export const DEFAULT_CONTENT: SiteContentTexts = {
 export function useSiteContent(): SiteContentTexts {
   const [content, setContent] = useState<SiteContentTexts>(DEFAULT_CONTENT);
   useEffect(() => {
+    let active = true;
     fetchSiteContent()
-      .then((data) =>
+      .then((data) => {
+        if (!active) return;
         setContent((prev) => ({
           ...prev,
           ...data,
+          values: Array.isArray(data.values) ? data.values : prev.values,
+          projectTypes: Array.isArray(data.projectTypes) ? data.projectTypes : prev.projectTypes,
           headings: { ...prev.headings, ...(data.headings || {}) },
-        })),
-      )
+        }));
+      })
       .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
   return content;
 }

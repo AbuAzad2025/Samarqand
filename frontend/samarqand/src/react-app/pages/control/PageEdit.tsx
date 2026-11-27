@@ -97,7 +97,8 @@ export default function ControlPageEdit() {
 
   const [data, setData] = useState<AdminPageDetail | null>(null);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -115,25 +116,34 @@ export default function ControlPageEdit() {
   const [subject, setSubject] = useState("");
   const [replyAddress, setReplyAddress] = useState("");
 
+  function notify(kind: "success" | "error", text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice(null), 4000);
+  }
+
   const hasCover = useMemo(() => typeof data?.coverImageId !== "undefined", [data?.coverImageId]);
   const isCertification = useMemo(() => typeof data?.issuedYear !== "undefined" || typeof data?.issuer !== "undefined", [data?.issuedYear, data?.issuer]);
   const isForm = useMemo(() => typeof data?.toAddress !== "undefined" || typeof data?.subject !== "undefined", [data?.toAddress, data?.subject]);
 
   const load = useCallback(async () => {
-    const d = await fetchAdminPageDetail(id);
-    setData(d);
-    setTitle(d.title || "");
-    setSlug(d.slug || "");
-    setSearchDescription(d.searchDescription || "");
-    setBodyHtml(d.bodyHtml || "");
-    setCoverImageId((d.coverImageId ?? null) as number | null);
-    setCoverUrl(d.coverUrl || "");
-    setCertIssuer(d.issuer || "");
-    setCertId(d.certificateId || "");
-    setCertYear(typeof d.issuedYear === "number" ? d.issuedYear : null);
-    setToAddress(d.toAddress || "");
-    setSubject(d.subject || "");
-    setReplyAddress(d.replyAddress || "");
+    try {
+      const d = await fetchAdminPageDetail(id);
+      setData(d);
+      setTitle(d.title || "");
+      setSlug(d.slug || "");
+      setSearchDescription(d.searchDescription || "");
+      setBodyHtml(d.bodyHtml || "");
+      setCoverImageId((d.coverImageId ?? null) as number | null);
+      setCoverUrl(d.coverUrl || "");
+      setCertIssuer(d.issuer || "");
+      setCertId(d.certificateId || "");
+      setCertYear(typeof d.issuedYear === "number" ? d.issuedYear : null);
+      setToAddress(d.toAddress || "");
+      setSubject(d.subject || "");
+      setReplyAddress(d.replyAddress || "");
+    } catch {
+      notify("error", "تعذر تحميل بيانات الصفحة. يرجى الرجوع والمحاولة مرة أخرى.");
+    }
   }, [id]);
 
   useEffect(() => {
@@ -164,11 +174,15 @@ export default function ControlPageEdit() {
 
   const onSave = useCallback(async () => {
     if (!id) return;
+    if (!title.trim()) {
+      notify("error", "العنوان مطلوب قبل الحفظ.");
+      return;
+    }
     setSaving(true);
-    setStatus("idle");
+    setNotice(null);
     try {
       const payload: Partial<AdminPageDetail> = {
-        title,
+        title: title.trim(),
         slug,
         searchDescription,
         bodyHtml,
@@ -187,17 +201,43 @@ export default function ControlPageEdit() {
         payload.replyAddress = replyAddress;
       }
       const res = await updateAdminPage(id, payload);
-      setStatus(res.ok ? "saved" : "error");
+      if (!res.ok) {
+        notify("error", "تعذر حفظ الصفحة. يرجى المحاولة مرة أخرى.");
+        return;
+      }
       await load();
+      notify("success", "تم حفظ الصفحة بنجاح.");
     } catch {
-      setStatus("error");
+      notify("error", "تعذر حفظ الصفحة. يرجى المحاولة مرة أخرى.");
     } finally {
       setSaving(false);
-      setTimeout(() => setStatus("idle"), 1500);
     }
   }, [bodyHtml, certId, certIssuer, certYear, coverImageId, hasCover, id, isCertification, isForm, load, replyAddress, searchDescription, slug, subject, title, toAddress]);
 
-  if (!data) return null;
+  function discardChanges() {
+    if (!data) return;
+    setTitle(data.title || "");
+    setSlug(data.slug || "");
+    setSearchDescription(data.searchDescription || "");
+    setBodyHtml(data.bodyHtml || "");
+    setCoverImageId((data.coverImageId ?? null) as number | null);
+    setCoverUrl(data.coverUrl || "");
+    setCertIssuer(data.issuer || "");
+    setCertId(data.certificateId || "");
+    setCertYear(typeof data.issuedYear === "number" ? data.issuedYear : null);
+    setToAddress(data.toAddress || "");
+    setSubject(data.subject || "");
+    setReplyAddress(data.replyAddress || "");
+    setNotice(null);
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm">
+        <div className="text-gray-600">جارٍ تحميل بيانات الصفحة...</div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -240,21 +280,44 @@ export default function ControlPageEdit() {
           ) : null}
           <button
             type="button"
+            disabled={busy || saving}
+            aria-label={data.live ? "إلغاء نشر الصفحة" : "نشر الصفحة"}
             onClick={async () => {
-              if (data.live) await unpublishAdminPage(id);
-              else await publishAdminPage(id);
-              await load();
+              setBusy(true);
+              setNotice(null);
+              try {
+                const res = data.live ? await unpublishAdminPage(id) : await publishAdminPage(id);
+                if (!res.ok) {
+                  notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+                  return;
+                }
+                await load();
+                notify("success", data.live ? "تم إلغاء النشر." : "تم نشر الصفحة.");
+              } catch {
+                notify("error", "تعذر تغيير حالة النشر. يرجى المحاولة مرة أخرى.");
+              } finally {
+                setBusy(false);
+              }
             }}
-            className={`px-5 py-3 rounded-lg font-bold transition ${
+            className={`px-5 py-3 rounded-lg font-bold transition disabled:opacity-50 ${
               data.live ? "bg-white border border-gray-200 text-gray-800 hover:shadow-sm" : "bg-emerald-600 text-white hover:shadow-lg"
             }`}
           >
-            {data.live ? "إلغاء النشر" : "نشر"}
+            {busy ? "جارٍ التنفيذ..." : data.live ? "إلغاء النشر" : "نشر"}
+          </button>
+          <button
+            type="button"
+            onClick={discardChanges}
+            disabled={!hasChanges || saving || busy}
+            aria-label="إلغاء التعديلات والعودة للبيانات المحفوظة"
+            className="bg-white border border-gray-200 text-gray-800 px-5 py-3 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+          >
+            إلغاء
           </button>
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || !hasChanges}
+            disabled={saving || busy || !hasChanges || !title.trim()}
             className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
           >
             {saving ? "جارٍ الحفظ..." : "حفظ"}
@@ -262,13 +325,16 @@ export default function ControlPageEdit() {
         </div>
       </div>
 
-      {status === "saved" ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
-          تم الحفظ.
-        </div>
-      ) : status === "error" ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر الحفظ.
+      {notice ? (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`border rounded-2xl p-4 mb-6 font-semibold ${
+            notice.kind === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {notice.text}
         </div>
       ) : null}
 
@@ -277,8 +343,9 @@ export default function ControlPageEdit() {
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">العنوان</label>
+                <label htmlFor="page-title" className="block text-sm font-semibold text-gray-700 mb-2">العنوان *</label>
                 <input
+                  id="page-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -379,6 +446,16 @@ export default function ControlPageEdit() {
         </div>
 
         <div className="space-y-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="text-lg font-bold text-gray-900 mb-4">معاينة موجزة</div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="font-bold text-gray-900">{title.trim() || "بدون عنوان"}</div>
+              <div className="text-xs text-gray-600 mt-1" dir="ltr">/{slug || "—"}</div>
+              <p className="text-sm text-gray-700 mt-3">{searchDescription.trim() || "لا يوجد وصف مختصر."}</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">معاينة سريعة لما يظهر في القوائم ونتائج البحث.</p>
+          </div>
+
           {hasCover ? (
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
               <div className="text-lg font-bold text-gray-900 mb-4">صورة الغلاف</div>
@@ -404,12 +481,18 @@ export default function ControlPageEdit() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setUploadingCover(true);
+                      setNotice(null);
                       try {
                         const res = await uploadAdminImage(file, title || file.name);
                         if (res.ok && res.id) {
                           setCoverImageId(res.id);
                           setCoverUrl(res.url || "");
+                          notify("success", "تم رفع الصورة. اضغط «حفظ» لتثبيتها.");
+                        } else {
+                          notify("error", "تعذر رفع الصورة. تأكد من النوع (JPG/PNG/WebP) والحجم (حتى 5 ميغابايت).");
                         }
+                      } catch {
+                        notify("error", "تعذر رفع الصورة. يرجى المحاولة مرة أخرى.");
                       } finally {
                         setUploadingCover(false);
                         e.target.value = "";
@@ -428,6 +511,7 @@ export default function ControlPageEdit() {
                   إزالة
                 </button>
               </div>
+              <p className="text-xs text-gray-500 mt-3">الصور المقبولة: JPG / PNG / WebP، وبحد أقصى 5 ميغابايت.</p>
             </div>
           ) : null}
 
@@ -436,17 +520,27 @@ export default function ControlPageEdit() {
             <p className="text-red-800 mb-4">سيتم حذف الصفحة نهائياً وقد تُحذف صفحات فرعية.</p>
             <button
               type="button"
+              disabled={busy}
+              aria-label={`حذف الصفحة ${data.title}`}
               onClick={async () => {
-                const ok = window.confirm("هل أنت متأكد من الحذف؟");
-                if (!ok) return;
-                const res = await deleteAdminPage(id).catch(() => ({ ok: false }));
-                if (res.ok) {
-                  navigate("/control/pages", { replace: true });
+                if (!window.confirm(`سيتم حذف «${data.title}» نهائياً. هل أنت متأكد؟`)) return;
+                setBusy(true);
+                try {
+                  const res = await deleteAdminPage(id);
+                  if (res.ok) {
+                    navigate("/control/pages", { replace: true });
+                  } else {
+                    notify("error", "تعذر حذف الصفحة. يرجى المحاولة مرة أخرى.");
+                  }
+                } catch {
+                  notify("error", "تعذر حذف الصفحة. يرجى المحاولة مرة أخرى.");
+                } finally {
+                  setBusy(false);
                 }
               }}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition"
+              className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-50"
             >
-              حذف
+              {busy ? "جارٍ الحذف..." : "حذف"}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import TopBar from "@/react-app/components/TopBar";
 import Navigation from "@/react-app/components/Navigation";
@@ -6,19 +6,32 @@ import Footer from "@/react-app/components/Footer";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 
 export default function NotFound() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-white" dir="rtl">
       <TopBar />
       <Navigation />
       <div className="min-h-[60vh] flex items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-100 px-4">
-        <div className="max-w-lg w-full text-center bg-white rounded-3xl shadow-xl p-10 border border-slate-200">
-          <div className="text-6xl mb-4" aria-hidden="true">🧱</div>
-          <h1 className="text-3xl font-extrabold text-slate-900 mb-3">
-            الصفحة غير موجودة
+        <div
+          aria-labelledby="not-found-title"
+          className="max-w-lg w-full text-center bg-white rounded-3xl shadow-xl p-10 border border-slate-200"
+        >
+          <p className="text-sm font-extrabold tracking-widest text-sq-green mb-2">
+            404
+          </p>
+          <div className="text-6xl mb-4" aria-hidden="true">
+            🧱
+          </div>
+          <h1
+            id="not-found-title"
+            className="text-3xl font-extrabold text-slate-900 mb-3"
+          >
+            عذراً، الصفحة غير موجودة
           </h1>
           <p className="text-slate-600 mb-8 leading-relaxed">
             ربما تم نقل الصفحة أو أن الرابط غير صحيح. يمكنك العودة إلى الصفحة
-            الرئيسية أو التواصل معنا لمساعدتك.
+            الرئيسية، أو تصفح الخدمات، أو التواصل معنا لمساعدتك.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link
@@ -28,11 +41,24 @@ export default function NotFound() {
               العودة للرئيسية
             </Link>
             <Link
+              to="/services"
+              className="rounded-xl border border-slate-300 text-slate-800 px-6 py-3 font-bold hover:bg-slate-50 transition"
+            >
+              تصفح الخدمات
+            </Link>
+            <Link
               to="/contact"
               className="rounded-xl border border-slate-300 text-slate-800 px-6 py-3 font-bold hover:bg-slate-50 transition"
             >
               تواصل معنا
             </Link>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded-xl px-6 py-3 font-bold text-sq-green hover:bg-emerald-50 transition"
+            >
+              العودة للصفحة السابقة
+            </button>
           </div>
         </div>
       </div>

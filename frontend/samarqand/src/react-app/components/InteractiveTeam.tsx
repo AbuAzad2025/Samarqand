@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Award, Briefcase, GraduationCap, UsersRound, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Award, Briefcase, GraduationCap, RefreshCw, UsersRound, X } from "lucide-react";
 
 import {
   fetchCompany,
@@ -9,120 +9,215 @@ import {
 } from "@/react-app/api/site";
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
 
+type LoadState = "loading" | "ready" | "error";
+
 export default function InteractiveTeam() {
   const [team, setTeam] = useState<TeamMemberPayload[]>([]);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
-  const [selectedMember, setSelectedMember] = useState<TeamMemberPayload | null>(
-    null,
-  );
+  const [state, setState] = useState<LoadState>("loading");
+  const [selectedMember, setSelectedMember] = useState<TeamMemberPayload | null>(null);
+  const requestId = useRef(0);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  const load = useCallback(() => {
+    const id = ++requestId.current;
+    setState("loading");
+    fetchTeam()
+      .then((data) => {
+        if (id !== requestId.current) return;
+        setTeam(Array.isArray(data) ? data : []);
+        setState("ready");
+      })
+      .catch(() => {
+        if (id === requestId.current) setState("error");
+      });
+  }, []);
 
   useEffect(() => {
-    fetchTeam().then(setTeam).catch(() => {});
-    fetchCompany().then(setCompany).catch(() => {});
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    fetchCompany().then((data) => { if (active) setCompany(data); }).catch(() => {});
+    return () => { active = false; };
   }, []);
+
+  const closeMember = useCallback(() => {
+    setSelectedMember(null);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }, []);
+
+  function openMember(member: TeamMemberPayload, trigger: HTMLButtonElement) {
+    triggerRef.current = trigger;
+    setSelectedMember(member);
+  }
+
+  useEffect(() => {
+    if (!selectedMember) return;
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMember();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedMember, closeMember]);
 
   return (
     <>
-      <section className="py-20 bg-gray-50" dir="rtl">
+      <section className="section-corp-muted" dir="rtl" aria-labelledby="team-heading">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+          <div className="mb-10 text-center">
+            <h2 id="team-heading" className="mb-3 text-3xl font-bold text-gray-800 md:text-4xl">
               تعرف على فريقنا
             </h2>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              نخبة من المهندسين والخبراء المحترفين
+            <p className="mx-auto max-w-2xl text-gray-600">نخبة من المهندسين والخبراء المحترفين</p>
+          </div>
+
+          {state === "loading" && (
+            <p role="status" className="rounded-xl border border-[var(--corp-border)] bg-white p-6 text-center text-sm text-[var(--corp-muted)]">
+              جارٍ تحميل بيانات الفريق...
             </p>
-          </div>
+          )}
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {team.map((member) => (
-              <div
-                key={member.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`تفاصيل ${member.name}`}
-                onClick={() => setSelectedMember(member)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setSelectedMember(member);
-                  }
-                }}
-                className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
+          {state === "error" && (
+            <div role="alert" className="rounded-xl border border-[var(--corp-border)] bg-white p-6 text-center">
+              <p className="text-sm text-[var(--corp-muted)]">تعذّر عرض بيانات الفريق حالياً.</p>
+              <button
+                type="button"
+                onClick={load}
+                className="btn-corp-secondary mt-3 inline-flex items-center gap-2 text-sm focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
               >
-                {/* Image Container */}
-                <div className="relative h-56 overflow-hidden">
-                  {member.imageUrl ? (
-                    <img loading="lazy" decoding="async"                       src={member.imageUrl}
-                      alt={member.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
-                      <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
+                <RefreshCw size={15} aria-hidden="true" />
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+
+          {state === "ready" && team.length === 0 && (
+            <p className="rounded-xl border border-[var(--corp-border)] bg-white p-6 text-center text-sm text-[var(--corp-muted)]">
+              لا يوجد أعضاء فريق معروضون حالياً.
+            </p>
+          )}
+
+          {state === "ready" && team.length > 0 && (
+            <div className="grid gap-6 md:grid-cols-3">
+              {team.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  aria-label={`عرض تفاصيل ${member.name}`}
+                  onClick={(event) => openMember(member, event.currentTarget)}
+                  className="group relative w-full overflow-hidden rounded-2xl bg-white text-right shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
+                >
+                  <div className="relative h-56 overflow-hidden">
+                    {member.imageUrl ? (
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={member.imageUrl}
+                        alt={member.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
+                        <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                    <div className="absolute inset-x-0 bottom-0 translate-y-full p-6 text-white transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
+                      <p className="text-sm">اضغط لمعرفة المزيد</p>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                    <p className="text-sm leading-relaxed">انقر لمعرفة المزيد</p>
                   </div>
-                </div>
 
-                {/* Info */}
-                <div className="p-6">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{member.name}</h3>
-                  <p className="text-sq-green font-semibold mb-1">{member.position}</p>
-                  <p className="text-gray-600 text-sm">{member.specialization}</p>
-                </div>
+                  <div className="p-6">
+                    <h3 className="mb-2 text-2xl font-bold text-gray-800">{member.name}</h3>
+                    <p className="mb-1 font-semibold text-sq-green">{member.position}</p>
+                    <p className="text-sm text-gray-600">{member.specialization}</p>
+                  </div>
 
-                {/* Corner Badge */}
-                <div className="absolute top-4 left-4 bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                  <Award size={16} className="inline mr-1" />
-                  خبير
-                </div>
-              </div>
-            ))}
-          </div>
+                  <div className="absolute right-4 top-4 rounded-full bg-gradient-to-br from-sq-green via-sq-black to-sq-red px-4 py-2 text-sm font-bold text-white shadow-lg">
+                    <Award size={16} className="ms-1 inline" aria-hidden="true" />
+                    خبير
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Modal */}
       {selectedMember && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedMember(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={closeMember}
         >
           <div
-            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-dialog-title"
+            onClick={(event) => event.stopPropagation()}
             dir="rtl"
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
           >
             <button
+              ref={closeRef}
               type="button"
               aria-label="إغلاق التفاصيل"
-              onClick={() => setSelectedMember(null)}
-              className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition shadow-lg z-10"
+              onClick={closeMember}
+              className="absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-sq-green"
             >
-              <X size={24} className="text-gray-600" />
+              <X size={24} className="text-gray-600" aria-hidden="true" />
             </button>
 
-            {/* Header Image */}
             <div className="relative h-64">
               {selectedMember.imageUrl ? (
-                <img loading="lazy" decoding="async"                   src={selectedMember.imageUrl}
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={selectedMember.imageUrl}
                   alt={selectedMember.name}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[var(--corp-surface)] text-slate-400">
-                      <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
-                    </div>
+                  <UsersRound size={44} strokeWidth={1.2} aria-hidden="true" />
+                </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" aria-hidden="true" />
               <div className="absolute bottom-6 right-6 text-white">
-                <h2 className="text-3xl font-bold mb-2">{selectedMember.name}</h2>
+                <h2 id="team-dialog-title" className="mb-2 text-3xl font-bold">{selectedMember.name}</h2>
                 <p className="text-xl text-emerald-200">{selectedMember.position}</p>
               </div>
             </div>
@@ -131,10 +226,10 @@ export default function InteractiveTeam() {
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
-                    <GraduationCap className="text-white" size={24} />
+                    <GraduationCap size={24} aria-hidden="true" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 mb-2">التخصص</h3>
+                    <h3 className="mb-2 font-bold text-gray-800">التخصص</h3>
                     <p className="text-gray-600">{selectedMember.specialization}</p>
                   </div>
                 </div>
@@ -142,10 +237,10 @@ export default function InteractiveTeam() {
                 {selectedMember.experience && (
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
-                      <Briefcase className="text-white" size={24} />
+                      <Briefcase size={24} aria-hidden="true" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 mb-2">الخبرة</h3>
+                      <h3 className="mb-2 font-bold text-gray-800">الخبرة</h3>
                       <p className="text-gray-600">{selectedMember.experience}</p>
                     </div>
                   </div>
@@ -154,17 +249,17 @@ export default function InteractiveTeam() {
                 {selectedMember.bio && (
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
-                      <Award className="text-white" size={24} />
+                      <Award size={24} aria-hidden="true" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 mb-2">نبذة</h3>
-                      <p className="text-gray-600 leading-relaxed">{selectedMember.bio}</p>
+                      <h3 className="mb-2 font-bold text-gray-800">نبذة</h3>
+                      <p className="leading-relaxed text-gray-600">{selectedMember.bio}</p>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 border-t border-gray-200 pt-6">
                 <a
                   href={
                     whatsappUrl(
@@ -174,7 +269,8 @@ export default function InteractiveTeam() {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
+                  aria-label={`التواصل مع ${selectedMember.name}`}
+                  className="btn-corp-primary w-full font-bold hover:shadow-lg focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
                 >
                   تواصل معنا
                 </a>

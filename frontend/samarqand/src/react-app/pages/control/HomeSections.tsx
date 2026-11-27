@@ -35,8 +35,10 @@ import {
 
 export default function ControlHomeSections() {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  // الترتيب كما هو محفوظ في الخلفية، للمقارنة قبل حفظ الترتيب صراحةً
+  const [savedOrders, setSavedOrders] = useState<Record<string, number[]>>({});
 
   const [trustBadges, setTrustBadges] = useState<AdminHomeTrustBadge[]>([]);
   const [stats, setStats] = useState<AdminHomeStat[]>([]);
@@ -78,8 +80,15 @@ export default function ControlHomeSections() {
       setTimeline([...c].sort((x, y) => x.sortOrder - y.sortOrder));
       setAiFeatures([...d].sort((x, y) => x.sortOrder - y.sortOrder));
       setAiMetrics([...e].sort((x, y) => x.sortOrder - y.sortOrder));
+      setSavedOrders({
+        trustBadges: [...a].sort((x, y) => x.sortOrder - y.sortOrder).map((x) => x.id),
+        stats: [...b].sort((x, y) => x.sortOrder - y.sortOrder).map((x) => x.id),
+        timeline: [...c].sort((x, y) => x.sortOrder - y.sortOrder).map((x) => x.id),
+        aiFeatures: [...d].sort((x, y) => x.sortOrder - y.sortOrder).map((x) => x.id),
+        aiMetrics: [...e].sort((x, y) => x.sortOrder - y.sortOrder).map((x) => x.id),
+      });
     } catch {
-      setStatus("error");
+      notify("error", "تعذر تحميل الأقسام. يرجى الضغط على «تحديث».");
     } finally {
       setLoading(false);
     }
@@ -87,19 +96,30 @@ export default function ControlHomeSections() {
 
   useEffect(() => {
     loadAll().catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial fetch only; refresh uses the explicit button
   }, []);
 
-  function bumpStatusSaved() {
-    setStatus("saved");
-    setTimeout(() => setStatus("idle"), 1500);
+  function notify(kind: "success" | "error", text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice(null), 4000);
   }
 
-  async function moveItem<T extends { id: number; sortOrder: number }>(
+  function clearNotice() {
+    setNotice(null);
+  }
+
+  function orderDirty(key: string, list: { id: number }[]): boolean {
+    const saved = savedOrders[key] || [];
+    if (saved.length !== list.length) return true;
+    return list.some((item, idx) => saved[idx] !== item.id);
+  }
+
+  // التحريك محلي فقط؛ الحفظ النهائي يتم عبر زر «حفظ الترتيب» في كل قسم
+  function moveItem<T extends { id: number; sortOrder: number }>(
     list: T[],
     setList: (items: T[]) => void,
     fromIndex: number,
     dir: -1 | 1,
-    reorder: (input: { ids: number[] }) => Promise<{ ok: boolean }>,
   ) {
     const toIndex = fromIndex + dir;
     if (toIndex < 0 || toIndex >= list.length) return;
@@ -107,21 +127,35 @@ export default function ControlHomeSections() {
     const tmp = next[fromIndex];
     next[fromIndex] = next[toIndex];
     next[toIndex] = tmp;
-    const normalized = next.map((m, idx) => ({ ...m, sortOrder: idx }));
-    setList(normalized);
-    setStatus("idle");
+    setList(next.map((m, idx) => ({ ...m, sortOrder: idx })));
+    clearNotice();
+  }
+
+  async function saveOrder<T extends { id: number }>(
+    key: string,
+    list: T[],
+    reorder: (input: { ids: number[] }) => Promise<{ ok: boolean }>,
+  ) {
+    if (!orderDirty(key, list)) {
+      notify("error", "لا توجد تغييرات في الترتيب لحفظها.");
+      return;
+    }
+    setSavingKey(`${key}-order`);
+    clearNotice();
     try {
-      const res = await reorder({ ids: normalized.map((m) => m.id) });
+      const res = await reorder({ ids: list.map((m) => m.id) });
       if (!res.ok) {
-        setStatus("error");
+        notify("error", "تعذر حفظ الترتيب. يرجى المحاولة مرة أخرى.");
         await loadAll();
         return;
       }
-      await loadAll();
-      bumpStatusSaved();
+      setSavedOrders((prev) => ({ ...prev, [key]: list.map((m) => m.id) }));
+      notify("success", "تم حفظ الترتيب بنجاح.");
     } catch {
-      setStatus("error");
+      notify("error", "تعذر حفظ الترتيب. يرجى المحاولة مرة أخرى.");
       await loadAll();
+    } finally {
+      setSavingKey(null);
     }
   }
 
@@ -142,13 +176,16 @@ export default function ControlHomeSections() {
         </button>
       </div>
 
-      {status === "saved" ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800">
-          تم الحفظ.
-        </div>
-      ) : status === "error" ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 text-red-700">
-          تعذر تنفيذ العملية.
+      {notice ? (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`border rounded-2xl p-4 mb-6 font-semibold ${
+            notice.kind === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {notice.text}
         </div>
       ) : null}
 
@@ -157,14 +194,23 @@ export default function ControlHomeSections() {
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
               <div className="text-xl font-bold text-gray-900">ميزات الثقة</div>
-              <div className="text-sm text-gray-600 mt-1">{trustBadges.length} عنصر</div>
+              <div className="text-sm text-gray-600 mt-1">{trustBadges.length} عنصر • رتّب بالأزرار ثم احفظ الترتيب</div>
             </div>
+            <button
+              type="button"
+              onClick={() => saveOrder("trustBadges", trustBadges, reorderAdminHomeTrustBadges)}
+              disabled={!orderDirty("trustBadges", trustBadges) || savingKey === "trustBadges-order"}
+              aria-label="حفظ ترتيب ميزات الثقة"
+              className="bg-sq-green text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+            >
+              {savingKey === "trustBadges-order" ? "جارٍ الحفظ..." : "حفظ الترتيب"}
+            </button>
           </div>
 
           <div className="border border-gray-200 rounded-2xl p-5 mb-6">
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
-              <input value={tbTitle} onChange={(e) => setTbTitle(e.target.value)} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <input value={tbTitle} onChange={(e) => setTbTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
               <input value={tbIconClass} onChange={(e) => setTbIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
               <textarea value={tbDescription} onChange={(e) => setTbDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
@@ -173,9 +219,9 @@ export default function ControlHomeSections() {
                 type="button"
                 onClick={async () => {
                   const title = tbTitle.trim();
-                  if (!title) return;
+                  if (!title) { notify("error", "العنوان مطلوب."); return; }
                   setSavingKey("tb-create");
-                  setStatus("idle");
+                  clearNotice();
                   try {
                     const res = await createAdminHomeTrustBadge({
                       title,
@@ -183,16 +229,16 @@ export default function ControlHomeSections() {
                       iconClass: tbIconClass || undefined,
                     });
                     if (!res.ok) {
-                      setStatus("error");
+                      notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                       return;
                     }
                     setTbTitle("");
                     setTbDescription("");
                     setTbIconClass("");
                     await loadAll();
-                    bumpStatusSaved();
+                    notify("success", "تم الحفظ بنجاح.");
                   } catch {
-                    setStatus("error");
+                    notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                   } finally {
                     setSavingKey(null);
                   }
@@ -219,15 +265,15 @@ export default function ControlHomeSections() {
                       <div className="text-xs text-gray-500 mt-1">الترتيب: {idx + 1}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button type="button" onClick={() => moveItem(trustBadges, setTrustBadges, idx, -1, reorderAdminHomeTrustBadges)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
-                      <button type="button" onClick={() => moveItem(trustBadges, setTrustBadges, idx, 1, reorderAdminHomeTrustBadges)} disabled={idx === trustBadges.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأعلى`} title="تحريك للأعلى" onClick={() => moveItem(trustBadges, setTrustBadges, idx, -1)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأسفل`} title="تحريك للأسفل" onClick={() => moveItem(trustBadges, setTrustBadges, idx, 1)} disabled={idx === trustBadges.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
                       <button
                         type="button"
                         onClick={async () => {
                           const title = m.title.trim();
-                          if (!title) return;
+                          if (!title) { notify("error", "العنوان مطلوب."); return; }
                           setSavingKey(`tb-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await updateAdminHomeTrustBadge(m.id, {
                               sortOrder: m.sortOrder,
@@ -236,12 +282,12 @@ export default function ControlHomeSections() {
                               iconClass: m.iconClass,
                             });
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -256,17 +302,17 @@ export default function ControlHomeSections() {
                         onClick={async () => {
                           if (!window.confirm("حذف العنصر؟")) return;
                           setSavingKey(`tb-del-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await deleteAdminHomeTrustBadge(m.id);
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
                             await loadAll();
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -278,7 +324,7 @@ export default function ControlHomeSections() {
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
-                    <input value={m.title} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <input value={m.title} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
                     <input value={m.iconClass} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
                     <textarea value={m.description} onChange={(e) => setTrustBadges((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
@@ -292,15 +338,24 @@ export default function ControlHomeSections() {
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
               <div className="text-xl font-bold text-gray-900">إحصاءات الهوم</div>
-              <div className="text-sm text-gray-600 mt-1">{stats.length} عنصر</div>
+              <div className="text-sm text-gray-600 mt-1">{stats.length} عنصر • رتّب بالأزرار ثم احفظ الترتيب</div>
             </div>
+            <button
+              type="button"
+              onClick={() => saveOrder("stats", stats, reorderAdminHomeStats)}
+              disabled={!orderDirty("stats", stats) || savingKey === "stats-order"}
+              aria-label="حفظ ترتيب الإحصاءات"
+              className="bg-sq-green text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+            >
+              {savingKey === "stats-order" ? "جارٍ الحفظ..." : "حفظ الترتيب"}
+            </button>
           </div>
 
           <div className="border border-gray-200 rounded-2xl p-5 mb-6">
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
-              <input value={stLabel} onChange={(e) => setStLabel(e.target.value)} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
-              <input value={stValue} onChange={(e) => setStValue(e.target.value)} placeholder="القيمة" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+              <input value={stLabel} onChange={(e) => setStLabel(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <input value={stValue} onChange={(e) => setStValue(e.target.value)} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
               <input value={stIconClass} onChange={(e) => setStIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
             </div>
             <div className="flex items-center justify-end mt-4">
@@ -309,22 +364,22 @@ export default function ControlHomeSections() {
                 onClick={async () => {
                   const label = stLabel.trim();
                   const value = stValue.trim();
-                  if (!label || !value) return;
+                  if (!label || !value) { notify("error", "العنوان والقيمة مطلوبان."); return; }
                   setSavingKey("st-create");
-                  setStatus("idle");
+                  clearNotice();
                   try {
                     const res = await createAdminHomeStat({ label, value, iconClass: stIconClass || undefined });
                     if (!res.ok) {
-                      setStatus("error");
+                      notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                       return;
                     }
                     setStLabel("");
                     setStValue("");
                     setStIconClass("");
                     await loadAll();
-                    bumpStatusSaved();
+                    notify("success", "تم الحفظ بنجاح.");
                   } catch {
-                    setStatus("error");
+                    notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                   } finally {
                     setSavingKey(null);
                   }
@@ -351,16 +406,16 @@ export default function ControlHomeSections() {
                       <div className="text-xs text-gray-500 mt-1">الترتيب: {idx + 1}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button type="button" onClick={() => moveItem(stats, setStats, idx, -1, reorderAdminHomeStats)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
-                      <button type="button" onClick={() => moveItem(stats, setStats, idx, 1, reorderAdminHomeStats)} disabled={idx === stats.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
+                      <button type="button" aria-label={`تحريك «${m.label || "العنصر"}» للأعلى`} title="تحريك للأعلى" onClick={() => moveItem(stats, setStats, idx, -1)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
+                      <button type="button" aria-label={`تحريك «${m.label || "العنصر"}» للأسفل`} title="تحريك للأسفل" onClick={() => moveItem(stats, setStats, idx, 1)} disabled={idx === stats.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
                       <button
                         type="button"
                         onClick={async () => {
                           const label = m.label.trim();
                           const value = m.value.trim();
-                          if (!label || !value) return;
+                          if (!label || !value) { notify("error", "العنوان والقيمة مطلوبان."); return; }
                           setSavingKey(`st-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await updateAdminHomeStat(m.id, {
                               sortOrder: m.sortOrder,
@@ -369,12 +424,12 @@ export default function ControlHomeSections() {
                               iconClass: m.iconClass,
                             });
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -389,17 +444,17 @@ export default function ControlHomeSections() {
                         onClick={async () => {
                           if (!window.confirm("حذف العنصر؟")) return;
                           setSavingKey(`st-del-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await deleteAdminHomeStat(m.id);
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
                             await loadAll();
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -411,8 +466,8 @@ export default function ControlHomeSections() {
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
-                    <input value={m.label} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, label: e.target.value } : x)))} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
-                    <input value={m.value} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, value: e.target.value } : x)))} placeholder="القيمة" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+                    <input value={m.label} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, label: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <input value={m.value} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, value: e.target.value } : x)))} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
                     <input value={m.iconClass} onChange={(e) => setStats((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" dir="ltr" />
                   </div>
                 </div>
@@ -425,14 +480,23 @@ export default function ControlHomeSections() {
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
               <div className="text-xl font-bold text-gray-900">خطوات العمل</div>
-              <div className="text-sm text-gray-600 mt-1">{timeline.length} عنصر</div>
+              <div className="text-sm text-gray-600 mt-1">{timeline.length} عنصر • رتّب بالأزرار ثم احفظ الترتيب</div>
             </div>
+            <button
+              type="button"
+              onClick={() => saveOrder("timeline", timeline, reorderAdminHomeTimeline)}
+              disabled={!orderDirty("timeline", timeline) || savingKey === "timeline-order"}
+              aria-label="حفظ ترتيب خطوات العمل"
+              className="bg-sq-green text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+            >
+              {savingKey === "timeline-order" ? "جارٍ الحفظ..." : "حفظ الترتيب"}
+            </button>
           </div>
 
           <div className="border border-gray-200 rounded-2xl p-5 mb-6">
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
-              <input value={tlTitle} onChange={(e) => setTlTitle(e.target.value)} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <input value={tlTitle} onChange={(e) => setTlTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
               <input value={tlIconClass} onChange={(e) => setTlIconClass(e.target.value)} placeholder="iconClass (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
               <textarea value={tlDescription} onChange={(e) => setTlDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
@@ -441,9 +505,9 @@ export default function ControlHomeSections() {
                 type="button"
                 onClick={async () => {
                   const title = tlTitle.trim();
-                  if (!title) return;
+                  if (!title) { notify("error", "العنوان مطلوب."); return; }
                   setSavingKey("tl-create");
-                  setStatus("idle");
+                  clearNotice();
                   try {
                     const res = await createAdminHomeTimelineStep({
                       title,
@@ -451,16 +515,16 @@ export default function ControlHomeSections() {
                       iconClass: tlIconClass || undefined,
                     });
                     if (!res.ok) {
-                      setStatus("error");
+                      notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                       return;
                     }
                     setTlTitle("");
                     setTlDescription("");
                     setTlIconClass("");
                     await loadAll();
-                    bumpStatusSaved();
+                    notify("success", "تم الحفظ بنجاح.");
                   } catch {
-                    setStatus("error");
+                    notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                   } finally {
                     setSavingKey(null);
                   }
@@ -487,15 +551,15 @@ export default function ControlHomeSections() {
                       <div className="text-xs text-gray-500 mt-1">الترتيب: {idx + 1}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button type="button" onClick={() => moveItem(timeline, setTimeline, idx, -1, reorderAdminHomeTimeline)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
-                      <button type="button" onClick={() => moveItem(timeline, setTimeline, idx, 1, reorderAdminHomeTimeline)} disabled={idx === timeline.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأعلى`} title="تحريك للأعلى" onClick={() => moveItem(timeline, setTimeline, idx, -1)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأسفل`} title="تحريك للأسفل" onClick={() => moveItem(timeline, setTimeline, idx, 1)} disabled={idx === timeline.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
                       <button
                         type="button"
                         onClick={async () => {
                           const title = m.title.trim();
-                          if (!title) return;
+                          if (!title) { notify("error", "العنوان مطلوب."); return; }
                           setSavingKey(`tl-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await updateAdminHomeTimelineStep(m.id, {
                               sortOrder: m.sortOrder,
@@ -504,12 +568,12 @@ export default function ControlHomeSections() {
                               iconClass: m.iconClass,
                             });
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -524,17 +588,17 @@ export default function ControlHomeSections() {
                         onClick={async () => {
                           if (!window.confirm("حذف العنصر؟")) return;
                           setSavingKey(`tl-del-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await deleteAdminHomeTimelineStep(m.id);
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
                             await loadAll();
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -546,7 +610,7 @@ export default function ControlHomeSections() {
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
-                    <input value={m.title} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <input value={m.title} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
                     <input value={m.iconClass} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, iconClass: e.target.value } : x)))} placeholder="iconClass" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
                     <textarea value={m.description} onChange={(e) => setTimeline((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
@@ -560,14 +624,23 @@ export default function ControlHomeSections() {
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
               <div className="text-xl font-bold text-gray-900">ميزات AI</div>
-              <div className="text-sm text-gray-600 mt-1">{aiFeatures.length} عنصر</div>
+              <div className="text-sm text-gray-600 mt-1">{aiFeatures.length} عنصر • رتّب بالأزرار ثم احفظ الترتيب</div>
             </div>
+            <button
+              type="button"
+              onClick={() => saveOrder("aiFeatures", aiFeatures, reorderAdminHomeAIFeatures)}
+              disabled={!orderDirty("aiFeatures", aiFeatures) || savingKey === "aiFeatures-order"}
+              aria-label="حفظ ترتيب ميزات AI"
+              className="bg-sq-green text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+            >
+              {savingKey === "aiFeatures-order" ? "جارٍ الحفظ..." : "حفظ الترتيب"}
+            </button>
           </div>
 
           <div className="border border-gray-200 rounded-2xl p-5 mb-6">
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
-              <input value={afTitle} onChange={(e) => setAfTitle(e.target.value)} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <input value={afTitle} onChange={(e) => setAfTitle(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
               <input value={afBadgeText} onChange={(e) => setAfBadgeText(e.target.value)} placeholder="Badge (اختياري)" className="border border-gray-200 rounded-xl px-4 py-3" />
               <textarea value={afDescription} onChange={(e) => setAfDescription(e.target.value)} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
             </div>
@@ -576,9 +649,9 @@ export default function ControlHomeSections() {
                 type="button"
                 onClick={async () => {
                   const title = afTitle.trim();
-                  if (!title) return;
+                  if (!title) { notify("error", "العنوان مطلوب."); return; }
                   setSavingKey("af-create");
-                  setStatus("idle");
+                  clearNotice();
                   try {
                     const res = await createAdminHomeAIFeature({
                       title,
@@ -586,16 +659,16 @@ export default function ControlHomeSections() {
                       badgeText: afBadgeText || undefined,
                     });
                     if (!res.ok) {
-                      setStatus("error");
+                      notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                       return;
                     }
                     setAfTitle("");
                     setAfDescription("");
                     setAfBadgeText("AI");
                     await loadAll();
-                    bumpStatusSaved();
+                    notify("success", "تم الحفظ بنجاح.");
                   } catch {
-                    setStatus("error");
+                    notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                   } finally {
                     setSavingKey(null);
                   }
@@ -622,15 +695,15 @@ export default function ControlHomeSections() {
                       <div className="text-xs text-gray-500 mt-1">الترتيب: {idx + 1}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button type="button" onClick={() => moveItem(aiFeatures, setAiFeatures, idx, -1, reorderAdminHomeAIFeatures)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
-                      <button type="button" onClick={() => moveItem(aiFeatures, setAiFeatures, idx, 1, reorderAdminHomeAIFeatures)} disabled={idx === aiFeatures.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأعلى`} title="تحريك للأعلى" onClick={() => moveItem(aiFeatures, setAiFeatures, idx, -1)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
+                      <button type="button" aria-label={`تحريك «${m.title || "العنصر"}» للأسفل`} title="تحريك للأسفل" onClick={() => moveItem(aiFeatures, setAiFeatures, idx, 1)} disabled={idx === aiFeatures.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
                       <button
                         type="button"
                         onClick={async () => {
                           const title = m.title.trim();
-                          if (!title) return;
+                          if (!title) { notify("error", "العنوان مطلوب."); return; }
                           setSavingKey(`af-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await updateAdminHomeAIFeature(m.id, {
                               sortOrder: m.sortOrder,
@@ -639,12 +712,12 @@ export default function ControlHomeSections() {
                               badgeText: m.badgeText,
                             });
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -659,17 +732,17 @@ export default function ControlHomeSections() {
                         onClick={async () => {
                           if (!window.confirm("حذف العنصر؟")) return;
                           setSavingKey(`af-del-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await deleteAdminHomeAIFeature(m.id);
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
                             await loadAll();
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -681,7 +754,7 @@ export default function ControlHomeSections() {
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
-                    <input value={m.title} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <input value={m.title} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
                     <input value={m.badgeText} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, badgeText: e.target.value } : x)))} placeholder="Badge" className="border border-gray-200 rounded-xl px-4 py-3" />
                     <textarea value={m.description} onChange={(e) => setAiFeatures((prev) => prev.map((x) => (x.id === m.id ? { ...x, description: e.target.value } : x)))} placeholder="الوصف" className="border border-gray-200 rounded-xl px-4 py-3 md:col-span-2" rows={3} />
                   </div>
@@ -695,15 +768,24 @@ export default function ControlHomeSections() {
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
               <div className="text-xl font-bold text-gray-900">مؤشرات AI</div>
-              <div className="text-sm text-gray-600 mt-1">{aiMetrics.length} عنصر</div>
+              <div className="text-sm text-gray-600 mt-1">{aiMetrics.length} عنصر • رتّب بالأزرار ثم احفظ الترتيب</div>
             </div>
+            <button
+              type="button"
+              onClick={() => saveOrder("aiMetrics", aiMetrics, reorderAdminHomeAIMetrics)}
+              disabled={!orderDirty("aiMetrics", aiMetrics) || savingKey === "aiMetrics-order"}
+              aria-label="حفظ ترتيب مؤشرات AI"
+              className="bg-sq-green text-white px-4 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+            >
+              {savingKey === "aiMetrics-order" ? "جارٍ الحفظ..." : "حفظ الترتيب"}
+            </button>
           </div>
 
           <div className="border border-gray-200 rounded-2xl p-5 mb-6">
             <div className="font-bold text-gray-900 mb-4">إضافة عنصر</div>
             <div className="grid md:grid-cols-2 gap-3">
-              <input value={amValue} onChange={(e) => setAmValue(e.target.value)} placeholder="القيمة" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-              <input value={amLabel} onChange={(e) => setAmLabel(e.target.value)} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+              <input value={amValue} onChange={(e) => setAmValue(e.target.value)} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+              <input value={amLabel} onChange={(e) => setAmLabel(e.target.value)} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
             </div>
             <div className="flex items-center justify-end mt-4">
               <button
@@ -711,21 +793,21 @@ export default function ControlHomeSections() {
                 onClick={async () => {
                   const value = amValue.trim();
                   const label = amLabel.trim();
-                  if (!value || !label) return;
+                  if (!value || !label) { notify("error", "القيمة والعنوان مطلوبان."); return; }
                   setSavingKey("am-create");
-                  setStatus("idle");
+                  clearNotice();
                   try {
                     const res = await createAdminHomeAIMetric({ value, label });
                     if (!res.ok) {
-                      setStatus("error");
+                      notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                       return;
                     }
                     setAmValue("");
                     setAmLabel("");
                     await loadAll();
-                    bumpStatusSaved();
+                    notify("success", "تم الحفظ بنجاح.");
                   } catch {
-                    setStatus("error");
+                    notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                   } finally {
                     setSavingKey(null);
                   }
@@ -752,16 +834,16 @@ export default function ControlHomeSections() {
                       <div className="text-xs text-gray-500 mt-1">الترتيب: {idx + 1}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button type="button" onClick={() => moveItem(aiMetrics, setAiMetrics, idx, -1, reorderAdminHomeAIMetrics)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
-                      <button type="button" onClick={() => moveItem(aiMetrics, setAiMetrics, idx, 1, reorderAdminHomeAIMetrics)} disabled={idx === aiMetrics.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
+                      <button type="button" aria-label={`تحريك «${m.label || "العنصر"}» للأعلى`} title="تحريك للأعلى" onClick={() => moveItem(aiMetrics, setAiMetrics, idx, -1)} disabled={idx === 0} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↑</button>
+                      <button type="button" aria-label={`تحريك «${m.label || "العنصر"}» للأسفل`} title="تحريك للأسفل" onClick={() => moveItem(aiMetrics, setAiMetrics, idx, 1)} disabled={idx === aiMetrics.length - 1} className="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50">↓</button>
                       <button
                         type="button"
                         onClick={async () => {
                           const value = m.value.trim();
                           const label = m.label.trim();
-                          if (!value || !label) return;
+                          if (!value || !label) { notify("error", "القيمة والعنوان مطلوبان."); return; }
                           setSavingKey(`am-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await updateAdminHomeAIMetric(m.id, {
                               sortOrder: m.sortOrder,
@@ -769,12 +851,12 @@ export default function ControlHomeSections() {
                               label,
                             });
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -789,17 +871,17 @@ export default function ControlHomeSections() {
                         onClick={async () => {
                           if (!window.confirm("حذف العنصر؟")) return;
                           setSavingKey(`am-del-${m.id}`);
-                          setStatus("idle");
+                          clearNotice();
                           try {
                             const res = await deleteAdminHomeAIMetric(m.id);
                             if (!res.ok) {
-                              setStatus("error");
+                              notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                               return;
                             }
                             await loadAll();
-                            bumpStatusSaved();
+                            notify("success", "تم الحفظ بنجاح.");
                           } catch {
-                            setStatus("error");
+                            notify("error", "تعذر تنفيذ العملية. يرجى المحاولة مرة أخرى.");
                           } finally {
                             setSavingKey(null);
                           }
@@ -811,8 +893,8 @@ export default function ControlHomeSections() {
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 mt-4">
-                    <input value={m.value} onChange={(e) => setAiMetrics((prev) => prev.map((x) => (x.id === m.id ? { ...x, value: e.target.value } : x)))} placeholder="القيمة" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
-                    <input value={m.label} onChange={(e) => setAiMetrics((prev) => prev.map((x) => (x.id === m.id ? { ...x, label: e.target.value } : x)))} placeholder="العنوان" className="border border-gray-200 rounded-xl px-4 py-3" />
+                    <input value={m.value} onChange={(e) => setAiMetrics((prev) => prev.map((x) => (x.id === m.id ? { ...x, value: e.target.value } : x)))} placeholder="القيمة *" aria-label="القيمة (مطلوبة)" className="border border-gray-200 rounded-xl px-4 py-3" dir="ltr" />
+                    <input value={m.label} onChange={(e) => setAiMetrics((prev) => prev.map((x) => (x.id === m.id ? { ...x, label: e.target.value } : x)))} placeholder="العنوان *" aria-label="العنوان (مطلوب)" className="border border-gray-200 rounded-xl px-4 py-3" />
                   </div>
                 </div>
               ))}

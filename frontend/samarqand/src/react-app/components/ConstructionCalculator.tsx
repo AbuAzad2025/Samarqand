@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Calculator, DollarSign, Package, Users, FileText, Download } from 'lucide-react';
+import {
+  AlertCircle,
+  Calculator,
+  Check,
+  Copy,
+  DollarSign,
+  Download,
+  FileText,
+  Package,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import { apiFetch, fetchCompany, type CompanyPayload } from '@/react-app/api/site';
 import { whatsappUrl } from '@/react-app/utils/whatsapp';
 
@@ -32,6 +43,9 @@ interface CalculationResult {
   notes: string[];
 }
 
+const MAX_AREA = 100000;
+const MAX_FLOORS = 20;
+
 export default function ConstructionCalculator() {
   const [projectType, setProjectType] = useState('');
   const [area, setArea] = useState('');
@@ -40,6 +54,8 @@ export default function ConstructionCalculator() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [company, setCompany] = useState<CompanyPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchCompany().then(setCompany).catch(() => {});
@@ -59,9 +75,32 @@ export default function ConstructionCalculator() {
     'مسجد',
   ];
 
+  const validateInputs = (): string | null => {
+    if (!projectType) return 'يرجى اختيار نوع المشروع.';
+    const areaValue = Number(area);
+    if (!area.trim() || !Number.isFinite(areaValue) || areaValue <= 0) {
+      return 'يرجى إدخال مساحة صحيحة أكبر من صفر.';
+    }
+    if (areaValue > MAX_AREA) {
+      return `لا يمكن أن تتجاوز المساحة ${MAX_AREA.toLocaleString('en-US')} متر مربع.`;
+    }
+    const floorsValue = Number(floors);
+    if (!Number.isInteger(floorsValue) || floorsValue < 1 || floorsValue > MAX_FLOORS) {
+      return `عدد الطوابق يجب أن يكون رقماً صحيحاً بين 1 و ${MAX_FLOORS}.`;
+    }
+    return null;
+  };
+
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectType || !area) return;
+    setError(null);
+    setCopied(false);
+
+    const validationError = validateInputs();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setIsCalculating(true);
     setResult(null);
@@ -72,42 +111,59 @@ export default function ConstructionCalculator() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectType,
-          area: parseFloat(area),
-          floors: parseInt(floors),
+          area: Number(area),
+          floors: Number(floors),
           currency,
         }),
       });
 
-      if (!response.ok) throw new Error('فشل في حساب الكميات');
+      if (!response.ok) {
+        throw new Error('تعذّر إكمال الحساب حالياً. يرجى المحاولة لاحقاً أو التواصل معنا.');
+      }
 
-      const data = await response.json();
+      const data = (await response.json()) as CalculationResult;
       setResult(data);
-    } catch (error) {
-      console.error('Calculation error:', error);
-      alert('حدث خطأ في حساب الكميات. يرجى المحاولة مرة أخرى.');
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'تعذّر إكمال الحساب حالياً. يرجى المحاولة لاحقاً أو التواصل معنا.',
+      );
     } finally {
       setIsCalculating(false);
     }
   };
 
+  const resetForm = () => {
+    setProjectType('');
+    setArea('');
+    setFloors('1');
+    setCurrency('ILS');
+    setResult(null);
+    setError(null);
+    setCopied(false);
+    setIsCalculating(false);
+  };
+
   const activeCurrency = (result?.summary?.currency || currency) as 'ILS' | 'USD';
+  const currencyUnitLabel = activeCurrency === 'ILS' ? 'شيكل فلسطيني (₪)' : 'دولار أمريكي ($)';
   const formatCurrency = (amount: number) => {
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
     return new Intl.NumberFormat('ar-PS', {
       style: 'currency',
       currency: activeCurrency,
       minimumFractionDigits: activeCurrency === 'USD' ? 2 : 0,
       maximumFractionDigits: activeCurrency === 'USD' ? 2 : 0,
-    }).format(amount || 0);
+    }).format(safeAmount);
   };
 
-  const downloadPDF = () => {
-    if (!result) return;
-    
-    // إنشاء محتوى نصي للتقرير
+  const buildReport = () => {
+    if (!result) return '';
     let content = `تقرير حساب الكميات والتكاليف\n\n`;
     content += `نوع المشروع: ${projectType}\n`;
     content += `المساحة: ${area} متر مربع\n`;
-    content += `عدد الطوابق: ${floors}\n\n`;
+    content += `عدد الطوابق: ${floors}\n`;
+    content += `العملة: ${currencyUnitLabel}\n\n`;
     content += `========================================\n\n`;
 
     if (result.boq?.sections?.length) {
@@ -120,36 +176,45 @@ export default function ConstructionCalculator() {
       });
     } else {
       content += `الأعمال الإنشائية:\n`;
-      result.quantities.structural.forEach(item => {
+      (result.quantities?.structural ?? []).forEach((item) => {
         content += `- ${item.item}: ${item.quantity} ${item.unit} × ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}\n`;
       });
-      
+
       content += `\nأعمال التشطيبات:\n`;
-      result.quantities.finishes.forEach(item => {
+      (result.quantities?.finishes ?? []).forEach((item) => {
         content += `- ${item.item}: ${item.quantity} ${item.unit} × ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}\n`;
       });
-      
+
       content += `\nمواد أخرى:\n`;
-      result.quantities.other.forEach(item => {
+      (result.quantities?.other ?? []).forEach((item) => {
         content += `- ${item.item}: ${item.quantity} ${item.unit} × ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}\n`;
       });
     }
-    
+
     content += `\n========================================\n`;
-    content += `\nالملخص المالي:\n`;
+    content += `\nالملخص المالي (${currencyUnitLabel}):\n`;
     content += `تكلفة المواد: ${formatCurrency(result.summary.materialsCost)}\n`;
     content += `تكلفة العمالة: ${formatCurrency(result.summary.laborCost)}\n`;
     if (typeof result.summary.overheadCost === 'number') {
       content += `مصروفات عامة: ${formatCurrency(result.summary.overheadCost)}\n`;
     }
     content += `التكلفة الإجمالية: ${formatCurrency(result.summary.totalCost)}\n`;
-    
-    content += `\nملاحظات:\n`;
-    result.notes.forEach((note, idx) => {
-      content += `${idx + 1}. ${note}\n`;
-    });
-    
-    // إنشاء وتنزيل الملف
+
+    const notes = result.notes ?? [];
+    if (notes.length) {
+      content += `\nملاحظات:\n`;
+      notes.forEach((note, idx) => {
+        content += `${idx + 1}. ${note}\n`;
+      });
+    }
+
+    return content;
+  };
+
+  const downloadReport = () => {
+    const content = buildReport();
+    if (!content) return;
+
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -160,6 +225,23 @@ export default function ConstructionCalculator() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const copyResult = async () => {
+    const content = buildReport();
+    if (!content) return;
+
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('تعذّر نسخ النتيجة. يمكنك تنزيل التقرير بدلاً من ذلك.');
+    }
+  };
+
+  const areaInvalid = Boolean(error && error.includes('مساحة'));
+  const floorsInvalid = Boolean(error && error.includes('الطوابق'));
+  const projectInvalid = Boolean(error && error.includes('نوع المشروع'));
 
   return (
     <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50" id="calculator">
@@ -202,13 +284,16 @@ export default function ConstructionCalculator() {
                 معلومات المشروع
               </h3>
 
-              <form onSubmit={handleCalculate} className="space-y-6">
+              <form onSubmit={handleCalculate} className="space-y-6" noValidate>
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
                   <select aria-label="خيار الحاسبة الهندسية"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:border-sq-green focus:outline-none transition ${
+                      projectInvalid ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    aria-invalid={projectInvalid}
                     required
                   >
                     <option value="">اختر نوع المشروع</option>
@@ -226,12 +311,17 @@ export default function ConstructionCalculator() {
                   </label>
                   <input aria-label="الكمية أو المساحة"
                     type="number"
+                    inputMode="decimal"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     placeholder="مثال: 200"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:border-sq-green focus:outline-none transition ${
+                      areaInvalid ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    aria-invalid={areaInvalid}
                     required
                     min="1"
+                    max={MAX_AREA}
                     step="0.01"
                   />
                 </div>
@@ -240,78 +330,123 @@ export default function ConstructionCalculator() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     عدد الطوابق
                   </label>
-                  <input aria-label="خيار الحاسبة الهندسية"
+                  <input aria-label="عدد الطوابق"
                     type="number"
+                    inputMode="numeric"
                     value={floors}
                     onChange={(e) => setFloors(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:border-sq-green focus:outline-none transition ${
+                      floorsInvalid ? 'border-red-400' : 'border-gray-200'
+                    }`}
+                    aria-invalid={floorsInvalid}
                     required
                     min="1"
-                    max="20"
+                    max={MAX_FLOORS}
+                    step="1"
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isCalculating}
-                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isCalculating ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      جارٍ الحساب...
-                    </>
-                  ) : (
-                    <>
-                      <Calculator size={24} />
-                      احسب الكميات والتكاليف
-                    </>
-                  )}
-                </button>
+                {error ? (
+                  <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="submit"
+                    disabled={isCalculating}
+                    className="btn-corp-primary flex-1 font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isCalculating ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        جارٍ الحساب...
+                      </>
+                    ) : (
+                      <>
+                        <Calculator size={24} />
+                        احسب الكميات والتكاليف
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-gray-200 px-6 py-3 font-bold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <RefreshCw size={20} />
+                    إعادة تعيين
+                  </button>
+                </div>
               </form>
 
               <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800">
-                  💡 <strong>ملاحظة:</strong> الحسابات مبنية على أسعار السوق الفلسطيني الحالية وقد تختلف
-                  حسب المنطقة والموردين
+                  💡 <strong>ملاحظة:</strong> الحسابات تقديرية مبنية على معاملات السوق الفلسطيني وقد تختلف
+                  حسب المنطقة والموردين. النتيجة ليست عرض سعر نهائي.
                 </p>
               </div>
             </div>
 
             {/* Results */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
-              {!result && !isCalculating && (
+              {!result && !isCalculating && !error && (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <Package className="text-green-400 mb-4" size={64} />
                   <p className="text-gray-600 text-lg">
-                    أدخل معلومات المشروع للحصول على حساب دقيق للكميات والتكاليف
+                    أدخل معلومات المشروع للحصول على حساب تقديري للكميات والتكاليف
                   </p>
+                  <p className="mt-2 text-sm text-gray-500">ستظهر النتائج هنا مع بيان العملة والوحدات.</p>
+                </div>
+              )}
+
+              {!result && !isCalculating && error && (
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <AlertCircle className="mb-4 text-red-400" size={64} />
+                  <p className="text-gray-600 text-lg">لم يتم إنتاج نتائج بعد.</p>
+                  <p className="mt-2 text-sm text-gray-500">صحّح المدخلات أو أعد المحاولة.</p>
                 </div>
               )}
 
               {isCalculating && (
-                <div className="h-full flex flex-col items-center justify-center">
+                <div className="h-full flex flex-col items-center justify-center" aria-busy="true">
                   <div className="relative">
                     <Calculator className="text-green-500 animate-pulse" size={80} />
                     <DollarSign className="absolute -top-2 -right-2 text-emerald-500 animate-bounce" size={32} />
                   </div>
                   <p className="text-gray-700 text-lg mt-6 font-semibold">
-                    الذكاء الاصطناعي يحسب الكميات...
+                    جارٍ حساب الكميات والتكاليف...
                   </p>
                 </div>
               )}
 
               {result && (
                 <div className="space-y-6 max-h-[600px] overflow-y-auto animate-fade-in">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-2xl font-bold text-gray-800">نتائج الحساب</h3>
-                    <button
-                      onClick={downloadPDF}
-                      className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
-                    >
-                      <Download size={18} />
-                      تنزيل التقرير
-                    </button>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-800">نتائج الحساب</h3>
+                      <p className="mt-1 text-sm text-gray-500">جميع المبالغ بـ {currencyUnitLabel}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={copyResult}
+                        className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-white px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                      >
+                        {copied ? <Check size={18} /> : <Copy size={18} />}
+                        {copied ? 'تم النسخ' : 'نسخ النتيجة'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadReport}
+                        className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                      >
+                        <Download size={18} />
+                        تنزيل التقرير
+                      </button>
+                    </div>
                   </div>
 
                   {/* Summary Cards */}
@@ -320,16 +455,19 @@ export default function ConstructionCalculator() {
                       <Package className="mb-2" size={24} />
                       <p className="text-sm opacity-90">المواد</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.materialsCost)}</p>
+                      <p className="mt-1 text-xs opacity-80">{currencyUnitLabel}</p>
                     </div>
                     <div className="rounded-xl bg-[var(--corp-green-soft)] p-4 text-[var(--corp-green)]">
                       <Users className="mb-2" size={24} />
                       <p className="text-sm opacity-90">العمالة</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.laborCost)}</p>
+                      <p className="mt-1 text-xs opacity-80">{currencyUnitLabel}</p>
                     </div>
                     <div className="rounded-xl bg-[var(--corp-green-soft)] p-4 text-[var(--corp-green)]">
                       <DollarSign className="mb-2" size={24} />
                       <p className="text-sm opacity-90">الإجمالي</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.totalCost)}</p>
+                      <p className="mt-1 text-xs opacity-80">{currencyUnitLabel}</p>
                     </div>
                   </div>
 
@@ -343,11 +481,11 @@ export default function ConstructionCalculator() {
                           </h4>
                           <div className="space-y-2">
                             {sec.items.map((item, idx) => (
-                              <div key={`${item.item}_${idx}`} className="flex justify-between text-sm">
+                              <div key={`${item.item}_${idx}`} className="flex justify-between gap-3 text-sm">
                                 <span className="text-gray-700">
                                   {item.item} ({item.quantity} {item.unit})
                                 </span>
-                                <span className="font-semibold text-gray-800">
+                                <span className="flex-shrink-0 font-semibold text-gray-800">
                                   {formatCurrency(item.total)}
                                 </span>
                               </div>
@@ -364,12 +502,12 @@ export default function ConstructionCalculator() {
                           الأعمال الإنشائية
                         </h4>
                         <div className="space-y-2">
-                          {result.quantities.structural.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
+                          {(result.quantities?.structural ?? []).map((item, idx) => (
+                            <div key={idx} className="flex justify-between gap-3 text-sm">
                               <span className="text-gray-700">
                                 {item.item} ({item.quantity} {item.unit})
                               </span>
-                              <span className="font-semibold text-gray-800">
+                              <span className="flex-shrink-0 font-semibold text-gray-800">
                                 {formatCurrency(item.total)}
                               </span>
                             </div>
@@ -383,12 +521,12 @@ export default function ConstructionCalculator() {
                           أعمال التشطيبات
                         </h4>
                         <div className="space-y-2">
-                          {result.quantities.finishes.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
+                          {(result.quantities?.finishes ?? []).map((item, idx) => (
+                            <div key={idx} className="flex justify-between gap-3 text-sm">
                               <span className="text-gray-700">
                                 {item.item} ({item.quantity} {item.unit})
                               </span>
-                              <span className="font-semibold text-gray-800">
+                              <span className="flex-shrink-0 font-semibold text-gray-800">
                                 {formatCurrency(item.total)}
                               </span>
                             </div>
@@ -396,19 +534,19 @@ export default function ConstructionCalculator() {
                         </div>
                       </div>
 
-                      {result.quantities.other.length > 0 && (
+                      {(result.quantities?.other?.length ?? 0) > 0 && (
                         <div className="bg-gray-50 rounded-lg p-4">
                           <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                             <Package className="text-orange-500" size={20} />
                             مواد أخرى
                           </h4>
                           <div className="space-y-2">
-                            {result.quantities.other.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-sm">
+                            {(result.quantities?.other ?? []).map((item, idx) => (
+                              <div key={idx} className="flex justify-between gap-3 text-sm">
                                 <span className="text-gray-700">
                                   {item.item} ({item.quantity} {item.unit})
                                 </span>
-                                <span className="font-semibold text-gray-800">
+                                <span className="flex-shrink-0 font-semibold text-gray-800">
                                   {formatCurrency(item.total)}
                                 </span>
                               </div>
@@ -420,11 +558,11 @@ export default function ConstructionCalculator() {
                   )}
 
                   {/* Notes */}
-                  {result.notes.length > 0 && (
+                  {(result.notes ?? []).length > 0 && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h4 className="font-bold text-emerald-900 mb-2">ملاحظات مهمة:</h4>
                       <ul className="space-y-1 text-sm text-emerald-800">
-                        {result.notes.map((note, idx) => (
+                        {(result.notes ?? []).map((note, idx) => (
                           <li key={idx}>• {note}</li>
                         ))}
                       </ul>
@@ -435,7 +573,7 @@ export default function ConstructionCalculator() {
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
+                    className="block w-full btn-corp-primary font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر نهائي
                   </a>

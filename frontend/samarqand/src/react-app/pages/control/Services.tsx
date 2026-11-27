@@ -8,14 +8,22 @@ export default function ControlServices() {
   const [items, setItems] = useState<AdminServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+
+  function notify(kind: "success" | "error", text: string) {
+    setNotice({ kind, text });
+    window.setTimeout(() => setNotice(null), 4000);
+  }
 
   async function load() {
     setLoading(true);
     try {
       const data = await fetchAdminServices();
       setItems(data);
+    } catch {
+      notify("error", "تعذر تحميل الخدمات. يرجى الضغط على «تحديث».");
     } finally {
       setLoading(false);
     }
@@ -23,21 +31,30 @@ export default function ControlServices() {
 
   useEffect(() => {
     load().catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial fetch only; refresh uses the explicit button
   }, []);
 
   const liveCount = useMemo(() => items.filter((i) => i.live).length, [items]);
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      notify("error", "عنوان الخدمة مطلوب.");
+      return;
+    }
     setCreating(true);
+    setNotice(null);
     try {
       const res = await createAdminService({ title, slug: slug || undefined });
-      if (res.ok && res.id) {
-        setTitle("");
-        setSlug("");
-        navigate(`/control/services/${res.id}`);
+      if (!res.ok || !res.id) {
+        notify("error", "تعذر إنشاء الخدمة. يرجى المحاولة مرة أخرى.");
+        return;
       }
+      setTitle("");
+      setSlug("");
+      navigate(`/control/services/${res.id}`);
+    } catch {
+      notify("error", "تعذر إنشاء الخدمة. يرجى المحاولة مرة أخرى.");
     } finally {
       setCreating(false);
     }
@@ -55,18 +72,35 @@ export default function ControlServices() {
         <button
           type="button"
           onClick={() => load()}
-          className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
+          disabled={loading}
+          aria-label="تحديث قائمة الخدمات"
+          className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
         >
-          تحديث
+          {loading ? "جارٍ التحديث..." : "تحديث"}
         </button>
       </div>
 
+      {notice ? (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`border rounded-2xl p-4 mb-6 font-semibold ${
+            notice.kind === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {notice.text}
+        </div>
+      ) : null}
+
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-8">
-        <div className="text-lg font-bold text-gray-900 mb-4">إضافة خدمة</div>
+        <div className="text-lg font-bold text-gray-900">إضافة خدمة</div>
+        <p className="text-sm text-gray-600 mt-1 mb-4">الحقل المميز بـ * إلزامي؛ تُنشأ الخدمة كمسودة ثم تُكمل تحريرها.</p>
         <form onSubmit={onCreate} className="grid md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">العنوان</label>
+            <label htmlFor="new-service-title" className="block text-sm font-semibold text-gray-700 mb-2">العنوان *</label>
             <input
+              id="new-service-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -74,21 +108,31 @@ export default function ControlServices() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Slug (اختياري)</label>
+            <label htmlFor="new-service-slug" className="block text-sm font-semibold text-gray-700 mb-2">Slug (اختياري)</label>
             <input
+              id="new-service-slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
               dir="ltr"
             />
           </div>
-          <button
-            type="submit"
-            disabled={creating}
-            className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
-          >
-            {creating ? "جارٍ الإنشاء..." : "إنشاء"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => { setTitle(""); setSlug(""); setNotice(null); }}
+              className="bg-white border border-gray-200 text-gray-800 px-5 py-3 rounded-lg font-semibold hover:shadow-sm transition"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              disabled={creating || !title.trim()}
+              className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            >
+              {creating ? "جارٍ الإنشاء..." : "إنشاء"}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -128,13 +172,20 @@ export default function ControlServices() {
                 </div>
                 <Link
                   to={`/control/services/${s.id}`}
+                  aria-label={`تحرير الخدمة ${s.title}`}
                   className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition"
                 >
                   تحرير
                 </Link>
               </div>
             ))}
-            {!items.length && <div className="p-6 text-gray-600">لا يوجد خدمات.</div>}
+            {!items.length && (
+              <div className="p-10 text-center">
+                <div className="text-3xl mb-2" aria-hidden="true">🧰</div>
+                <div className="font-bold text-gray-900">لا توجد خدمات بعد</div>
+                <p className="text-sm text-gray-600 mt-2">استخدم النموذج أعلاه لإضافة خدمة جديدة وتحرير تفاصيلها.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

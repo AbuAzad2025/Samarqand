@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowDown, ArrowUp, Copy, Download, Plus, Printer, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Download, Plus, Printer, Trash2, X } from "lucide-react";
 
 import {
   deleteAdminRfqDocument,
@@ -111,6 +111,88 @@ function calcTotals(payload: RfqPayload): { subtotal: number; discount: number; 
   };
 }
 
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  danger = false,
+  busy = false,
+  error = "",
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  danger?: boolean;
+  busy?: boolean;
+  error?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      dir="rtl"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-2xl p-6">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="إغلاق"
+            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="text-sm leading-relaxed text-gray-600 mt-3">{description}</p>
+        {error ? (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-3">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex items-center justify-end gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-gray-300 text-gray-800 px-4 py-2 font-bold hover:bg-gray-50 transition"
+          >
+            إلغاء
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={`rounded-lg text-white px-4 py-2 font-bold hover:shadow-lg transition disabled:opacity-50 ${
+              danger
+                ? "bg-gradient-to-r from-red-600 to-red-500"
+                : "bg-gradient-to-r from-sq-green via-sq-black to-sq-red"
+            }`}
+          >
+            {busy ? "جارٍ التنفيذ..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type EditorSnapshot = {
+  title: string;
+  templateKey: string;
+  currency: string;
+  vendor: RfqVendor;
+  rfq: RfqMeta;
+  items: RfqItem[];
+  taxRatePct: number;
+  discountRatePct: number;
+};
+
 export default function ControlRFQDocumentEdit() {
   const params = useParams();
   const navigate = useNavigate();
@@ -119,6 +201,12 @@ export default function ControlRFQDocumentEdit() {
   const [company, setCompany] = useState<CompanyPayload | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [loadError, setLoadError] = useState(false);
+  const [validationError, setValidationError] = useState("");
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const [title, setTitle] = useState("");
   const [templateKey, setTemplateKey] = useState("");
@@ -143,30 +231,50 @@ export default function ControlRFQDocumentEdit() {
   const [discountRatePct, setDiscountRatePct] = useState(0);
   const [showJson, setShowJson] = useState(false);
   const originalSnapshotRef = useRef<string>("");
+  const originalRef = useRef<EditorSnapshot | null>(null);
 
   const load = useCallback(async () => {
     const d = await fetchAdminRfqDocumentDetail(id);
-    setData(d);
-    setTitle(d.title || "");
-    setTemplateKey(d.templateKey || "");
-    setCurrency(d.currency || "ILS");
     const normalized = normalizePayload(d.data || {});
+    const nextTitle = d.title || "";
+    const nextTemplateKey = d.templateKey || "";
+    const nextCurrency = d.currency || "ILS";
+    const nextTaxRatePct = toNumber(normalized.taxRate, 0) * 100;
+    const nextDiscountRatePct = toNumber(normalized.discountRate, 0) * 100;
+
+    setData(d);
+    setTitle(nextTitle);
+    setTemplateKey(nextTemplateKey);
+    setCurrency(nextCurrency);
     setVendor(normalized.vendor);
     setRfq(normalized.rfq);
     setItems(normalized.items);
-    setTaxRatePct(toNumber(normalized.taxRate, 0) * 100);
-    setDiscountRatePct(toNumber(normalized.discountRate, 0) * 100);
+    setTaxRatePct(nextTaxRatePct);
+    setDiscountRatePct(nextDiscountRatePct);
+    setValidationError("");
+    setStatus("idle");
     originalSnapshotRef.current = safeJsonStringify({
-      title: d.title || "",
-      templateKey: d.templateKey || "",
-      currency: d.currency || "ILS",
+      title: nextTitle,
+      templateKey: nextTemplateKey,
+      currency: nextCurrency,
       payload: normalized,
     });
+    originalRef.current = {
+      title: nextTitle,
+      templateKey: nextTemplateKey,
+      currency: nextCurrency,
+      vendor: normalized.vendor,
+      rfq: normalized.rfq,
+      items: normalized.items,
+      taxRatePct: nextTaxRatePct,
+      discountRatePct: nextDiscountRatePct,
+    };
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
-    load().catch(() => {});
+    setLoadError(false);
+    load().catch(() => setLoadError(true));
   }, [id, load]);
 
   useEffect(() => {
@@ -206,10 +314,15 @@ export default function ControlRFQDocumentEdit() {
 
   const onSave = useCallback(async () => {
     if (!id) return;
+    if (!title.trim()) {
+      setValidationError("العنوان مطلوب قبل الحفظ.");
+      return;
+    }
     setSaving(true);
     setStatus("idle");
+    setValidationError("");
     try {
-      const res = await updateAdminRfqDocument(id, { title, templateKey, currency, data: payload as unknown as Record<string, unknown> });
+      const res = await updateAdminRfqDocument(id, { title: title.trim(), templateKey, currency, data: payload as unknown as Record<string, unknown> });
       if (!res.ok) {
         setStatus("error");
         return;
@@ -223,6 +336,30 @@ export default function ControlRFQDocumentEdit() {
     }
   }, [currency, id, load, payload, templateKey, title]);
 
+  function restoreOriginal() {
+    const original = originalRef.current;
+    if (!original) return;
+    setTitle(original.title);
+    setTemplateKey(original.templateKey);
+    setCurrency(original.currency);
+    setVendor(original.vendor);
+    setRfq(original.rfq);
+    setItems(original.items);
+    setTaxRatePct(original.taxRatePct);
+    setDiscountRatePct(original.discountRatePct);
+    setValidationError("");
+    setStatus("idle");
+    setConfirmDiscard(false);
+  }
+
+  function handleCancel() {
+    if (!hasChanges) {
+      restoreOriginal();
+      return;
+    }
+    setConfirmDiscard(true);
+  }
+
   if (!id) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8">
@@ -234,7 +371,26 @@ export default function ControlRFQDocumentEdit() {
   if (!data) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8">
-        <div className="text-gray-700">جارٍ التحميل...</div>
+        {loadError ? (
+          <>
+            <div className="font-bold text-gray-900">تعذر تحميل النموذج.</div>
+            <p className="text-sm text-gray-600 mt-2">
+              تحقق من الاتصال ثم أعد المحاولة.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadError(false);
+                load().catch(() => setLoadError(true));
+              }}
+              className="mt-4 rounded-lg bg-gray-900 text-white px-4 py-2 font-bold hover:bg-gray-800 transition"
+            >
+              إعادة المحاولة
+            </button>
+          </>
+        ) : (
+          <div className="text-gray-700">جارٍ التحميل...</div>
+        )}
       </div>
     );
   }
@@ -251,8 +407,11 @@ export default function ControlRFQDocumentEdit() {
               {data.number || `#${data.id}`}
             </span>
           </div>
-          <p className="text-gray-600 mt-1" dir="ltr">
-            {data.templateKey || "—"}
+          <p className="text-gray-600 mt-1">
+            القالب: <span dir="ltr">{data.templateKey || "—"}</span>
+            {hasChanges ? (
+              <span className="mr-2 text-amber-700 font-bold">• توجد تعديلات غير محفوظة</span>
+            ) : null}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -281,15 +440,30 @@ export default function ControlRFQDocumentEdit() {
           </button>
           <button
             type="button"
+            onClick={handleCancel}
+            disabled={!hasChanges || saving}
+            className="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:shadow-sm transition disabled:opacity-50"
+            title="التراجع عن التعديلات غير المحفوظة"
+          >
+            إلغاء التعديلات
+          </button>
+          <button
+            type="button"
             onClick={onSave}
             disabled={!hasChanges || saving}
             className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50"
+            title={!hasChanges ? "لا توجد تعديلات للحفظ" : "حفظ التعديلات"}
           >
-            {saving ? "جارٍ الحفظ..." : "حفظ"}
+            {saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}
           </button>
         </div>
       </div>
 
+      {validationError ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-amber-900 font-semibold">
+          {validationError}
+        </div>
+      ) : null}
       {status === "saved" ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-emerald-800 font-semibold">
           تم الحفظ بنجاح.
@@ -306,16 +480,25 @@ export default function ControlRFQDocumentEdit() {
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
             <div className="grid gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">العنوان</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  عنوان النموذج <span className="text-red-600">*</span>
+                </label>
                 <input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setValidationError("");
+                  }}
+                  aria-invalid={Boolean(validationError)}
+                  placeholder="اكتب عنواناً يدل على محتوى النموذج"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
                 />
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Template Key</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    معرّف القالب (templateKey)
+                  </label>
                   <input
                     value={templateKey}
                     onChange={(e) => setTemplateKey(e.target.value)}
@@ -643,8 +826,13 @@ export default function ControlRFQDocumentEdit() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-              <div className="text-lg font-bold text-gray-900">معاينة</div>
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+              <div>
+                <div className="text-lg font-bold text-gray-900">معاينة مباشرة</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  تعرض التعديلات الحالية قبل الحفظ؛ اطبع أو نزّل PDF بعد التأكد من البيانات.
+                </div>
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -663,6 +851,21 @@ export default function ControlRFQDocumentEdit() {
                 </button>
               </div>
             </div>
+
+            {(vendor.name.trim() === "" || !items.some((it) => it.description.trim() !== "")) ? (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {vendor.name.trim() === "" ? (
+                  <span className="text-xs font-bold px-3 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                    اسم المورد غير مدخل
+                  </span>
+                ) : null}
+                {!items.some((it) => it.description.trim() !== "") ? (
+                  <span className="text-xs font-bold px-3 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                    لا توجد بنود مكتملة الوصف
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
             <div id="rfq-print" className="border border-gray-200 rounded-2xl overflow-hidden">
               <div className="bg-white p-6" dir="rtl">
@@ -899,14 +1102,15 @@ export default function ControlRFQDocumentEdit() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="text-lg font-bold text-gray-900 mb-4">حذف</div>
+            <div className="text-lg font-bold text-gray-900 mb-2">حذف النموذج</div>
+            <p className="text-xs text-gray-500 mb-4">
+              سيطلب تأكيداً قبل الحذف، ولا يمكن التراجع بعده.
+            </p>
             <button
               type="button"
-              onClick={async () => {
-                const ok = window.confirm("حذف هذا النموذج؟ لا يمكن التراجع.");
-                if (!ok) return;
-                const res = await deleteAdminRfqDocument(id).catch(() => ({ ok: false }));
-                if (res.ok) navigate("/control/rfq", { replace: true });
+              onClick={() => {
+                setDeleteError("");
+                setConfirmDelete(true);
               }}
               className="bg-gradient-to-r from-red-600 to-red-500 text-white px-4 py-2 rounded-lg font-bold hover:shadow-lg transition"
             >
@@ -915,6 +1119,39 @@ export default function ControlRFQDocumentEdit() {
           </div>
         </div>
       </div>
+
+      {confirmDiscard ? (
+        <ConfirmDialog
+          title="التراجع عن التعديلات؟"
+          description="ستتم إعادة الحقول إلى قيمها المحفوظة ولن تُحفظ التعديلات الحالية."
+          confirmLabel="تجاهل التعديلات"
+          onConfirm={restoreOriginal}
+          onCancel={() => setConfirmDiscard(false)}
+        />
+      ) : null}
+
+      {confirmDelete ? (
+        <ConfirmDialog
+          title="تأكيد حذف النموذج"
+          description={`سيتم حذف «${title || data.number || `#${id}`}» نهائياً. لا يمكن التراجع بعد الحذف.`}
+          confirmLabel="تأكيد الحذف"
+          danger
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            setDeleting(true);
+            setDeleteError("");
+            const res = await deleteAdminRfqDocument(id).catch(() => ({ ok: false }));
+            setDeleting(false);
+            if (res.ok) {
+              navigate("/control/rfq", { replace: true });
+            } else {
+              setDeleteError("تعذر حذف النموذج. حاول مرة أخرى.");
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

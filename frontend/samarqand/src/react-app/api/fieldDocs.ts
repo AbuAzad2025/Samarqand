@@ -1,4 +1,4 @@
-import { apiFetch, fetchJson, getCookie, readApiErrorCode, readApiResponse } from "@/react-app/api/site";
+import { apiFetch, fetchJson, getCookie, readApiErrorCode, readApiResponse, readItems } from "@/react-app/api/site";
 
 export async function uploadFieldDocFile(
   file: File,
@@ -150,14 +150,14 @@ export type SubmittalItem = {
 
 export async function fetchFieldDocsProjects(): Promise<FieldDocsProjectItem[]> {
   const data = await fetchJson<{ items: FieldDocsProjectItem[] }>("/api/admin/field-docs/projects");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchCorrespondence(projectId: number): Promise<CorrespondenceItem[]> {
   const data = await fetchJson<{ items: CorrespondenceItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/correspondence`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createCorrespondence(
@@ -216,7 +216,7 @@ export async function fetchMeetings(projectId: number): Promise<MeetingItem[]> {
   const data = await fetchJson<{ items: MeetingItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/meetings`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createMeeting(
@@ -278,7 +278,7 @@ export async function fetchMeetingActionItems(
   const data = await fetchJson<{ items: MeetingActionItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/meetings/${meetingId}/action-items`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createMeetingActionItem(
@@ -343,7 +343,7 @@ export async function fetchDailyReports(projectId: number): Promise<DailyReportI
   const data = await fetchJson<{ items: DailyReportItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/daily-reports`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createDailyReport(
@@ -402,7 +402,7 @@ export async function fetchDeliveryNotes(projectId: number): Promise<DeliveryNot
   const data = await fetchJson<{ items: DeliveryNoteItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/delivery-notes`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchDeliveryNoteItems(
@@ -412,7 +412,7 @@ export async function fetchDeliveryNoteItems(
   const data = await fetchJson<{ items: DeliveryNoteLineItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/delivery-notes/${noteId}/items`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createDeliveryNote(
@@ -527,7 +527,7 @@ export async function removeDeliveryNoteItem(
 
 export async function fetchRfiItems(projectId: number): Promise<RfiItem[]> {
   const data = await fetchJson<{ items: RfiItem[] }>(`/api/admin/field-docs/projects/${projectId}/rfi`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createRfiItem(
@@ -578,7 +578,7 @@ export async function deleteRfiItem(
 
 export async function fetchNcrItems(projectId: number): Promise<NcrItem[]> {
   const data = await fetchJson<{ items: NcrItem[] }>(`/api/admin/field-docs/projects/${projectId}/ncr`);
-  return data.items;
+  return readItems(data);
 }
 
 export async function createNcrItem(
@@ -631,7 +631,7 @@ export async function fetchSubmittalItems(projectId: number): Promise<SubmittalI
   const data = await fetchJson<{ items: SubmittalItem[] }>(
     `/api/admin/field-docs/projects/${projectId}/submittals`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createSubmittalItem(

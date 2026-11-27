@@ -8,6 +8,7 @@ import {
   Mail,
   MailOpen,
   Paperclip,
+  RefreshCw,
   Reply,
   ReplyAll,
   Search,
@@ -60,6 +61,7 @@ function truncate(str: string, max: number): string {
 
 export default function ControlMail() {
   const [folders, setFolders] = useState<MailFolder[]>([]);
+  const [mailUsers, setMailUsers] = useState<MailUser[]>([]);
   const [currentFolder, setCurrentFolder] = useState("inbox");
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [totalMessages, setTotalMessages] = useState(0);
@@ -109,6 +111,9 @@ export default function ControlMail() {
 
   useEffect(() => {
     loadFolders();
+    fetchMailUsers("")
+      .then((d) => setMailUsers(d.users))
+      .catch(() => setMailUsers([]));
   }, [loadFolders]);
 
   useEffect(() => {
@@ -122,8 +127,9 @@ export default function ControlMail() {
   }, [loadMessages]);
 
   useEffect(() => {
-    if (!searchTimer.current) return;
-    clearTimeout(searchTimer.current);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
   }, []);
 
   function onSearchChange(val: string) {
@@ -232,6 +238,17 @@ export default function ControlMail() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => {
+              loadMessages();
+              loadFolders();
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-white/10 text-white/70 text-sm font-bold hover:text-white hover:bg-white/10 transition"
+          >
+            <RefreshCw size={16} />
+            <span>تحديث</span>
+          </button>
+          <button
+            type="button"
             onClick={() => openCompose()}
             className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold hover:from-emerald-500 hover:to-emerald-400 transition shadow-lg"
           >
@@ -267,6 +284,11 @@ export default function ControlMail() {
         {/* Folder sidebar */}
         <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
           <div className="p-2 space-y-1">
+            {folders.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-white/50">
+                لا توجد مجلدات لعرضها.
+              </div>
+            ) : null}
             {folders.map((f) => {
               const icons: Record<string, React.FC<{ size?: number }>> = {
                 inbox: Inbox,
@@ -307,6 +329,7 @@ export default function ControlMail() {
           {selectedMsg && showDetail ? (
             <MessageDetail
               message={selectedMsg}
+              users={mailUsers}
               onBack={() => setShowDetail(false)}
               onStar={handleStar}
               onDelete={handleDelete}
@@ -322,7 +345,32 @@ export default function ControlMail() {
                 {loading ? (
                   <div className="p-8 text-center text-white/60 text-sm">جاري التحميل...</div>
                 ) : messages.length === 0 ? (
-                  <div className="p-8 text-center text-white/60 text-sm">لا توجد رسائل</div>
+                  <div className="p-10 text-center">
+                    <Inbox size={30} className="mx-auto text-white/25" />
+                    <div className="font-bold text-white/80 mt-3">
+                      {search
+                        ? "لا توجد رسائل مطابقة للبحث"
+                        : `لا توجد رسائل في ${FOLDER_LABELS[currentFolder] || currentFolder}`}
+                    </div>
+                    <p className="text-xs text-white/50 mt-2">
+                      {search
+                        ? "جرّب كلمة بحث أخرى أو امسح عبارة البحث."
+                        : "ستظهر الرسائل هنا عند وصولها أو بعد إنشاء رسالة جديدة."}
+                    </p>
+                    {search ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchInput("");
+                          setSearch("");
+                          setPage(1);
+                        }}
+                        className="mt-4 rounded-xl bg-white/10 border border-white/15 px-4 py-2 text-xs font-bold text-white/80 hover:bg-white/15 transition"
+                      >
+                        مسح البحث
+                      </button>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="divide-y divide-white/5">
                     {messages.map((msg) => (
@@ -334,7 +382,11 @@ export default function ControlMail() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") openMessage(msg);
                         }}
-                        className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-white/5 transition text-right cursor-pointer"
+                        className={`w-full flex items-start gap-3 px-4 py-3.5 text-right transition cursor-pointer ${
+                          msg.isRead
+                            ? "hover:bg-white/5"
+                            : "bg-emerald-500/5 border-r-2 border-emerald-400 hover:bg-emerald-500/10"
+                        }`}
                       >
                         <button
                           type="button"
@@ -359,12 +411,21 @@ export default function ControlMail() {
                             </span>
                             <span className="text-[11px] text-white/60 shrink-0">{formatTime(msg.createdAt)}</span>
                           </div>
-                          <div
-                            className={`text-sm truncate mt-0.5 ${msg.isRead ? "text-white/50" : "text-white/80 font-bold"}`}
-                          >
-                            {msg.subject || "(بدون موضوع)"}
+                          <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                            {!msg.isRead && msg.isIncoming ? (
+                              <span className="shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                                جديد
+                              </span>
+                            ) : null}
+                            <span
+                              className={`text-sm truncate ${msg.isRead ? "text-white/60" : "text-white font-bold"}`}
+                            >
+                              {msg.subject || "(بدون موضوع)"}
+                            </span>
                           </div>
-                          <div className="text-xs text-white/60 truncate mt-0.5">{truncate(msg.body, 100)}</div>
+                          <div className="text-xs text-white/60 leading-relaxed mt-1 truncate">
+                            {truncate(msg.body, 140) || "(لا يوجد محتوى)"}
+                          </div>
                         </div>
                         {msg.attachments.length > 0 && (
                           <Paperclip size={12} className="mt-2 shrink-0 text-white/60" />
@@ -409,6 +470,7 @@ export default function ControlMail() {
       {showCompose && (
         <ComposeModal
           replyTo={composeReplyTo}
+          users={mailUsers}
           onClose={() => {
             setShowCompose(false);
             setComposeReplyTo(null);
@@ -429,6 +491,7 @@ export default function ControlMail() {
 
 function MessageDetail({
   message,
+  users,
   onBack,
   onStar,
   onDelete,
@@ -438,6 +501,7 @@ function MessageDetail({
   onMoveToFolder,
 }: {
   message: MailMessage;
+  users: MailUser[];
   onBack: () => void;
   onStar: (id: number) => void;
   onDelete: (id: number) => void;
@@ -446,6 +510,11 @@ function MessageDetail({
   onReply: (msg: MailMessage) => void;
   onMoveToFolder: (id: number, folder: string) => void;
 }) {
+  const recipientNames = message.recipients.map((rid) => {
+    const u = users.find((x) => x.id === rid);
+    return u ? u.fullName || u.username : `#${rid}`;
+  });
+
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
       <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2 flex-wrap">
@@ -458,6 +527,11 @@ function MessageDetail({
             <ChevronRight size={16} />
           </button>
           <span className="text-sm font-bold text-white/80">تفاصيل الرسالة</span>
+          {!message.isRead ? (
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+              غير مقروء
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -532,17 +606,27 @@ function MessageDetail({
       </div>
 
       <div className="p-4 md:p-6 space-y-4 text-right">
-        <h3 className="text-lg font-extrabold text-white">{message.subject || "(بدون موضوع)"}</h3>
+        <h3 className="text-xl font-extrabold leading-relaxed text-white">
+          {message.subject || "(بدون موضوع)"}
+        </h3>
 
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-red-500 flex items-center justify-center text-sm font-extrabold text-white shrink-0">
-            {(message.senderName || "U").slice(0, 1).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-bold text-white text-sm">{message.senderName}</div>
-            <div className="text-xs text-white/50 mt-1">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-red-500 flex items-center justify-center text-sm font-extrabold text-white shrink-0">
+              {(message.senderName || "U").slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-white/50">من</div>
+              <div className="font-bold text-white text-sm mt-0.5">{message.senderName}</div>
+            </div>
+            <div className="text-xs text-white/50 shrink-0" dir="ltr">
               {new Date(message.createdAt).toLocaleString("ar-SA")}
             </div>
+          </div>
+          <div className="h-px bg-white/10 my-3" />
+          <div className="text-xs text-white/50 mb-1">إلى</div>
+          <div className="text-sm text-white/80 leading-relaxed">
+            {recipientNames.length ? recipientNames.join("، ") : "—"}
           </div>
         </div>
 
@@ -569,8 +653,10 @@ function MessageDetail({
           </div>
         )}
 
-        <div className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap min-h-[100px]">
-          {message.body || "(لا يوجد محتوى)"}
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:p-5">
+          <div className="text-sm md:text-[15px] text-white/85 leading-8 whitespace-pre-wrap min-h-[100px]">
+            {message.body || "(لا يوجد محتوى)"}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 pt-2">
@@ -604,48 +690,190 @@ function MessageDetail({
   );
 }
 
+function RecipientField({
+  label,
+  users,
+  selected,
+  onChange,
+  error,
+  hint,
+  required = false,
+}: {
+  label: string;
+  users: MailUser[];
+  selected: number[];
+  onChange: (ids: number[]) => void;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<MailUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const selectedKey = selected.join(",");
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    let active = true;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const d = await fetchMailUsers(q);
+        if (active) setResults(d.users.filter((u) => !selected.includes(u.id)));
+      } catch {
+        if (active) setResults([]);
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+    // selectedKey يغطي تغيّر القيم دون إعادة بحث عند تغيّر مرجع المصفوفة فقط.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, selectedKey]);
+
+  function toggle(id: number) {
+    onChange(
+      selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id],
+    );
+    setQuery("");
+  }
+
+  const selectedUsers = users.filter((u) => selected.includes(u.id));
+  const unknownIds = selected.filter((id) => !users.some((u) => u.id === id));
+
+  return (
+    <div>
+      <label className="text-xs font-bold text-white/60 block mb-1.5">
+        {label}
+        {required ? <span className="text-red-400"> *</span> : null}
+      </label>
+      {selected.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selectedUsers.map((u) => (
+            <span
+              key={u.id}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold"
+            >
+              {u.fullName || u.username}
+              <button
+                type="button"
+                onClick={() => toggle(u.id)}
+                aria-label={`إزالة ${u.fullName || u.username}`}
+                className="hover:text-white"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+          {unknownIds.map((id) => (
+            <span
+              key={id}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 border border-white/15 text-white/70 text-xs font-bold"
+            >
+              #{id}
+              <button
+                type="button"
+                onClick={() => toggle(id)}
+                aria-label={`إزالة المستلم ${id}`}
+                className="hover:text-white"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={hint || "ابحث عن مستخدم..."}
+          className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition ${
+            error ? "border-red-400/70 focus:border-red-400" : "border-white/10 focus:border-emerald-500/50"
+          }`}
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="مسح البحث"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-white/50 hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        ) : null}
+      </div>
+      {query.trim() ? (
+        <div className="mt-1 max-h-32 overflow-y-auto bg-white/10 border border-white/10 rounded-xl">
+          {searching ? (
+            <div className="px-3 py-2 text-xs text-white/50">جارٍ البحث...</div>
+          ) : results.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-white/50">
+              لم يتم العثور على مستخدمين بهذا الاسم.
+            </div>
+          ) : (
+            results.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => toggle(u.id)}
+                className="w-full text-right px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition"
+              >
+                {u.fullName || u.username} ({u.username})
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+      {error ? <p className="text-xs text-red-400 mt-1">{error}</p> : null}
+    </div>
+  );
+}
+
 function ComposeModal({
   replyTo,
+  users,
   onClose,
   onSent,
   showError,
 }: {
   replyTo: MailMessage | null;
+  users: MailUser[];
   onClose: () => void;
   onSent: () => void;
   showError: (msg: string) => void;
 }) {
   const [recipients, setRecipients] = useState<number[]>(replyTo ? [replyTo.senderId] : []);
+  const [ccRecipients, setCcRecipients] = useState<number[]>([]);
+  const [bccRecipients, setBccRecipients] = useState<number[]>([]);
   const [subject, setSubject] = useState(replyTo ? `رد: ${replyTo.subject}` : "");
   const [body, setBody] = useState(replyTo ? `\n\n---\n${replyTo.body}` : "");
   const [attachments, setAttachments] = useState<MailAttachment[]>([]);
-  const [users, setUsers] = useState<MailUser[]>([]);
-  const [searchUser, setSearchUser] = useState("");
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<{ recipients?: string; subject?: string }>({});
 
-  useEffect(() => {
-    fetchMailUsers("").then((d) => setUsers(d.users)).catch(() => {});
-  }, []);
-
-  async function handleSearchUser(val: string) {
-    setSearchUser(val);
-    if (val.length < 1) {
-      fetchMailUsers("").then((d) => setUsers(d.users)).catch(() => {});
-      return;
+  function validate(): boolean {
+    const next: { recipients?: string; subject?: string } = {};
+    if (recipients.length === 0) {
+      next.recipients = "اختر مستلماً واحداً على الأقل قبل الإرسال.";
     }
-    try {
-      const d = await fetchMailUsers(val);
-      setUsers(d.users);
-    } catch {
-      // ignore
+    if (!subject.trim()) {
+      next.subject = "اكتب موضوع الرسالة قبل الإرسال.";
     }
-  }
-
-  function toggleRecipient(uid: number) {
-    setRecipients((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
+    setErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -671,18 +899,15 @@ function ComposeModal({
   }
 
   async function handleSend() {
-    if (recipients.length === 0) {
-      showError("يرجى اختيار مستلم واحد على الأقل.");
-      return;
-    }
+    if (!validate()) return;
     setSending(true);
     try {
       const result = await sendMail({
-        subject,
+        subject: subject.trim(),
         body,
         recipients,
-        cc: [],
-        bcc: [],
+        cc: ccRecipients,
+        bcc: bccRecipients,
         parentId: replyTo?.id || null,
         attachmentIds: attachments.map((a) => a.id),
       });
@@ -701,16 +926,20 @@ function ComposeModal({
   async function handleSaveDraft() {
     setSending(true);
     try {
-      await sendMail({
-        subject,
+      const result = await sendMail({
+        subject: subject.trim(),
         body,
         recipients,
-        cc: [],
-        bcc: [],
+        cc: ccRecipients,
+        bcc: bccRecipients,
         saveAsDraft: true,
         attachmentIds: attachments.map((a) => a.id),
       });
-      onSent();
+      if (result.ok) {
+        onSent();
+      } else {
+        showError(result.error || "فشل حفظ المسودة");
+      }
     } catch {
       showError("فشل حفظ المسودة");
     } finally {
@@ -718,23 +947,18 @@ function ComposeModal({
     }
   }
 
-  const selectedUsers = useMemo(
-    () => users.filter((u) => recipients.includes(u.id)),
-    [users, recipients],
-  );
-
-  const availableUsers = useMemo(
-    () => users.filter((u) => !recipients.includes(u.id)),
-    [users, recipients],
-  );
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
       <div className="w-full max-w-2xl bg-sq-black border border-white/20 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h3 className="font-extrabold text-white text-lg">
-            {replyTo ? "رد على الرسالة" : "رسالة جديدة"}
-          </h3>
+          <div>
+            <h3 className="font-extrabold text-white text-lg">
+              {replyTo ? "رد على الرسالة" : "رسالة جديدة"}
+            </h3>
+            <p className="text-xs text-white/50 mt-1">
+              اختر المستلم واكتب الموضوع قبل الإرسال. الحقول المعلّمة بـ * مطلوبة.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -746,46 +970,18 @@ function ComposeModal({
 
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {/* Recipients */}
-          <div>
-            <label className="text-xs font-bold text-white/50 block mb-1.5">إلى</label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {selectedUsers.map((u) => (
-                <span
-                  key={u.id}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold"
-                >
-                  {u.fullName || u.username}
-                  <button type="button" onClick={() => toggleRecipient(u.id)} className="hover:text-white">
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <input
-              type="text"
-              value={searchUser}
-              onChange={(e) => handleSearchUser(e.target.value)}
-              placeholder="ابحث عن مستخدم..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition"
-            />
-            {searchUser && availableUsers.length > 0 && (
-              <div className="mt-1 max-h-32 overflow-y-auto bg-white/10 border border-white/10 rounded-xl">
-                {availableUsers.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      toggleRecipient(u.id);
-                      setSearchUser("");
-                    }}
-                    className="w-full text-right px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                  >
-                    {u.fullName || u.username} ({u.username})
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <RecipientField
+            label="إلى"
+            users={users}
+            selected={recipients}
+            onChange={(ids) => {
+              setRecipients(ids);
+              setErrors((prev) => ({ ...prev, recipients: undefined }));
+            }}
+            error={errors.recipients}
+            hint="ابحث عن مستخدم لإضافته إلى المستلمين"
+            required
+          />
 
           {/* CC / BCC toggles */}
           <div className="flex items-center gap-3">
@@ -805,47 +1001,60 @@ function ComposeModal({
             </button>
           </div>
 
-          {showCc && (
-            <div>
-              <label className="text-xs font-bold text-white/50 block mb-1.5">CC</label>
-              <input
-                type="text"
-                placeholder="..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none"
-              />
-            </div>
-          )}
+          {showCc ? (
+            <RecipientField
+              label="CC (نسخة)"
+              users={users}
+              selected={ccRecipients}
+              onChange={setCcRecipients}
+              hint="ابحث عن مستخدم لإضافته إلى النسخة"
+            />
+          ) : null}
 
-          {showBcc && (
-            <div>
-              <label className="text-xs font-bold text-white/50 block mb-1.5">BCC</label>
-              <input
-                type="text"
-                placeholder="..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none"
-              />
-            </div>
-          )}
+          {showBcc ? (
+            <RecipientField
+              label="BCC (نسخة مخفية)"
+              users={users}
+              selected={bccRecipients}
+              onChange={setBccRecipients}
+              hint="ابحث عن مستخدم لإضافته إلى النسخة المخفية"
+            />
+          ) : null}
 
           {/* Subject */}
           <div>
+            <label className="text-xs font-bold text-white/60 block mb-1.5">
+              الموضوع <span className="text-red-400">*</span>
+            </label>
             <input
               type="text"
               value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="الموضوع"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition"
+              onChange={(e) => {
+                setSubject(e.target.value);
+                if (e.target.value.trim()) {
+                  setErrors((prev) => ({ ...prev, subject: undefined }));
+                }
+              }}
+              placeholder="اكتب موضوع الرسالة"
+              aria-invalid={Boolean(errors.subject)}
+              className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition ${
+                errors.subject ? "border-red-400/70 focus:border-red-400" : "border-white/10 focus:border-emerald-500/50"
+              }`}
             />
+            {errors.subject ? (
+              <p className="text-xs text-red-400 mt-1">{errors.subject}</p>
+            ) : null}
           </div>
 
           {/* Body */}
           <div>
+            <label className="text-xs font-bold text-white/60 block mb-1.5">محتوى الرسالة</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="محتوى الرسالة..."
+              placeholder="اكتب محتوى الرسالة هنا..."
               rows={8}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition resize-y"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm leading-7 text-white placeholder-white/40 outline-none focus:border-emerald-500/50 transition resize-y"
             />
           </div>
 
@@ -887,16 +1096,17 @@ function ComposeModal({
               className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-extrabold hover:from-emerald-500 hover:to-emerald-400 transition disabled:opacity-50 shadow-lg"
             >
               <Send size={16} />
-              <span>{sending ? "..." : "إرسال"}</span>
+              <span>{sending ? "جارٍ الإرسال..." : "إرسال"}</span>
             </button>
             <button
               type="button"
               onClick={handleSaveDraft}
               disabled={sending}
+              title="حفظ بدون إرسال؛ لا يشترط وجود مستلم أو موضوع"
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white/70 text-sm font-bold hover:bg-white/10 transition disabled:opacity-50"
             >
               <FileText size={16} />
-              <span>مسودة</span>
+              <span>حفظ مسودة</span>
             </button>
           </div>
           <button

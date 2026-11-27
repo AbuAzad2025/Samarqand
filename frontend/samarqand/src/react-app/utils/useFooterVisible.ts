@@ -6,7 +6,7 @@ export function useFooterVisible(): boolean {
 
   useEffect(() => {
     const footer = document.querySelector("footer");
-    if (!footer) return;
+    if (!footer || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(Boolean(entry?.isIntersecting)),
       { threshold: 0.05 },

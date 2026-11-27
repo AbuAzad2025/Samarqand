@@ -4,6 +4,7 @@ import {
   getCookie,
   readApiErrorCode,
   readApiResponse,
+  readItems,
 } from "@/react-app/api/site";
 
 export type WorkerItem = {
@@ -101,7 +102,7 @@ export type SocialSecurityItem = {
 
 export async function fetchWorkers(): Promise<WorkerItem[]> {
   const data = await fetchJson<{ items: WorkerItem[] }>("/api/admin/ops/workers");
-  return data.items;
+  return readItems(data);
 }
 
 export async function fetchLeaveRequests(params?: {
@@ -115,7 +116,7 @@ export async function fetchLeaveRequests(params?: {
   const data = await fetchJson<{ items: LeaveRequestItem[] }>(
     `/api/admin/hr/leave${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createLeaveRequest(payload: {
@@ -228,7 +229,7 @@ export async function fetchContracts(params?: {
   const data = await fetchJson<{ items: ContractItem[] }>(
     `/api/admin/hr/contracts${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createContract(payload: {
@@ -315,7 +316,7 @@ export async function fetchOvertime(params?: {
   const data = await fetchJson<{ items: OvertimeItem[] }>(
     `/api/admin/hr/overtime${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createOvertime(payload: {
@@ -404,7 +405,7 @@ export async function fetchSocialSecurity(params?: {
   const data = await fetchJson<{ items: SocialSecurityItem[] }>(
     `/api/admin/hr/social-security${qs ? `?${qs}` : ""}`,
   );
-  return data.items;
+  return readItems(data);
 }
 
 export async function createSocialSecurity(payload: {

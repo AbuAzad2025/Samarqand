@@ -332,9 +332,18 @@ export const RFQ_TEMPLATES_BY_KEY: Record<string, RfqTemplate> = Object.fromEntr
   RFQ_TEMPLATES.map((t) => [t.key, t]),
 ) as Record<string, RfqTemplate>;
 
-export function groupRfqTemplatesByCategory(templates: RfqTemplate[]): { category: string; templates: RfqTemplate[] }[] {
-  const categoryOrder = ["توريد مواد", "تنفيذ وأعمال مقاولين", "MEP (كهرباء/سباكة/تكييف)", "تشطيبات وواجهات", "معدات ولوجستيات", "خدمات واستشارات"];
+/** Display order for the known RFQ categories; unknown categories come last. */
+export const RFQ_CATEGORY_ORDER = [
+  "توريد مواد",
+  "تنفيذ وأعمال مقاولين",
+  "MEP (كهرباء/سباكة/تكييف)",
+  "تشطيبات وواجهات",
+  "معدات ولوجستيات",
+  "خدمات واستشارات",
+];
 
+/** Groups templates by category using the stable display order above. */
+export function groupRfqTemplatesByCategory(templates: RfqTemplate[]): { category: string; templates: RfqTemplate[] }[] {
   const map = new Map<string, RfqTemplate[]>();
   for (const t of templates) {
     const arr = map.get(t.category) || [];
@@ -343,8 +352,8 @@ export function groupRfqTemplatesByCategory(templates: RfqTemplate[]): { categor
   }
 
   const categories = Array.from(map.keys()).sort((a, b) => {
-    const ia = categoryOrder.indexOf(a);
-    const ib = categoryOrder.indexOf(b);
+    const ia = RFQ_CATEGORY_ORDER.indexOf(a);
+    const ib = RFQ_CATEGORY_ORDER.indexOf(b);
     if (ia === -1 && ib === -1) return a.localeCompare(b, "ar");
     if (ia === -1) return 1;
     if (ib === -1) return -1;
