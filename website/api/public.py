@@ -648,6 +648,22 @@ def site_content_detail(
         )
         result["location"] = str(getattr(page, "project_location", "") or "")
         result["status"] = str(getattr(page, "status", "") or "")
+        budget = getattr(page, "budget_amount", None)
+        result["budgetAmount"] = float(budget) if budget is not None else None
+        timeline = []
+        for line in str(
+            getattr(page, "management_notes", "") or ""
+        ).splitlines():
+            parts = [part.strip() for part in line.split("|")]
+            if len(parts) >= 3 and len(parts[0]) == 10 and parts[0][4] == "-":
+                timeline.append(
+                    {
+                        "date": parts[0],
+                        "title": parts[1],
+                        "description": parts[2],
+                    }
+                )
+        result["timeline"] = timeline
         gallery = []
         for item in page.gallery_images.all().order_by("sort_order", "id"):
             url = _image_url(request, getattr(item, "image", None))

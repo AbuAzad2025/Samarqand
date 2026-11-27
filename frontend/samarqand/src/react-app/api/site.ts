@@ -3239,6 +3239,8 @@ export type SiteContentDetail = SiteContentItem & {
   gallery?: { url: string; caption: string }[];
   location?: string;
   status?: string;
+  budgetAmount?: number | null;
+  timeline?: { date: string; title: string; description: string }[];
 };
 
 export async function fetchSiteContentList(

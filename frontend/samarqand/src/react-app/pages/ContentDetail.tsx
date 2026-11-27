@@ -101,6 +101,16 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
             />
           ) : null}
           <h1 className="text-3xl font-extrabold text-slate-900 mb-4">{item.title}</h1>
+          {kind === "projects" && item.budgetAmount ? (
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs font-bold text-slate-500">قيمة العقد</div>
+              <div className="mt-1 text-lg font-extrabold text-slate-900" dir="ltr">
+                {item.budgetAmount.toLocaleString("en-US")}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">دون البنود التغييرية</div>
+            </div>
+          ) : null}
+
           {kind === "projects" && (item.location || item.status) ? (
             <div className="mb-5 flex flex-wrap gap-2 text-sm">
               {item.status === "ongoing" ? (
@@ -133,6 +143,24 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
           ) : (
             <p className="text-slate-600 leading-loose">{item.description}</p>
           )}
+
+          {kind === "projects" && item.timeline?.length ? (
+            <div className="mt-10">
+              <h2 className="text-xl font-bold text-slate-900 mb-5">التسلسل الزمني للأعمال</h2>
+              <ol className="space-y-5 border-r-2 border-emerald-100 pr-5">
+                {item.timeline.map((step, index) => (
+                  <li key={index} className="relative">
+                    <span className="absolute -right-[27px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[var(--corp-green)]" />
+                    <div className="text-xs font-bold text-sq-green" dir="ltr">
+                      {new Date(step.date).toLocaleDateString("ar")}
+                    </div>
+                    <div className="font-bold text-slate-900">{step.title}</div>
+                    <p className="text-sm leading-relaxed text-slate-600">{step.description}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
 
           {kind === "projects" && item.gallery?.length ? (
             <div className="mt-10">
