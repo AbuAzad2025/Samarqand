@@ -67,7 +67,7 @@ export default function AIDesignAnalyzer() {
     <section className="py-20 bg-gradient-to-b from-gray-50 to-white" id="ai-analyzer">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-6">
+          <div className="inline-block p-4 bg-[var(--corp-green)] mb-6">
             <Brain className="text-white" size={48} />
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
@@ -140,7 +140,7 @@ export default function AIDesignAnalyzer() {
                 <button
                   type="submit"
                   disabled={isAnalyzing}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-lg font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isAnalyzing ? (
                     <>
@@ -158,7 +158,7 @@ export default function AIDesignAnalyzer() {
             </div>
 
             {/* Results */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-xl p-8">
+            <div className="card-corp p-8">
               {!result && !isAnalyzing && (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <Sparkles className="text-purple-400 mb-4" size={64} />
@@ -245,7 +245,7 @@ export default function AIDesignAnalyzer() {
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر دقيق
                   </a>

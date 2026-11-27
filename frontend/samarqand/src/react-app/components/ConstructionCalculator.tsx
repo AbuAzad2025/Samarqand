@@ -165,7 +165,7 @@ export default function ConstructionCalculator() {
     <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50" id="calculator">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mb-6">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--corp-green)] text-white mb-6">
             <Calculator className="text-white" size={48} />
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
@@ -254,7 +254,7 @@ export default function ConstructionCalculator() {
                 <button
                   type="submit"
                   disabled={isCalculating}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-lg font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isCalculating ? (
                     <>
@@ -316,17 +316,17 @@ export default function ConstructionCalculator() {
 
                   {/* Summary Cards */}
                   <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-sq-green via-sq-black to-sq-red text-white p-4 rounded-lg">
+                    <div className="card-corp p-4">
                       <Package className="mb-2" size={24} />
                       <p className="text-sm opacity-90">المواد</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.materialsCost)}</p>
                     </div>
-                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+                    <div className="rounded-xl bg-[var(--corp-green-soft)] p-4 text-[var(--corp-green)]">
                       <Users className="mb-2" size={24} />
                       <p className="text-sm opacity-90">العمالة</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.laborCost)}</p>
                     </div>
-                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-4 rounded-lg">
+                    <div className="rounded-xl bg-[var(--corp-green-soft)] p-4 text-[var(--corp-green)]">
                       <DollarSign className="mb-2" size={24} />
                       <p className="text-sm opacity-90">الإجمالي</p>
                       <p className="text-xl font-bold">{formatCurrency(result.summary.totalCost)}</p>
@@ -435,7 +435,7 @@ export default function ConstructionCalculator() {
                     href={quoteLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                    className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
                   >
                     احصل على عرض سعر نهائي
                   </a>

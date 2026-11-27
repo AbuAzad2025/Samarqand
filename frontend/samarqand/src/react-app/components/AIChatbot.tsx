@@ -211,7 +211,7 @@ export default function AIChatbot() {
                 ))}
                 {isLoading && (
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red flex items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--corp-green)] text-white">
                       <Bot className="text-white" size={16} />
                     </div>
                     <div className="bg-gray-100 rounded-2xl p-3">
@@ -258,7 +258,7 @@ export default function AIChatbot() {
                     type="submit"
                     aria-label="إرسال الرسالة"
                     disabled={isLoading || !input.trim()}
-                    className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white p-2 rounded-full hover:shadow-lg transition disabled:opacity-50"
+                    className="btn-corp-primary rounded-xl p-2 hover:shadow-lg transition disabled:opacity-50"
                   >
                     <Send size={20} />
                   </button>

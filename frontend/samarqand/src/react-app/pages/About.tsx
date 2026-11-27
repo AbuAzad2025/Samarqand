@@ -29,7 +29,7 @@ export default function About() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
+      <section className="relative bg-[var(--corp-dark)] text-white py-14">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">من نحن</h1>
           <p className="text-xl max-w-3xl mx-auto">
@@ -58,7 +58,7 @@ export default function About() {
               <div className="grid md:grid-cols-2 gap-8 mb-16">
                 <div className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                       <Eye className="text-white" size={24} />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">رؤيتنا</h2>
@@ -68,7 +68,7 @@ export default function About() {
 
                 <div className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                       <Target className="text-white" size={24} />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">رسالتنا</h2>
@@ -79,7 +79,7 @@ export default function About() {
 
               <div className="bg-white p-8 rounded-lg shadow-lg">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                     <Award className="text-white" size={24} />
                   </div>
                   <h2 className="text-2xl font-bold text-gray-800">قيمنا</h2>

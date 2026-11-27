@@ -38,7 +38,7 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
 
   return (
     <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-      <h3 className="text-2xl font-bold text-gray-800 p-6 text-center bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white">
+      <h3 className="bg-[var(--corp-dark)] p-6 text-center text-2xl font-bold text-white">
         {title}
       </h3>
       

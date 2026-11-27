@@ -675,8 +675,13 @@ def site_content_detail(
                 / "jericho_timeline.json"
             )
             try:
-                result["timeline"] = json.loads(
-                    timeline_file.read_text(encoding="utf-8")
+                days = json.loads(timeline_file.read_text(encoding="utf-8"))
+                result["timeline"] = days
+                # Verified from the daily reports in the project folder.
+                result["contract"] = "MOF/WB/2026/021-CTD"
+                result["documentedDays"] = len(days)
+                result["documentedPhotos"] = sum(
+                    int(row.get("photos") or 0) for row in days
                 )
             except Exception:
                 pass

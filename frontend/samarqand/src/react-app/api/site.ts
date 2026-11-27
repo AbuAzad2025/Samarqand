@@ -3247,6 +3247,9 @@ export type SiteContentDetail = SiteContentItem & {
     imageUrl?: string;
     photos?: number;
   }[];
+  contract?: string;
+  documentedDays?: number;
+  documentedPhotos?: number;
 };
 
 export async function fetchSiteContentList(

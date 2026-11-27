@@ -130,7 +130,7 @@ export default function InteractiveTeam() {
             <div className="p-8">
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                     <GraduationCap className="text-white" size={24} />
                   </div>
                   <div>
@@ -141,7 +141,7 @@ export default function InteractiveTeam() {
 
                 {selectedMember.experience && (
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                       <Briefcase className="text-white" size={24} />
                     </div>
                     <div>
@@ -153,7 +153,7 @@ export default function InteractiveTeam() {
 
                 {selectedMember.bio && (
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                       <Award className="text-white" size={24} />
                     </div>
                     <div>
@@ -174,7 +174,7 @@ export default function InteractiveTeam() {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-3 rounded-lg font-bold hover:shadow-lg transition"
+                  className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
                 >
                   تواصل معنا
                 </a>

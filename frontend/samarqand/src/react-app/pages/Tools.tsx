@@ -31,7 +31,7 @@ export default function ToolsPage() {
       <TopBar />
       <Navigation />
 
-      <section className="relative bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-20">
+      <section className="relative bg-[var(--corp-dark)] text-white py-14">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "tools", "الأدوات الذكية")}</h1>
           <p className="text-xl max-w-3xl mx-auto">

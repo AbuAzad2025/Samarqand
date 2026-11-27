@@ -101,6 +101,20 @@ export default function ContentDetail({ kind }: { kind: SiteContentKind }) {
             />
           ) : null}
           <h1 className="text-3xl font-extrabold text-slate-900 mb-4">{item.title}</h1>
+          {kind === "projects" && (item.contract || item.documentedDays) ? (
+            <div className="mb-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+              {item.contract ? (
+                <span dir="ltr">العقد: {item.contract}</span>
+              ) : null}
+              {item.documentedDays ? (
+                <span>توثيق {item.documentedDays} يوماً</span>
+              ) : null}
+              {item.documentedPhotos ? (
+                <span>{item.documentedPhotos} صورة توثيقية</span>
+              ) : null}
+            </div>
+          ) : null}
+
           {kind === "projects" && item.budgetAmount ? (
             <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="text-xs font-bold text-slate-500">قيمة العقد</div>

@@ -23,7 +23,7 @@ export default function Services({ showHeading = true }: { showHeading?: boolean
   );
 
   return (
-    <section id="services" className="py-20 bg-gradient-to-b from-white to-emerald-50">
+    <section id="services" className="section-corp">
       <div className="max-w-7xl mx-auto px-4" dir="rtl">
         {showHeading ? (
           <>
@@ -41,7 +41,7 @@ export default function Services({ showHeading = true }: { showHeading?: boolean
             
             return (
               <div key={service.id} className="bg-white rounded-xl shadow-lg p-8 hover:shadow-2xl transition-all hover:-translate-y-2 duration-300">
-                <div className="w-16 h-16 bg-gradient-to-br from-sq-green via-sq-black to-sq-red rounded-full flex items-center justify-center mb-6 shadow-lg">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--corp-green-soft)] text-[var(--corp-green)]">
                   <IconComponent className="text-white" size={32} />
                 </div>
                 

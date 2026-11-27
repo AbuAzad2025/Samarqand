@@ -123,7 +123,7 @@ export default function ArchitecturalVisualizer() {
     <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
       <div className="container mx-auto px-4" dir="rtl">
         <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-6">
+          <div className="inline-block p-4 bg-[var(--corp-green)] mb-6">
             <Image className="text-white" size={48} />
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
@@ -228,7 +228,7 @@ export default function ArchitecturalVisualizer() {
                 <button
                   type="submit"
                   disabled={isGenerating}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-lg font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full btn-corp-primary font-bold text-lg hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isGenerating ? (
                     <>
@@ -309,14 +309,14 @@ export default function ArchitecturalVisualizer() {
                   <div className="flex gap-3">
                     <button
                       onClick={downloadImage}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                      className="flex-1 btn-corp-primary font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
                       <Download size={20} />
                       تنزيل الصورة
                     </button>
                     <button
                       onClick={shareImage}
-                      className="flex-1 bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                      className="flex-1 btn-corp-primary font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                     >
                       <Share2 size={20} />
                       مشاركة
@@ -330,7 +330,7 @@ export default function ArchitecturalVisualizer() {
                     ولّد تصميماً جديداً
                   </button>
 
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+                  <div className="rounded-xl border border-[var(--corp-border)] bg-[var(--corp-surface)] p-4">
                     <p className="text-sm text-purple-800 font-semibold mb-2">
                       ⭐ راضٍ عن التصميم؟
                     </p>
@@ -338,7 +338,7 @@ export default function ArchitecturalVisualizer() {
                       href={contactLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white text-center py-2 rounded-lg font-bold hover:shadow-lg transition"
+                      className="block w-full btn-corp-primary w-full font-bold hover:shadow-lg transition"
                     >
                       احجز استشارة مجانية
                     </a>
@@ -363,7 +363,7 @@ export default function ArchitecturalVisualizer() {
             ].map((ex, idx) => (
               <div
                 key={idx}
-                className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl p-6 text-center hover:scale-105 transition cursor-pointer"
+                className="card-corp p-6 text-center hover:scale-105 transition cursor-pointer"
               >
                 <div className="text-5xl mb-3">{ex.emoji}</div>
                 <p className="font-semibold text-gray-700">{ex.label}</p>
