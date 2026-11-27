@@ -87,7 +87,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
             "warnings": warnings,
             "counts": counts,
             "links": {
-                "backup": "/control/backup/",
+                "backup": "/control/backup",
                 "publicSite": "/",
                 "tools": "/tools",
             },

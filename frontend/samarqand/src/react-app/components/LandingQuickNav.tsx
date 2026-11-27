@@ -47,7 +47,7 @@ export default function LandingQuickNav({
           ))}
         </nav>
         <a
-          href="/request-quote/"
+          href="/request-quote"
           className="mr-auto flex shrink-0 items-center gap-1 rounded-full bg-sq-green px-3 py-1.5 text-xs font-bold text-white"
         >
           <Phone size={13} /> عرض سعر

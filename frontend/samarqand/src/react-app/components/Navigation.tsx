@@ -94,7 +94,7 @@ export default function Navigation() {
               <Search size={19} />
             </button>
             <Link
-              to="/request-quote/"
+              to="/request-quote"
               className="nav-flash group relative hidden overflow-hidden rounded-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-sq-black/20 transition-transform hover:-translate-y-0.5 sm:inline-flex sm:items-center sm:gap-2"
             >
               <span className="nav-flash-shine pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-500 group-hover:translate-x-full" />

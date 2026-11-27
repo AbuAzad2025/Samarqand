@@ -9,6 +9,7 @@ import Tools from "@/react-app/pages/Tools";
 import Showcase from "@/react-app/pages/Showcase";
 import Privacy from "@/react-app/pages/Privacy";
 import Terms from "@/react-app/pages/Terms";
+import Search from "@/react-app/pages/Search";
 const ControlLayout = lazy(() => import("@/react-app/pages/control/ControlLayout"));
 const ControlLogin = lazy(() => import("@/react-app/pages/control/Login"));
 const ControlUsers = lazy(() => import("@/react-app/pages/control/Users"));
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/request-quote" element={<Contact />} />
         <Route path="/blog" element={<ContentList kind="articles" />} />
         <Route path="/blog/:slug" element={<ContentDetail kind="articles" />} />

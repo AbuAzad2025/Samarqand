@@ -76,12 +76,12 @@ export default function Home() {
           dir="rtl"
         >
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-4 py-3">
-            <a href="#services" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">خدماتنا</a>
-            <a href="#projects" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">مشاريعنا</a>
-            <a href="#tools" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">الأدوات الذكية</a>
-            <a href="#rfq-templates" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">نماذج الأسعار</a>
-            <a href="#testimonials" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">آراء العملاء</a>
-            <a href="#contact" className="rounded-full bg-sq-green px-4 py-2 text-sm font-bold text-white">تواصل معنا</a>
+            {v?.showServices ?? true ? <a href="#services" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">خدماتنا</a> : null}
+            {v?.showProjects ?? true ? <a href="#projects" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">مشاريعنا</a> : null}
+            {v?.showTools ?? true ? <a href="#tools" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">الأدوات الذكية</a> : null}
+            {v?.showRfqTemplates ?? true ? <a href="#rfq-templates" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">نماذج الأسعار</a> : null}
+            {v?.showTestimonials ?? true ? <a href="#testimonials" className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-sq-green">آراء العملاء</a> : null}
+            {v?.showNewsletter ?? true ? <a href="#contact" className="rounded-full bg-sq-green px-4 py-2 text-sm font-bold text-white">تواصل معنا</a> : null}
           </div>
         </nav>
       )}

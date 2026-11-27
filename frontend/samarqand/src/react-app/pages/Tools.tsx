@@ -74,7 +74,7 @@ export default function ToolsPage() {
                 متاحان فقط للمدراء والسوبر أدمن.
               </p>
               <a
-                href="/admin/"
+                href="/control/login"
                 className="inline-block mt-6 bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
               >
                 تسجيل الدخول للإدارة

@@ -132,6 +132,21 @@ export default function Footer() {
                     </Link>
                   </li>
                   <li>
+                    <Link to="/blog" className="text-white/75 hover:text-white transition">
+                      المدونة
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/events" className="text-white/75 hover:text-white transition">
+                      الفعاليات
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/locations" className="text-white/75 hover:text-white transition">
+                      مواقعنا
+                    </Link>
+                  </li>
+                  <li>
                     <Link to="/privacy" className="text-white/75 hover:text-white transition">
                       سياسة الخصوصية
                     </Link>
