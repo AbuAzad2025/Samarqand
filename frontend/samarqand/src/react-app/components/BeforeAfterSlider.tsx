@@ -29,6 +29,13 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
     handleMove(e.touches[0].clientX, rect);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const delta = e.key === "ArrowRight" ? 5 : -5;
+    setSliderPosition((prev) => Math.max(0, Math.min(100, prev + delta)));
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-xl overflow-hidden">
       <h3 className="text-2xl font-bold text-gray-800 p-6 text-center bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white">
@@ -36,6 +43,13 @@ export default function BeforeAfterSlider({ before, after, title }: BeforeAfterP
       </h3>
       
       <div
+        role="slider"
+        tabIndex={0}
+        aria-label="قبل وبعد: اسحب أو استخدم الأسهم"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(sliderPosition)}
+        onKeyDown={handleKeyDown}
         className="relative h-96 select-none cursor-ew-resize"
         onMouseDown={() => setIsDragging(true)}
         onMouseUp={() => setIsDragging(false)}

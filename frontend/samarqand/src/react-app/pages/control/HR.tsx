@@ -317,7 +317,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -335,7 +335,7 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -613,7 +613,7 @@ function LeaveSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={8} className="px-4 py-8 text-center text-white/60">
                   لا توجد إجازات.
                 </td>
               </tr>
@@ -844,7 +844,7 @@ function ContractsSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={10} className="px-4 py-8 text-center text-white/60">
                   لا توجد عقود.
                 </td>
               </tr>
@@ -1055,7 +1055,7 @@ function OvertimeSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={9} className="px-4 py-8 text-center text-white/60">
                   لا توجد سجلات وقت إضافي.
                 </td>
               </tr>
@@ -1277,7 +1277,7 @@ function SocialSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={9} className="px-4 py-8 text-center text-white/60">
                   لا توجد سجلات تأمينات.
                 </td>
               </tr>

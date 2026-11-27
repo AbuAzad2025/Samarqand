@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 
-import { downloadAdminBackup, fetchAuthMe, restoreAdminBackup } from "@/react-app/api/site";
+import {
+  downloadAdminBackup,
+  fetchAuthMe,
+  restoreAdminBackup,
+  validateAdminBackup,
+  type BackupValidation,
+} from "@/react-app/api/site";
 
 export default function ControlBackup() {
   const [me, setMe] = useState<{ authenticated: boolean; isSuperuser: boolean } | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [validation, setValidation] = useState<BackupValidation | null>(null);
+  const [validating, setValidating] = useState(false);
   const [status, setStatus] = useState<"idle" | "downloading" | "restoring" | "saved" | "error">("idle");
 
   useEffect(() => {
@@ -73,14 +81,62 @@ export default function ControlBackup() {
           <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
             الاستعادة قد تفشل إذا كان الملف غير متوافق مع قاعدة البيانات الحالية.
           </div>
+          <label htmlFor="backup-file" className="block text-sm font-bold text-gray-700 mb-2">
+            ملف النسخة الاحتياطية
+          </label>
           <input
+            id="backup-file"
             type="file"
             accept="application/json"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] || null);
+              setValidation(null);
+            }}
           />
           <button
             type="button"
-            disabled={!file}
+            disabled={!file || validating}
+            onClick={async () => {
+              if (!file) return;
+              setValidating(true);
+              try {
+                setValidation(await validateAdminBackup(file));
+              } catch {
+                setValidation({
+                  okToRestore: false,
+                  total: 0,
+                  counts: {},
+                  errors: [{ index: 0, error: "فشل قراءة الملف" }],
+                });
+              } finally {
+                setValidating(false);
+              }
+            }}
+            className="mt-4 bg-white border border-gray-200 text-gray-800 px-5 py-2 rounded-lg font-bold hover:shadow-sm transition disabled:opacity-50"
+          >
+            {validating ? "جارٍ الفحص…" : "فحص الملف قبل الاستعادة"}
+          </button>
+          {validation ? (
+            <div
+              role="status"
+              className={`mt-4 rounded-xl p-4 text-sm ${
+                validation.okToRestore
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+            >
+              {validation.okToRestore
+                ? `الملف صالح: ${validation.total} سجلات، يمكن المتابعة بالاستعادة.`
+                : `الملف غير صالح: ${validation.errors.length} أخطاء (مثال: ${validation.errors[0]?.error || "غير معروف"}).`}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-amber-800">
+              يجب فحص الملف قبل تفعيل زر الاستعادة.
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={!file || !validation?.okToRestore}
             onClick={async () => {
               if (!file) return;
               if (!confirm("هل تريد استعادة البيانات من هذا الملف؟")) return;

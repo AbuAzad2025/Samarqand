@@ -1,6 +1,8 @@
 from django.db import migrations, models
 
-import website.models.settings
+from website.models.settings import default_company_values
+from website.models.settings import default_project_types
+from website.models.settings import default_section_headings
 
 
 class Migration(migrations.Migration):
@@ -13,21 +15,21 @@ class Migration(migrations.Migration):
             model_name="sitecontentsettings",
             name="headings",
             field=models.JSONField(
-                blank=True, default=website.models.settings.default_section_headings
+                blank=True, default=default_section_headings
             ),
         ),
         migrations.AlterField(
             model_name="sitecontentsettings",
             name="project_types",
             field=models.JSONField(
-                blank=True, default=website.models.settings.default_project_types
+                blank=True, default=default_project_types
             ),
         ),
         migrations.AlterField(
             model_name="sitecontentsettings",
             name="values",
             field=models.JSONField(
-                blank=True, default=website.models.settings.default_company_values
+                blank=True, default=default_company_values
             ),
         ),
     ]

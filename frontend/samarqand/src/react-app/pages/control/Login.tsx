@@ -7,6 +7,8 @@ export default function ControlLogin() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,12 +27,23 @@ export default function ControlLogin() {
     setError(null);
     setLoading(true);
     try {
-      const res = await login({ username, password });
+      const res = await login({
+        username,
+        password,
+        code: needsCode ? code : undefined,
+      });
       if (!res.ok) {
+        if (res.error === "two_factor_required") {
+          setNeedsCode(true);
+          setError("أدخل رمز المصادقة الثنائية من تطبيقك.");
+          return;
+        }
         setError(
           res.status === 403
             ? "هذا الحساب غير مصرح له بالدخول إلى لوحة التحكم."
-            : "اسم المستخدم أو كلمة المرور غير صحيحة.",
+            : needsCode
+              ? "رمز المصادقة غير صحيح."
+              : "اسم المستخدم أو كلمة المرور غير صحيحة.",
         );
         return;
       }
@@ -49,8 +62,9 @@ export default function ControlLogin() {
 
       <form onSubmit={onSubmit} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">اسم المستخدم</label>
+          <label htmlFor="login-username" className="block text-sm font-semibold text-gray-700 mb-2">اسم المستخدم</label>
           <input
+            id="login-username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -59,8 +73,9 @@ export default function ControlLogin() {
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">كلمة المرور</label>
+          <label htmlFor="login-password" className="block text-sm font-semibold text-gray-700 mb-2">كلمة المرور</label>
           <input
+            id="login-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -69,9 +84,27 @@ export default function ControlLogin() {
             required
           />
         </div>
+        {needsCode && (
+          <div>
+            <label htmlFor="login-code" className="block text-sm font-semibold text-gray-700 mb-2">
+              رمز المصادقة الثنائية
+            </label>
+            <input
+              id="login-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="000000"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sq-green"
+              required
+            />
+          </div>
+        )}
 
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
             {error}
           </div>
         )}

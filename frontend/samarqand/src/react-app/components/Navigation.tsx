@@ -50,7 +50,7 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-lg">
+    <nav aria-label="التنقل الرئيسي" className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-lg">
       <div className="h-1 bg-gradient-to-r from-sq-red via-sq-black to-sq-green" />
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-20 items-center justify-between gap-3">

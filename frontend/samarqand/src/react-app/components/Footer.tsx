@@ -125,11 +125,23 @@ export default function Footer() {
                 </li>
               )}
               {(v?.showContact ?? true) && (
-                <li>
-                  <Link to="/contact" className="text-white/75 hover:text-white transition">
-                    تواصل معنا
-                  </Link>
-                </li>
+                <>
+                  <li>
+                    <Link to="/contact" className="text-white/75 hover:text-white transition">
+                      تواصل معنا
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/privacy" className="text-white/75 hover:text-white transition">
+                      سياسة الخصوصية
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/terms" className="text-white/75 hover:text-white transition">
+                      شروط الاستخدام
+                    </Link>
+                  </li>
+                </>
               )}
             </ul>
           </div>

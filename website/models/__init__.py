@@ -6,3 +6,4 @@ from .operations import *
 from .pages import *
 from .settings import *
 from .snippets import *
+from .two_factor import *

@@ -252,7 +252,7 @@ export default function ControlMail() {
 
       <div className="flex gap-2">
         <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+          <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 pointer-events-none" />
           <input
             type="text"
             value={searchInput}
@@ -294,7 +294,7 @@ export default function ControlMail() {
                       {f.unread}
                     </span>
                   ) : f.count > 0 ? (
-                    <span className="text-white/40 text-[11px]">{f.count}</span>
+                    <span className="text-white/60 text-[11px]">{f.count}</span>
                   ) : null}
                 </button>
               );
@@ -320,20 +320,25 @@ export default function ControlMail() {
               {/* Message list */}
               <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                 {loading ? (
-                  <div className="p-8 text-center text-white/40 text-sm">جاري التحميل...</div>
+                  <div className="p-8 text-center text-white/60 text-sm">جاري التحميل...</div>
                 ) : messages.length === 0 ? (
-                  <div className="p-8 text-center text-white/40 text-sm">لا توجد رسائل</div>
+                  <div className="p-8 text-center text-white/60 text-sm">لا توجد رسائل</div>
                 ) : (
                   <div className="divide-y divide-white/5">
                     {messages.map((msg) => (
-                      <button
+                      <div
                         key={msg.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => openMessage(msg)}
-                        className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-white/5 transition text-right"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") openMessage(msg);
+                        }}
+                        className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-white/5 transition text-right cursor-pointer"
                       >
                         <button
                           type="button"
+                          aria-label={msg.isStarred ? "إلغاء التمييز بنجمة" : "تمييز بنجمة"}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStar(msg.id);
@@ -342,7 +347,7 @@ export default function ControlMail() {
                         >
                           <Star
                             size={14}
-                            className={msg.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/20 hover:text-white/40"}
+                            className={msg.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/20 hover:text-white/60"}
                           />
                         </button>
                         <div className="min-w-0 flex-1">
@@ -352,19 +357,19 @@ export default function ControlMail() {
                             >
                               {msg.isIncoming ? msg.senderName : "أنت"}
                             </span>
-                            <span className="text-[11px] text-white/40 shrink-0">{formatTime(msg.createdAt)}</span>
+                            <span className="text-[11px] text-white/60 shrink-0">{formatTime(msg.createdAt)}</span>
                           </div>
                           <div
                             className={`text-sm truncate mt-0.5 ${msg.isRead ? "text-white/50" : "text-white/80 font-bold"}`}
                           >
                             {msg.subject || "(بدون موضوع)"}
                           </div>
-                          <div className="text-xs text-white/40 truncate mt-0.5">{truncate(msg.body, 100)}</div>
+                          <div className="text-xs text-white/60 truncate mt-0.5">{truncate(msg.body, 100)}</div>
                         </div>
                         {msg.attachments.length > 0 && (
-                          <Paperclip size={12} className="mt-2 shrink-0 text-white/30" />
+                          <Paperclip size={12} className="mt-2 shrink-0 text-white/60" />
                         )}
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -375,6 +380,7 @@ export default function ControlMail() {
                 <div className="flex items-center justify-center gap-2">
                   <button
                     type="button"
+                    aria-label="الصفحة السابقة"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1}
                     className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
@@ -386,6 +392,7 @@ export default function ControlMail() {
                   </span>
                   <button
                     type="button"
+                    aria-label="الصفحة التالية"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
                     className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
@@ -460,20 +467,20 @@ function MessageDetail({
           >
             <Star
               size={15}
-              className={message.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/40"}
+              className={message.isStarred ? "fill-yellow-400 text-yellow-400" : "text-white/60"}
             />
           </button>
           <button
             type="button"
             onClick={() => onReadUnread(message)}
-            className="p-2 rounded-xl hover:bg-white/10 transition text-white/40"
+            className="p-2 rounded-xl hover:bg-white/10 transition text-white/60"
           >
             {message.isRead ? <MailOpen size={15} /> : <Mail size={15} />}
           </button>
           <button
             type="button"
             onClick={() => onReply(message)}
-            className="p-2 rounded-xl hover:bg-white/10 transition text-white/40"
+            className="p-2 rounded-xl hover:bg-white/10 transition text-white/60"
           >
             <Reply size={15} />
           </button>
@@ -489,7 +496,7 @@ function MessageDetail({
             <button
               type="button"
               onClick={() => onDelete(message.id)}
-              className="p-2 rounded-xl hover:bg-white/10 transition text-white/40"
+              className="p-2 rounded-xl hover:bg-white/10 transition text-white/60"
             >
               <Trash2 size={15} />
             </button>
@@ -498,7 +505,7 @@ function MessageDetail({
             <button
               type="button"
               onClick={() => onMoveToFolder(message.id, "trash")}
-              className="p-2 rounded-xl hover:bg-white/10 transition text-white/40"
+              className="p-2 rounded-xl hover:bg-white/10 transition text-white/60"
             >
               <X size={15} />
             </button>
@@ -507,7 +514,7 @@ function MessageDetail({
             <button
               type="button"
               onClick={() => onMoveToFolder(message.id, "inbox")}
-              className="p-2 rounded-xl hover:bg-white/10 transition text-white/40 text-xs px-3 font-bold"
+              className="p-2 rounded-xl hover:bg-white/10 transition text-white/60 text-xs px-3 font-bold"
             >
               استعادة
             </button>
@@ -516,7 +523,7 @@ function MessageDetail({
             <button
               type="button"
               onClick={() => onReply(message)}
-              className="p-2 rounded-xl hover:bg-white/10 transition text-white/40 text-xs px-3 font-bold"
+              className="p-2 rounded-xl hover:bg-white/10 transition text-white/60 text-xs px-3 font-bold"
             >
               تعديل
             </button>
@@ -554,7 +561,7 @@ function MessageDetail({
                   <FileText size={12} />
                   <span>{a.filename}</span>
                   {a.fileSize > 0 && (
-                    <span className="text-white/40">({Math.round(a.fileSize / 1024)} KB)</span>
+                    <span className="text-white/60">({Math.round(a.fileSize / 1024)} KB)</span>
                   )}
                 </div>
               ))}
@@ -759,7 +766,7 @@ function ComposeModal({
               value={searchUser}
               onChange={(e) => handleSearchUser(e.target.value)}
               placeholder="ابحث عن مستخدم..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-emerald-500/50 transition"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition"
             />
             {searchUser && availableUsers.length > 0 && (
               <div className="mt-1 max-h-32 overflow-y-auto bg-white/10 border border-white/10 rounded-xl">
@@ -804,7 +811,7 @@ function ComposeModal({
               <input
                 type="text"
                 placeholder="..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none"
               />
             </div>
           )}
@@ -815,7 +822,7 @@ function ComposeModal({
               <input
                 type="text"
                 placeholder="..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none"
               />
             </div>
           )}
@@ -827,7 +834,7 @@ function ComposeModal({
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="الموضوع"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-emerald-500/50 transition"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition"
             />
           </div>
 
@@ -838,7 +845,7 @@ function ComposeModal({
               onChange={(e) => setBody(e.target.value)}
               placeholder="محتوى الرسالة..."
               rows={8}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-emerald-500/50 transition resize-y"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/60 outline-none focus:border-emerald-500/50 transition resize-y"
             />
           </div>
 

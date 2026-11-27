@@ -151,6 +151,35 @@ export function readApiErrorCode(payload: ApiResponse<unknown> | null): string {
   return payload && payload.ok === false ? payload.error.code : "error";
 }
 
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = await readApiResponse<T>(res);
+  if (!res.ok || !payload || payload.ok !== true) {
+    throw new Error(readApiErrorCode(payload));
+  }
+  return payload.result;
+}
+
+async function postResult(
+  url: string,
+  body: unknown,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !payload || payload.ok !== true) {
+    return { ok: false, error: readApiErrorCode(payload) };
+  }
+  return { ok: true };
+}
+
 export function getCookie(name: string): string | null {
   const cookies = document.cookie ? document.cookie.split(";") : [];
   for (const c of cookies) {
@@ -246,7 +275,8 @@ export async function fetchAuthMe(): Promise<{
 export async function login(input: {
   username: string;
   password: string;
-}): Promise<{ ok: boolean; status: number }> {
+  code?: string;
+}): Promise<{ ok: boolean; status: number; error?: string }> {
   if (!getCookie("csrftoken")) {
     try {
       await fetchAuthMe();
@@ -268,7 +298,39 @@ export async function login(input: {
   return {
     ok: Boolean(res.ok && data && data.ok === true),
     status: res.status,
+    error: res.ok ? undefined : readApiErrorCode(data),
   };
+}
+
+export type TwoFactorStatus = {
+  enabled: boolean;
+  hasPendingSecret: boolean;
+};
+
+export async function fetchTwoFactorStatus(): Promise<TwoFactorStatus> {
+  return fetchJson<TwoFactorStatus>("/api/auth/2fa/status");
+}
+
+export async function setupTwoFactor(): Promise<{
+  secret: string;
+  otpauthUrl: string;
+}> {
+  return postJson<{ secret: string; otpauthUrl: string }>(
+    "/api/auth/2fa/setup",
+    {},
+  );
+}
+
+export async function confirmTwoFactor(
+  code: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return postResult("/api/auth/2fa/confirm", { code });
+}
+
+export async function disableTwoFactor(
+  code: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return postResult("/api/auth/2fa/disable", { code });
 }
 
 export async function createOrUpdateUser(input: {
@@ -3086,6 +3148,31 @@ export async function restoreAdminBackup(file: File): Promise<{ ok: boolean; err
   const data = await readApiResponse<Record<string, never>>(res);
   if (!res.ok || !data || data.ok !== true) return { ok: false, error: readApiErrorCode(data) };
   return { ok: true };
+}
+
+export type BackupValidation = {
+  okToRestore: boolean;
+  total: number;
+  counts: Record<string, number>;
+  errors: { index: number; error: string; model?: string; detail?: string }[];
+};
+
+export async function validateAdminBackup(
+  file: File,
+): Promise<BackupValidation> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await apiFetch("/api/admin/backup/validate", {
+    method: "POST",
+    headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+    body: form,
+    credentials: "same-origin",
+  });
+  const payload = await readApiResponse<BackupValidation>(res);
+  if (!res.ok || !payload || payload.ok !== true) {
+    throw new Error(readApiErrorCode(payload));
+  }
+  return payload.result;
 }
 
 export type SiteContentTexts = {

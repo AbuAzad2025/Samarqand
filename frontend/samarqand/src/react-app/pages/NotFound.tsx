@@ -10,7 +10,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-white" dir="rtl">
       <TopBar />
       <Navigation />
-      <main className="min-h-[60vh] flex items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-100 px-4">
+      <div className="min-h-[60vh] flex items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-100 px-4">
         <div className="max-w-lg w-full text-center bg-white rounded-3xl shadow-xl p-10 border border-slate-200">
           <div className="text-6xl mb-4" aria-hidden="true">🧱</div>
           <h1 className="text-3xl font-extrabold text-slate-900 mb-3">
@@ -35,7 +35,7 @@ export default function NotFound() {
             </Link>
           </div>
         </div>
-      </main>
+      </div>
       <Footer />
       <WhatsAppButton />
     </div>

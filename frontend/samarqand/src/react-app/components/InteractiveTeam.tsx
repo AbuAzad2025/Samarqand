@@ -38,7 +38,16 @@ export default function InteractiveTeam() {
             {team.map((member) => (
               <div
                 key={member.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`تفاصيل ${member.name}`}
                 onClick={() => setSelectedMember(member)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedMember(member);
+                  }
+                }}
                 className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
               >
                 {/* Image Container */}
@@ -89,6 +98,8 @@ export default function InteractiveTeam() {
             dir="rtl"
           >
             <button
+              type="button"
+              aria-label="إغلاق التفاصيل"
               onClick={() => setSelectedMember(null)}
               className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition shadow-lg z-10"
             >

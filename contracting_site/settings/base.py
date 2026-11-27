@@ -129,6 +129,9 @@ def _env_list(name: str, default: str = "") -> list[str]:
 # Only these proxies may supply X-Forwarded-For for rate limiting.
 TRUSTED_PROXY_IPS = _env_list("TRUSTED_PROXY_IPS", "")
 
+# Optional GA4 measurement id; no analytics tag is emitted when empty.
+GA_MEASUREMENT_ID = _env("GA_MEASUREMENT_ID", "")
+
 try:
     ADMIN_API_RATE_LIMIT = int(_env("ADMIN_API_RATE_LIMIT", "600") or "600")
 except ValueError:

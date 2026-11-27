@@ -17,7 +17,8 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <main
+      <div
+        role="alert"
         dir="rtl"
         className="min-h-screen flex items-center justify-center bg-slate-50 px-4"
       >
@@ -36,7 +37,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             إعادة التحميل
           </button>
         </div>
-      </main>
+      </div>
     );
   }
 }

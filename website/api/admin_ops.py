@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tempfile
@@ -16,6 +17,7 @@ from typing import Iterator
 from django.conf import settings
 from django.core.cache import cache
 from django.core.management import call_command
+from django.core.serializers import deserialize
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpRequest
@@ -818,7 +820,7 @@ def admin_backup_export(request: HttpRequest) -> HttpResponse | JsonResponse:
             "auth",
             indent=2,
             stdout=out,
-            exclude=["contenttypes", "admin.logentry", "sessions"],
+            exclude=["sessions"],
         )
     except Exception:
         return _api_error("export_failed", status=400)
@@ -828,6 +830,79 @@ def admin_backup_export(request: HttpRequest) -> HttpResponse | JsonResponse:
     resp = HttpResponse(payload, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="backup-{ts}.json"'
     return resp
+
+
+@require_POST
+def admin_backup_validate(request: HttpRequest) -> JsonResponse:
+    """Check a backup file without writing anything to the database."""
+    forbidden = _require_superuser(request)
+    if forbidden:
+        return forbidden
+    limited = _check_rate_limit(
+        request, scope="admin_backup_validate", limit=3, window_seconds=600
+    )
+    if limited:
+        return limited
+
+    upload = request.FILES.get("file")
+    if not upload:
+        return _api_error("missing_file", status=400)
+    if upload.size > 20 * 1024 * 1024:
+        return _api_error("file_too_large", status=400)
+
+    try:
+        data = json.loads(upload.read().decode("utf-8"))
+    except Exception:
+        return _api_error("invalid_backup", status=400)
+    if not isinstance(data, list):
+        return _api_error("invalid_backup", status=400)
+
+    allowed = {
+        "website",
+        "wagtailcore",
+        "wagtailimages",
+        "wagtaildocs",
+        "coderedcms",
+        "taggit",
+        "auth",
+    }
+    counts: dict[str, int] = {}
+    errors: list[dict[str, Any]] = []
+    for index, obj in enumerate(data[:10000]):
+        model = str(obj.get("model") or "")
+        app = model.split(".")[0]
+        if "." not in model or app not in allowed:
+            errors.append(
+                {"index": index, "error": "disallowed_app", "model": model}
+            )
+            continue
+        try:
+            wrappers = list(
+                deserialize("json", json.dumps([obj], ensure_ascii=False))
+            )
+            if len(wrappers) != 1:
+                errors.append(
+                    {"index": index, "error": "invalid_object", "model": model}
+                )
+        except Exception as exc:
+            errors.append(
+                {
+                    "index": index,
+                    "error": "deserialize_failed",
+                    "model": model,
+                    "detail": str(exc)[:200],
+                }
+            )
+        counts[model] = counts.get(model, 0) + 1
+
+    return _api_ok(
+        {
+            "okToRestore": not errors,
+            "total": len(data),
+            "counts": counts,
+            "errors": errors[:100],
+        }
+    )
 
 
 @require_POST
@@ -864,6 +939,13 @@ def admin_backup_import(request: HttpRequest) -> JsonResponse:
             except Exception:
                 pass
 
+    _audit_ops(
+        request,
+        action="backup_import",
+        entity_type="backup",
+        entity_id="",
+        after={"file": getattr(f, "name", "")},
+    )
     return _api_ok()
 
 
@@ -904,7 +986,7 @@ def admin_backup_portal(
             "auth",
             indent=2,
             stdout=out,
-            exclude=["contenttypes", "admin.logentry", "sessions"],
+            exclude=["sessions"],
         )
         payload = out.getvalue()
         ts = time.strftime("%Y%m%d-%H%M%S")

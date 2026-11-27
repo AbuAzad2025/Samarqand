@@ -13,7 +13,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
+from website.models import TotpProfile
 from website.models import Worker
+
+from .two_factor import verify_totp
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,13 @@ def auth_login(request: HttpRequest) -> JsonResponse:
         return _api_error("inactive", status=403)
     if not getattr(user, "is_staff", False):
         return _api_error("forbidden", status=403)
+    profile = TotpProfile.objects.filter(user=user, enabled=True).first()
+    if profile:
+        code = str(data.get("code") or "").strip()
+        if not code:
+            return _api_error("two_factor_required", status=401)
+        if not verify_totp(profile.secret, code):
+            return _api_error("invalid_code", status=401)
     django_login(request, user)
     return _api_ok()
 

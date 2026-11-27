@@ -155,6 +155,7 @@ urlpatterns = [
         "api/admin/media/documents/<int:doc_id>/delete",
         api_views.admin_media_documents_delete,
     ),
+    path("api/admin/backup/validate", api_views.admin_backup_validate),
     path("api/admin/backup/export", api_views.admin_backup_export),
     path("api/admin/backup/import", api_views.admin_backup_import),
     path("api/admin/services", api_views.admin_services),

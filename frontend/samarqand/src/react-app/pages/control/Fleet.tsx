@@ -298,7 +298,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -316,7 +316,7 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
+      className={`bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:border-sq-green/50 ${props.className || ""}`}
     />
   );
 }
@@ -610,7 +610,7 @@ function VehiclesSection({
             ))}
             {vehicles.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={8} className="px-4 py-8 text-center text-white/60">
                   لا توجد مركبات.
                 </td>
               </tr>
@@ -818,7 +818,7 @@ function FuelSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={7} className="px-4 py-8 text-center text-white/60">
                   لا توجد سجلات وقود.
                 </td>
               </tr>
@@ -1020,7 +1020,7 @@ function MaintenanceSection({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-white/40">
+                <td colSpan={7} className="px-4 py-8 text-center text-white/60">
                   لا توجد سجلات صيانة.
                 </td>
               </tr>

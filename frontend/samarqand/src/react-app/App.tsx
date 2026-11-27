@@ -7,9 +7,12 @@ import Contact from "@/react-app/pages/Contact";
 import Services from "@/react-app/pages/Services";
 import Tools from "@/react-app/pages/Tools";
 import Showcase from "@/react-app/pages/Showcase";
+import Privacy from "@/react-app/pages/Privacy";
+import Terms from "@/react-app/pages/Terms";
 const ControlLayout = lazy(() => import("@/react-app/pages/control/ControlLayout"));
 const ControlLogin = lazy(() => import("@/react-app/pages/control/Login"));
 const ControlUsers = lazy(() => import("@/react-app/pages/control/Users"));
+const ControlSecurity = lazy(() => import("@/react-app/pages/control/settings/Security"));
 const ControlLeads = lazy(() => import("@/react-app/pages/control/Leads"));
 const ControlChangePassword = lazy(() => import("@/react-app/pages/control/ChangePassword"));
 import AdminRedirect from "@/react-app/pages/control/AdminRedirect";
@@ -51,15 +54,21 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:right-2 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:font-bold focus:text-sq-green"
+        >
+          تخطَّ إلى المحتوى
+        </a>
         <ApiErrorBanner />
         <Suspense
           fallback={
-            <div className="min-h-screen flex items-center justify-center text-slate-600">
+            <div role="status" aria-live="polite" className="min-h-screen flex items-center justify-center text-slate-600">
               جارٍ التحميل…
             </div>
           }
         >
-          <main className="min-h-screen">
+          <main id="main-content" className="min-h-screen">
           <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<About />} />
@@ -68,6 +77,8 @@ export default function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/showcase" element={<Showcase />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/request-quote" element={<Contact />} />
         <Route path="/blog" element={<ContentList kind="articles" />} />
         <Route path="/blog/:slug" element={<ContentDetail kind="articles" />} />
@@ -111,6 +122,7 @@ export default function App() {
           <Route path="settings/calculator" element={<ControlCalculatorSettings />} />
           <Route path="settings/visibility" element={<ControlVisibilitySettings />} />
           <Route path="settings/content" element={<ControlContentSettings />} />
+        <Route path="settings/security" element={<ControlSecurity />} />
           </Route>
           <Route path="*" element={<NotFound />} />
           </Routes>

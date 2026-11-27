@@ -1,3 +1,4 @@
+import json
 import re
 from html import escape
 from pathlib import Path
@@ -7,6 +8,9 @@ from django import template
 from django.conf import settings
 from django.templatetags.static import static
 from django.utils.safestring import mark_safe
+from wagtail.models import Site
+
+from website.models import CompanySettings
 
 register = template.Library()
 
@@ -93,6 +97,69 @@ def _apply_page_seo(html: str, page: Any) -> str:
     return html
 
 
+def _seo_injections(context: Any) -> str:
+    """Emit analytics, canonical URL and business structured data.
+
+    Nothing is emitted when GA4 is unconfigured; the JSON-LD only uses real
+    values saved in the company settings, never fabricated placeholders.
+    """
+    request = context.get("request") if context else None
+    if not request:
+        return ""
+
+    parts: list[str] = []
+    try:
+        canonical = escape(request.build_absolute_uri())
+        parts.append(f'<link rel="canonical" href="{canonical}">')
+    except Exception:
+        pass
+
+    ga_id = str(getattr(settings, "GA_MEASUREMENT_ID", "") or "").strip()
+    if ga_id and re.fullmatch(r"G-[A-Z0-9]+", ga_id):
+        safe_id = escape(ga_id)
+        parts.append(
+            f'<script async src="https://www.googletagmanager.com/gtag/js?id={safe_id}"></script>'
+        )
+        parts.append(
+            "<script>window.dataLayer=window.dataLayer||[];"
+            "function gtag(){dataLayer.push(arguments);}"
+            "gtag('js',new Date());gtag('config',"
+            + json.dumps(ga_id)
+            + ");</script>"
+        )
+
+    try:
+        site = Site.find_for_request(request)
+        if site:
+            company = CompanySettings.for_site(site)
+            data: dict[str, Any] = {
+                "@context": "https://schema.org",
+                "@type": "GeneralContractor",
+                "name": str(company.name or "").strip()
+                or "شركة سمر قند للمقاولات",
+            }
+            phone = str(company.phone_1 or company.phone_2 or "").strip()
+            if phone:
+                data["telephone"] = phone
+            email = str(company.email or "").strip()
+            if email:
+                data["email"] = email
+            address = str(company.address or "").strip()
+            if address:
+                data["address"] = {
+                    "@type": "PostalAddress",
+                    "streetAddress": address,
+                }
+            payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+            parts.append(
+                '<script type="application/ld+json">' + payload + "</script>"
+            )
+    except Exception:
+        pass
+
+    return "\n".join(parts)
+
+
 @register.simple_tag(takes_context=True)
 def samarqand_spa_document(context: Any) -> str:
     html = _rewrite_root_paths(_load_index_html())
@@ -101,4 +168,7 @@ def samarqand_spa_document(context: Any) -> str:
     page = context.get("page") if context else None
     if page:
         html = _apply_page_seo(html, page)
+    injections = _seo_injections(context)
+    if injections:
+        html = html.replace("</head>", injections + "\n  </head>", 1)
     return mark_safe(html)

@@ -173,6 +173,7 @@ export default function ControlLayout() {
       pathname === "/control" ||
       pathname.startsWith("/control/dashboard") ||
       pathname.startsWith("/control/password") ||
+      pathname.startsWith("/control/settings/security") ||
       (pathname.startsWith("/control/ops") && access.canOps) ||
       (pathname.startsWith("/control/leads") && access.manager) ||
       (pathname.startsWith("/control/projects") && access.canProjects) ||
@@ -264,6 +265,7 @@ export default function ControlLayout() {
         { to: "/control/settings/company", label: "بيانات الشركة", icon: Building2, show: access.manager },
         { to: "/control/settings/content", label: "نصوص الواجهة", icon: FileText, show: access.manager },
         { to: "/control/settings/visibility", label: "إظهار الأقسام", icon: Settings, show: access.manager },
+        { to: "/control/settings/security", label: "أمان الحساب", icon: LockKeyhole, show: true },
         { to: "/control/settings/home", label: "الشعار والهيرو", icon: ImageIcon, show: access.manager },
         { to: "/control/settings/ai", label: "الذكاء الاصطناعي", icon: Wrench, show: access.manager },
         { to: "/control/settings/calculator", label: "الحاسبة", icon: BarChart3, show: access.manager },
@@ -549,7 +551,7 @@ export default function ControlLayout() {
             <Link to="/" className="hover:text-white transition">
               الموقع
             </Link>
-            <span className="text-white/40">|</span>
+            <span className="text-white/60">|</span>
             <Link to="/control/password" className="hover:text-white transition">
               كلمة المرور
             </Link>
