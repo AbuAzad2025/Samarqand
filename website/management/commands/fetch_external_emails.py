@@ -32,7 +32,7 @@ def _decode_str(val: bytes | str | None) -> str:
             ch = charset or "utf-8"
             try:
                 pieces.append(part.decode(ch, errors="replace"))
-            except LookupError, ValueError:
+            except (LookupError, ValueError):
                 pieces.append(part.decode("utf-8", errors="replace"))
         else:
             pieces.append(part)
@@ -201,7 +201,7 @@ def _decode_payload(payload: object, charset: str) -> str:
         return ""
     try:
         return payload.decode(charset, errors="replace")
-    except LookupError, ValueError:
+    except (LookupError, ValueError):
         return payload.decode("utf-8", errors="replace")
 
 

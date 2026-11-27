@@ -117,7 +117,7 @@ def admin_leads_update(request: HttpRequest, lead_id: int) -> JsonResponse:
         else:
             try:
                 user_id = int(raw)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 return _api_error("invalid_assigned_to", status=400)
             from django.contrib.auth import get_user_model
 
