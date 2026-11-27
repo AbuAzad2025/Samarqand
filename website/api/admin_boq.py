@@ -194,7 +194,7 @@ def admin_boq_items_delete(
 def admin_boq_payment_applications(
     request: HttpRequest, project_id: int
 ) -> JsonResponse:
-    forbidden = _require_manager(request)
+    forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
     project = ProjectPage.objects.filter(pk=project_id).first()
@@ -236,7 +236,7 @@ def admin_boq_payment_applications(
 def admin_boq_payment_applications_detail(
     request: HttpRequest, project_id: int, application_id: int
 ) -> JsonResponse:
-    forbidden = _require_manager(request)
+    forbidden = _require_accounting(request)
     if forbidden:
         return forbidden
     pa = PaymentApplication.objects.filter(

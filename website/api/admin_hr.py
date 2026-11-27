@@ -1374,7 +1374,7 @@ def admin_ops_payroll_delete(
 
 @require_GET
 def admin_hr_leave_requests(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     qs = LeaveRequest.objects.select_related("worker")
@@ -1406,7 +1406,7 @@ def admin_hr_leave_requests(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_hr_leave_requests_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1449,7 +1449,7 @@ def admin_hr_leave_requests_create(request: HttpRequest) -> JsonResponse:
 def admin_hr_leave_requests_update(
     request: HttpRequest, leave_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     lr = LeaveRequest.objects.filter(pk=leave_id).first()
@@ -1499,7 +1499,7 @@ def admin_hr_leave_requests_update(
 def admin_hr_leave_requests_delete(
     request: HttpRequest, leave_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     lr = LeaveRequest.objects.filter(pk=leave_id).first()
@@ -1586,7 +1586,7 @@ def admin_hr_leave_requests_reject(
 def admin_hr_leave_balance(
     request: HttpRequest, worker_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     year = int(request.GET.get("year") or 0) or timezone.now().year
@@ -1615,7 +1615,7 @@ def admin_hr_leave_balance(
 
 @require_GET
 def admin_hr_contracts(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     qs = EmployeeContract.objects.select_related("worker")
@@ -1649,7 +1649,7 @@ def admin_hr_contracts(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_hr_contracts_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1702,7 +1702,7 @@ def admin_hr_contracts_create(request: HttpRequest) -> JsonResponse:
 def admin_hr_contracts_update(
     request: HttpRequest, contract_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     c = EmployeeContract.objects.filter(pk=contract_id).first()
@@ -1764,7 +1764,7 @@ def admin_hr_contracts_update(
 def admin_hr_contracts_delete(
     request: HttpRequest, contract_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     c = EmployeeContract.objects.filter(pk=contract_id).first()
@@ -1783,7 +1783,7 @@ def admin_hr_contracts_delete(
 
 @require_GET
 def admin_hr_overtime(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     qs = OvertimeRecord.objects.select_related("worker", "project")
@@ -1829,7 +1829,7 @@ def admin_hr_overtime(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_hr_overtime_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -1881,7 +1881,7 @@ def admin_hr_overtime_create(request: HttpRequest) -> JsonResponse:
 def admin_hr_overtime_update(
     request: HttpRequest, overtime_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     ot = OvertimeRecord.objects.filter(pk=overtime_id).first()
@@ -1934,7 +1934,7 @@ def admin_hr_overtime_update(
 def admin_hr_overtime_delete(
     request: HttpRequest, overtime_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     ot = OvertimeRecord.objects.filter(pk=overtime_id).first()
@@ -1984,7 +1984,7 @@ def admin_hr_overtime_approve(
 
 @require_GET
 def admin_hr_social_security(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     qs = SocialSecurityRecord.objects.select_related("worker")
@@ -2019,7 +2019,7 @@ def admin_hr_social_security(request: HttpRequest) -> JsonResponse:
 
 @require_POST
 def admin_hr_social_security_create(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     data = _read_json(request)
@@ -2066,7 +2066,7 @@ def admin_hr_social_security_create(request: HttpRequest) -> JsonResponse:
 def admin_hr_social_security_update(
     request: HttpRequest, record_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     ss = SocialSecurityRecord.objects.filter(pk=record_id).first()
@@ -2120,7 +2120,7 @@ def admin_hr_social_security_update(
 def admin_hr_social_security_delete(
     request: HttpRequest, record_id: int
 ) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_hr_records(request)
     if forbidden:
         return forbidden
     ss = SocialSecurityRecord.objects.filter(pk=record_id).first()

@@ -5,7 +5,13 @@ import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import Footer from "@/react-app/components/Footer";
 import AIChatbot from "@/react-app/components/AIChatbot";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
-import { fetchCompany, fetchSiteConfig, type CompanyPayload, type SiteConfigPayload } from "@/react-app/api/site";
+import {
+  fetchCompany,
+  fetchSiteConfig,
+  submitLead,
+  type CompanyPayload,
+  type SiteConfigPayload,
+} from "@/react-app/api/site";
 import { useLocation } from "react-router";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES, RFQ_TEMPLATES_BY_KEY } from "@/react-app/rfqTemplates";
 import { whatsappUrl } from "@/react-app/utils/whatsapp";
@@ -24,6 +30,7 @@ export default function Contact() {
     [location.search],
   );
   const [rfqTemplate, setRfqTemplate] = useState("");
+  const [submitStatus, setSubmitStatus] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -38,9 +45,24 @@ export default function Contact() {
   const selectedRfqLabel = selectedRfq?.title || "";
   const selectedRfqMessage = selectedRfq?.whatsappMessage || "";
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setSubmitStatus("");
+
+    const saved = await submitLead({
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email,
+      projectType: formData.projectType,
+      message: formData.message,
+      source: isQuote ? "quote" : "website",
+    });
+    setSubmitStatus(
+      saved.ok
+        ? "تم استلام طلبك، سنتواصل معك قريباً."
+        : "تعذر حفظ الطلب، يمكنك المتابعة عبر واتساب.",
+    );
+
     // إنشاء رسالة واتساب
     const whatsappMessage = `
 مرحباً، أريد الاستفسار عن خدماتكم:
@@ -305,12 +327,18 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                   />
                 </div>
 
+                {submitStatus ? (
+                  <p className="text-sm font-semibold text-sq-green" role="status">
+                    {submitStatus}
+                  </p>
+                ) : null}
+
                 <button
                   type="submit"
                   className="w-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                 >
                   <Send size={20} />
-                  <span>إرسال عبر واتساب</span>
+                  <span>إرسال الطلب</span>
                 </button>
               </form>
             </div>

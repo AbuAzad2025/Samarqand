@@ -38,6 +38,11 @@ import {
   type VariationOrderItem,
 } from "@/react-app/api/boq";
 import { formatMoney, todayInputValue, baseHumanizeErrorCode } from "@/react-app/utils/common";
+import {
+  isAccountingRole,
+  isManagerRole,
+  useControlRole,
+} from "@/react-app/utils/controlRole";
 
 function humanizeErrorCode(code: string): string {
   const shared = baseHumanizeErrorCode(code);
@@ -58,6 +63,9 @@ type Tab = "boq" | "payments" | "variations" | "final";
 type PaymentModalMode = "create" | "items" | null;
 
 export default function ControlBOQ() {
+  const controlRole = useControlRole();
+  const canApprovePayment = isManagerRole(controlRole);
+  const canPayPayment = isAccountingRole(controlRole);
   const [projects, setProjects] = useState<BoqProjectItem[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("boq");
@@ -728,7 +736,7 @@ export default function ControlBOQ() {
                             >
                               تعديل
                             </button>
-                            {p.status === "draft" && (
+                            {canApprovePayment && p.status === "draft" && (
                               <button
                                 type="button"
                                 onClick={() => handlePaymentAction("submit", p.id)}
@@ -737,7 +745,8 @@ export default function ControlBOQ() {
                                 إرسال
                               </button>
                             )}
-                            {(p.status === "draft" || p.status === "submitted") && (
+                            {canApprovePayment &&
+                              (p.status === "draft" || p.status === "submitted") && (
                               <button
                                 type="button"
                                 onClick={() => handlePaymentAction("approve", p.id)}
@@ -746,7 +755,8 @@ export default function ControlBOQ() {
                                 اعتماد
                               </button>
                             )}
-                            {(p.status === "approved" || p.status === "submitted") && (
+                            {canPayPayment &&
+                              (p.status === "approved" || p.status === "submitted") && (
                               <>
                                 <button
                                   type="button"

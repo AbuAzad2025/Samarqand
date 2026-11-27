@@ -131,11 +131,6 @@ export default function Footer() {
                   </Link>
                 </li>
               )}
-              <li>
-                <Link to="/admin" className="text-white/75 hover:text-white transition">
-                  دخول الادمن
-                </Link>
-              </li>
             </ul>
           </div>
 

@@ -7,6 +7,7 @@ from website import api as api_views
 urlpatterns = [
     path("api/calculator/calculate", api_views.calculate),
     path("api/images/generate-visualization", api_views.generate_visualization),
+    path("api/site/leads", api_views.site_leads_create),
     path("api/site/company", api_views.site_company),
     path("api/site/config", api_views.site_config),
     path("api/site/home", api_views.site_home),

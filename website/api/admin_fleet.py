@@ -92,7 +92,7 @@ def _vehicle_to_dict(v: Vehicle) -> dict[str, Any]:
 
 @require_GET
 def admin_fleet_vehicles(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_fleet_read(request)
     if forbidden:
         return forbidden
     qs = Vehicle.objects.select_related("assigned_to", "current_project")
@@ -268,7 +268,7 @@ def admin_fleet_vehicles_delete(
 
 @require_GET
 def admin_fleet_fuel_logs(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_fleet_read(request)
     if forbidden:
         return forbidden
     qs = FuelLog.objects.select_related("vehicle", "filled_by")
@@ -435,7 +435,7 @@ def admin_fleet_fuel_logs_delete(
 
 @require_GET
 def admin_fleet_maintenance(request: HttpRequest) -> JsonResponse:
-    forbidden = _require_ops_management(request)
+    forbidden = _require_fleet_read(request)
     if forbidden:
         return forbidden
     qs = VehicleMaintenance.objects.select_related("vehicle")

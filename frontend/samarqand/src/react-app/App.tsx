@@ -10,6 +10,7 @@ import Showcase from "@/react-app/pages/Showcase";
 const ControlLayout = lazy(() => import("@/react-app/pages/control/ControlLayout"));
 const ControlLogin = lazy(() => import("@/react-app/pages/control/Login"));
 const ControlUsers = lazy(() => import("@/react-app/pages/control/Users"));
+const ControlLeads = lazy(() => import("@/react-app/pages/control/Leads"));
 const ControlChangePassword = lazy(() => import("@/react-app/pages/control/ChangePassword"));
 import AdminRedirect from "@/react-app/pages/control/AdminRedirect";
 const ControlDashboard = lazy(() => import("@/react-app/pages/control/Dashboard"));
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="dashboard" element={<ControlDashboard />} />
           <Route path="team" element={<ControlDashboard mode="team" />} />
           <Route path="users" element={<ControlUsers />} />
+        <Route path="leads" element={<ControlLeads />} />
           <Route path="password" element={<ControlChangePassword />} />
           <Route path="projects" element={<ControlProjects />} />
           <Route path="projects/:id" element={<ControlProjectEdit />} />

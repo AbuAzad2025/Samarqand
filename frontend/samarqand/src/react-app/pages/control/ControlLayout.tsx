@@ -155,7 +155,7 @@ export default function ControlLayout() {
       canBoq: canDelivery,
       canFieldDocs: canDelivery,
       canRfq: canDelivery,
-      canHr: manager || registrar || accountant,
+      canHr: manager,
       canFleet: manager || registrar,
       canMail: manager || registrar,
       canCompanyDocs: accountant || registrar,
@@ -174,6 +174,7 @@ export default function ControlLayout() {
       pathname.startsWith("/control/dashboard") ||
       pathname.startsWith("/control/password") ||
       (pathname.startsWith("/control/ops") && access.canOps) ||
+      (pathname.startsWith("/control/leads") && access.manager) ||
       (pathname.startsWith("/control/projects") && access.canProjects) ||
       (pathname.startsWith("/control/rfq") && access.canRfq) ||
       (pathname.startsWith("/control/boq") && access.canBoq) ||
@@ -236,6 +237,7 @@ export default function ControlLayout() {
     const groups: Record<GroupKey, NavItem[]> = {
       operations: [
         { to: "/control/ops", label: "العمليات والموارد", icon: ClipboardList, show: access.canOps },
+        { to: "/control/leads", label: "العملاء المحتملون", icon: UsersRound, show: access.manager },
         { to: "/control/hr", label: "الموارد البشرية", icon: UserCog, show: access.canHr },
         { to: "/control/fleet", label: "المركبات", icon: Truck, show: access.canFleet },
         { to: "/control/mail", label: "البريد", icon: Mail, show: access.canMail },
@@ -293,7 +295,7 @@ export default function ControlLayout() {
   const quickLinks = useMemo(() => {
     let preferred: string[];
     if (access.superuser || access.manager) {
-      preferred = ["/control/dashboard", "/control/ops", "/control/projects", "/control/settings/content", "/control/backup"];
+      preferred = ["/control/dashboard", "/control/ops", "/control/leads", "/control/projects", "/control/settings/content", "/control/backup"];
     } else if (access.projectRole) {
       preferred = ["/control/dashboard", "/control/projects", "/control/boq", "/control/field-docs"];
     } else if (access.accountant) {

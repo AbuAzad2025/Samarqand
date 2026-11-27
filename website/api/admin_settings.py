@@ -22,6 +22,7 @@ from website.models import HomePageSettings
 from website.models import HomeStat
 from website.models import HomeTimelineStep
 from website.models import HomeTrustBadge
+from website.models import Lead
 from website.models import ProjectPage
 from website.models import RFQDocument
 from website.models import ServicePage
@@ -73,6 +74,7 @@ def admin_summary(request: HttpRequest) -> JsonResponse:
         "team": TeamMember.objects.count(),
         "testimonials": Testimonial.objects.count(),
         "rfqDocuments": RFQDocument.objects.count(),
+        "leads": Lead.objects.count(),
         "trustBadges": HomeTrustBadge.objects.count(),
         "stats": HomeStat.objects.count(),
         "timeline": HomeTimelineStep.objects.count(),

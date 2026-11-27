@@ -11,6 +11,7 @@ import {
   uploadAdminImage,
   type AdminTeamMember,
 } from "@/react-app/api/site";
+import { isManagerRole, useControlRole } from "@/react-app/utils/controlRole";
 
 export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "team" }) {
   const [data, setData] = useState<{
@@ -59,21 +60,26 @@ export default function ControlDashboard({ mode = "full" }: { mode?: "full" | "t
     if (mode === "team") loadTeam();
   }, [mode]);
 
+  const controlRole = useControlRole();
   const cards = useMemo(() => {
     const c = data?.counts || {};
-    return [
+    const all = [
       { label: "الخدمات", value: c.services ?? 0 },
       { label: "المشاريع", value: c.projects ?? 0 },
       { label: "فريق العمل", value: c.team ?? 0 },
       { label: "آراء العملاء", value: c.testimonials ?? 0 },
       { label: "نماذج عروض الأسعار", value: c.rfqDocuments ?? 0 },
+  { label: "العملاء المحتملون", value: c.leads ?? 0 },
       { label: "ميزات الثقة", value: c.trustBadges ?? 0 },
       { label: "إحصاءات الهوم", value: c.stats ?? 0 },
       { label: "خطوات العمل", value: c.timeline ?? 0 },
       { label: "ميزات AI", value: c.aiFeatures ?? 0 },
       { label: "مؤشرات AI", value: c.aiMetrics ?? 0 },
     ];
-  }, [data]);
+    return isManagerRole(controlRole)
+      ? all
+      : all.filter((card) => card.label !== "العملاء المحتملون");
+  }, [data, controlRole]);
 
   async function onCreateTeamMember() {
     const name = newTeamName.trim();

@@ -303,6 +303,28 @@ def _require_manager(request: HttpRequest) -> Any | None:
     return _api_error("forbidden", status=403)
 
 
+def _require_hr_records(request: HttpRequest) -> Any | None:
+    """Salary, contract, leave and social-security records are manager-only.
+
+    HR CRUD previously used `ops_management`, whose defaults include
+    `employee`, letting any staff employee read and mutate everyone's salary.
+    """
+    return _require_ops_rule(
+        request,
+        "hr_records",
+        default_allowed_roles={"manager"},
+    )
+
+
+def _require_fleet_read(request: HttpRequest) -> Any | None:
+    """Fleet costs are as sensitive as fleet writes; keep both role sets equal."""
+    return _require_ops_rule(
+        request,
+        "fleet_read",
+        default_allowed_roles={"manager", "registrar"},
+    )
+
+
 def _require_ops_management(request: HttpRequest) -> Any | None:
     return _require_ops_rule(
         request,
@@ -2043,6 +2065,8 @@ __all__ = [
     "_rate_limit_key",
     "_read_json",
     "_require_accounting",
+    "_require_fleet_read",
+    "_require_hr_records",
     "_require_manager",
     "_require_ops_assignments_read",
     "_require_ops_assignments_write",

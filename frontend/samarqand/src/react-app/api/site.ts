@@ -3215,3 +3215,91 @@ export async function fetchHomeSections(): Promise<HomeSectionPayload> {
     fetchJson<HomeSectionPayload>("/api/site/home-sections"),
   );
 }
+
+
+export type LeadPayload = {
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
+  projectType: string;
+  message: string;
+  source: string;
+  status: string;
+  assignedToId: number;
+  assignedToName: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function submitLead(input: {
+  name: string;
+  phone: string;
+  email?: string;
+  projectType?: string;
+  message?: string;
+  source?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch("/api/site/leads", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken") || "",
+    },
+    body: JSON.stringify(input),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<{ id: number }>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
+  return { ok: true };
+}
+
+export async function fetchAdminLeads(
+  status = "",
+  search = "",
+): Promise<LeadPayload[]> {
+  const query = new URLSearchParams();
+  if (status) query.set("status", status);
+  if (search) query.set("search", search);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const data = await fetchJson<{ items: LeadPayload[] }>(
+    `/api/admin/leads${suffix}`,
+  );
+  return data.items;
+}
+
+export async function fetchLeadAssignees(): Promise<
+  { id: number; username: string }[]
+> {
+  const data = await fetchJson<{
+    items: { id: number; username: string }[];
+  }>("/api/admin/leads/assignees");
+  return data.items;
+}
+
+export async function updateAdminLead(
+  id: number,
+  payload: Partial<{
+    status: string;
+    assignedTo: number | null;
+    notes: string;
+  }>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await apiFetch(`/api/admin/leads/${id}/update`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken") || "",
+    },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await readApiResponse<Record<string, never>>(res);
+  if (!res.ok || !data || data.ok !== true) {
+    return { ok: false, error: readApiErrorCode(data) };
+  }
+  return { ok: true };
+}

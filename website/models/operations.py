@@ -1504,3 +1504,61 @@ class OpsTimeclockImportRun(models.Model):
 
     def __str__(self) -> str:
         return f"{self.created_at.isoformat()} - {self.source}"
+
+
+class Lead(models.Model):
+    """An enquiry captured from the public website, ready for follow-up."""
+
+    SOURCE_WEBSITE = "website"
+    SOURCE_QUOTE = "quote"
+    SOURCE_WHATSAPP = "whatsapp"
+    SOURCE_CHOICES = [
+        (SOURCE_WEBSITE, "موقع الويب"),
+        (SOURCE_QUOTE, "طلب عرض سعر"),
+        (SOURCE_WHATSAPP, "واتساب"),
+    ]
+
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_QUALIFIED = "qualified"
+    STATUS_WON = "won"
+    STATUS_LOST = "lost"
+    STATUS_CHOICES = [
+        (STATUS_NEW, "جديد"),
+        (STATUS_CONTACTED, "تم التواصل"),
+        (STATUS_QUALIFIED, "مؤهل"),
+        (STATUS_WON, "مُحوّل لعميل"),
+        (STATUS_LOST, "مفقود"),
+    ]
+
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True)
+    name: models.CharField = models.CharField(max_length=255)
+    phone: models.CharField = models.CharField(max_length=64)
+    email: models.EmailField = models.EmailField(blank=True)
+    project_type: models.CharField = models.CharField(
+        max_length=128, blank=True
+    )
+    message: models.TextField = models.TextField(blank=True)
+    source: models.CharField = models.CharField(
+        max_length=16, choices=SOURCE_CHOICES, default=SOURCE_WEBSITE
+    )
+    status: models.CharField = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW
+    )
+    assigned_to: Any = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assigned_leads",
+    )
+    notes: models.TextField = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "عميل محتمل"
+        verbose_name_plural = "العملاء المحتملون"
+
+    def __str__(self) -> str:
+        return f"{self.name} - {self.phone}"

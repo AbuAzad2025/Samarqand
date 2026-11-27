@@ -11,6 +11,7 @@ from . import admin_content
 from . import admin_field_docs
 from . import admin_fleet
 from . import admin_hr
+from . import admin_leads
 from . import admin_mail
 from . import admin_ops
 from . import ai
@@ -30,6 +31,7 @@ urlpatterns += admin_accounts.urlpatterns
 urlpatterns += admin_boq.urlpatterns
 urlpatterns += admin_field_docs.urlpatterns
 urlpatterns += admin_hr.urlpatterns
+urlpatterns += admin_leads.urlpatterns
 urlpatterns += admin_fleet.urlpatterns
 urlpatterns += admin_mail.urlpatterns
 urlpatterns += site.urlpatterns

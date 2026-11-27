@@ -27,6 +27,7 @@ from website.models import HomePageSettings
 from website.models import HomeStat
 from website.models import HomeTimelineStep
 from website.models import HomeTrustBadge
+from website.models import Lead
 from website.models import LocationIndexPage
 from website.models import LocationPage
 from website.models import ProjectPage
@@ -40,6 +41,49 @@ logger = logging.getLogger(__name__)
 
 
 from .common import *
+
+
+@require_POST
+def site_leads_create(request: HttpRequest) -> JsonResponse:
+    """Capture a public website enquiry so the team can follow it up."""
+    limited = _check_rate_limit(
+        request, scope="site_lead_create", limit=5, window_seconds=900
+    )
+    if limited:
+        return limited
+
+    data = _read_json(request)
+    name = str(data.get("name") or "").strip()
+    phone_raw = str(data.get("phone") or "").strip()
+    phone = "".join(ch for ch in phone_raw if ch.isdigit() or ch == "+")
+    email = str(data.get("email") or "").strip()
+    project_type = str(data.get("projectType") or "").strip()
+    message = str(data.get("message") or "").strip()
+    source = str(data.get("source") or Lead.SOURCE_WEBSITE).strip()
+
+    if len(name) < 2 or len(name) > 255:
+        return _api_error("invalid_name", status=400)
+    if not (7 <= len(phone) <= 20):
+        return _api_error("invalid_phone", status=400)
+    if email and ("@" not in email or len(email) > 254):
+        return _api_error("invalid_email", status=400)
+    if len(project_type) > 128:
+        return _api_error("invalid_project_type", status=400)
+    if len(message) > 4000:
+        return _api_error("invalid_message", status=400)
+    allowed_sources = {key for key, _ in Lead.SOURCE_CHOICES}
+    if source not in allowed_sources:
+        return _api_error("invalid_source", status=400)
+
+    lead = Lead.objects.create(
+        name=name,
+        phone=phone_raw[:64],
+        email=email,
+        project_type=project_type,
+        message=message,
+        source=source,
+    )
+    return _api_ok({"id": lead.id}, status=201)
 
 
 def _require_ai_key() -> JsonResponse | None:

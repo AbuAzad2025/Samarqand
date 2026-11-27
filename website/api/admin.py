@@ -9,6 +9,7 @@ from .admin_crm import *
 from .admin_field_docs import *
 from .admin_fleet import *
 from .admin_hr import *
+from .admin_leads import *
 from .admin_mail import *
 from .admin_ops import *
 from .admin_projects import *
