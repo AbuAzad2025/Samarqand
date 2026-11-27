@@ -20,9 +20,9 @@ export default function TopBar() {
   return (
     <div className="text-white">
       <div className="h-1 bg-gradient-to-r from-sq-red via-sq-black to-sq-green" />
-      <div className="bg-gradient-to-r from-sq-green via-sq-black to-sq-red py-3">
-      <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-sm">
-        <div className="flex gap-6">
+      <div className="bg-[#0D131D] py-2 sm:py-3">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 text-xs sm:text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
           {phones.length ? (
             <div className="flex items-center gap-4">
               <Phone size={16} />
@@ -47,7 +47,7 @@ export default function TopBar() {
           ) : null}
         </div>
         {company?.topbarSlogan ? (
-          <div className="text-sm font-medium">{company.topbarSlogan}</div>
+          <div className="hidden text-sm font-medium lg:block">{company.topbarSlogan}</div>
         ) : null}
       </div>
     </div>

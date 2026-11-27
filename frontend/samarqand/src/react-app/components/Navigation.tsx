@@ -78,7 +78,7 @@ export default function Navigation() {
           </Link>
 
           {/* Desktop links */}
-          <div className="hidden items-center gap-0.5 md:flex">
+          <div className="hidden items-center gap-0.5 lg:flex">
             {items.map(navLink)}
           </div>
 
@@ -95,7 +95,7 @@ export default function Navigation() {
             </button>
             <Link
               to="/request-quote"
-              className="nav-flash group relative hidden overflow-hidden rounded-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-sq-black/20 transition-transform hover:-translate-y-0.5 sm:inline-flex sm:items-center sm:gap-2"
+              className="nav-flash group relative hidden overflow-hidden rounded-full bg-gradient-to-r from-sq-green via-sq-black to-sq-red px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-sq-black/20 transition-transform hover:-translate-y-0.5 lg:inline-flex lg:items-center lg:gap-2"
             >
               <span className="nav-flash-shine pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
               <Phone size={15} className="relative" />
@@ -105,7 +105,7 @@ export default function Navigation() {
               type="button"
               aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
               onClick={() => setMenuOpen((open) => !open)}
-              className="rounded-full border border-slate-200 p-2 text-slate-700 md:hidden"
+              className="rounded-full border border-slate-200 p-2 text-slate-700 lg:hidden"
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>

@@ -156,7 +156,7 @@ export default function ArchitecturalVisualizer() {
               <form onSubmit={handleGenerate} className="space-y-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
-                  <select
+                  <select aria-label="نوع المشروع"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
@@ -175,7 +175,7 @@ export default function ArchitecturalVisualizer() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     وصف المشروع
                   </label>
-                  <textarea
+                  <textarea aria-label="وصف المشروع"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="مثال: منزل من طابقين بواجهة حجر أبيض، نوافذ كبيرة، حديقة أمامية، موقف سيارات..."

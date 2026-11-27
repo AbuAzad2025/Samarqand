@@ -53,6 +53,7 @@ export default function NewsletterSignup() {
             <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 max-w-xl mx-auto">
               <input
                 type="email"
+              aria-label="البريد الإلكتروني للاشتراك في النشرة"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

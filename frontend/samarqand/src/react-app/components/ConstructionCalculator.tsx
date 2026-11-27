@@ -181,7 +181,7 @@ export default function ConstructionCalculator() {
                 {currency === 'ILS' ? 'الأسعار بالشيكل (₪)' : 'الأسعار بالدولار ($)'}
               </span>
             </div>
-            <select
+            <select aria-label="نوع الحساب"
               value={currency}
               onChange={(e) => setCurrency((e.target.value as 'ILS' | 'USD') || 'ILS')}
               className="px-4 py-2 rounded-full border border-green-200 bg-white text-green-800 font-semibold"
@@ -205,7 +205,7 @@ export default function ConstructionCalculator() {
               <form onSubmit={handleCalculate} className="space-y-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
-                  <select
+                  <select aria-label="خيار الحاسبة الهندسية"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-sq-green focus:outline-none transition"
@@ -224,7 +224,7 @@ export default function ConstructionCalculator() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     المساحة (متر مربع)
                   </label>
-                  <input
+                  <input aria-label="الكمية أو المساحة"
                     type="number"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
@@ -240,7 +240,7 @@ export default function ConstructionCalculator() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     عدد الطوابق
                   </label>
-                  <input
+                  <input aria-label="خيار الحاسبة الهندسية"
                     type="number"
                     value={floors}
                     onChange={(e) => setFloors(e.target.value)}

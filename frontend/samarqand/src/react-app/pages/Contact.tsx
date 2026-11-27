@@ -237,9 +237,10 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">الاسم *</label>
+                  <label htmlFor="contact-name" className="block text-gray-700 font-semibold mb-2">الاسم *</label>
                   <input
                     type="text"
+                    id="contact-name"
                     name="name"
                     required
                     value={formData.name}
@@ -250,9 +251,10 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">رقم الهاتف *</label>
+                  <label htmlFor="contact-phone" className="block text-gray-700 font-semibold mb-2">رقم الهاتف *</label>
                   <input
                     type="tel"
+                    id="contact-phone"
                     name="phone"
                     required
                     value={formData.phone}
@@ -263,9 +265,10 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">البريد الإلكتروني</label>
+                  <label htmlFor="contact-email" className="block text-gray-700 font-semibold mb-2">البريد الإلكتروني</label>
                   <input
                     type="email"
+                    id="contact-email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
@@ -275,8 +278,9 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">نوع المشروع *</label>
+                  <label htmlFor="contact-project" className="block text-gray-700 font-semibold mb-2">نوع المشروع *</label>
                   <select
+                    id="contact-project"
                     name="projectType"
                     required
                     value={formData.projectType}
@@ -293,8 +297,10 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
 
                 {canUseRfq && formData.projectType === QUOTE_TYPE ? (
                   <div>
-                    <label className="block text-gray-700 font-semibold mb-2">نوع نموذج عرض السعر *</label>
+                    <label htmlFor="contact-rfq" className="block text-gray-700 font-semibold mb-2">نوع نموذج عرض السعر *</label>
                     <select
+                      id="contact-rfq"
+                      aria-label="نوع نموذج عرض السعر"
                       value={rfqTemplate}
                       onChange={(e) => setRfqTemplate(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sq-green"
@@ -315,8 +321,9 @@ ${selectedRfqLabel ? `نوع نموذج عرض السعر: ${selectedRfqLabel}` 
                 ) : null}
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">تفاصيل المشروع *</label>
+                  <label htmlFor="contact-message" className="block text-gray-700 font-semibold mb-2">تفاصيل المشروع *</label>
                   <textarea
+                    id="contact-message"
                     name="message"
                     required
                     value={formData.message}

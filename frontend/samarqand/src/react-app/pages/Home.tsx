@@ -218,6 +218,9 @@ export default function Home() {
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
               نماذج قبل/بعد لأعمال الترميم والتجديد
             </p>
+            <p className="mt-2 text-xs text-slate-500">
+              صور توضيحية لأغراض العرض، وليست توثيقاً لمشروع محدد.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">

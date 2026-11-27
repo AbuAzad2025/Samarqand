@@ -97,7 +97,7 @@ export default function AIContentShowcase() {
                   <label className="block text-white font-semibold mb-2">
                     الموضوع
                   </label>
-                  <input
+                  <input aria-label="موضوع المحتوى المطلوب"
                     type="text"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}

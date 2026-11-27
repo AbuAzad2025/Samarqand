@@ -95,7 +95,7 @@ export default function AIDesignAnalyzer() {
               <form onSubmit={handleAnalyze} className="space-y-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">نوع المشروع</label>
-                  <select
+                  <select aria-label="نوع المشروع"
                     value={projectType}
                     onChange={(e) => setProjectType(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition"
@@ -114,7 +114,7 @@ export default function AIDesignAnalyzer() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     المساحة (متر مربع)
                   </label>
-                  <input
+                  <input aria-label="مساحة المشروع"
                     type="number"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
@@ -129,7 +129,7 @@ export default function AIDesignAnalyzer() {
                   <label className="block text-gray-700 font-semibold mb-2">
                     تفاصيل إضافية (اختياري)
                   </label>
-                  <textarea
+                  <textarea aria-label="تفاصيل المشروع"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="أخبرنا عن متطلباتك الخاصة، التصميم المفضل، عدد الطوابق، إلخ..."
