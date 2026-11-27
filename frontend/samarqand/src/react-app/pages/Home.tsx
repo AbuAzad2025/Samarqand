@@ -3,6 +3,7 @@ import TopBar from '@/react-app/components/TopBar';
 import Navigation from '@/react-app/components/Navigation';
 import ParallaxHero from '@/react-app/components/ParallaxHero';
 import LandingQuickNav from '@/react-app/components/LandingQuickNav';
+import LandingSidebar from '@/react-app/components/LandingSidebar';
 import WhatsAppButton from '@/react-app/components/WhatsAppButton';
 import FloatingCTA from '@/react-app/components/FloatingCTA';
 import Footer from '@/react-app/components/Footer';
@@ -61,6 +62,9 @@ export default function Home() {
     <div className="home-compact min-h-screen bg-white">
       <TopBar />
       <Navigation />
+      <div className="mx-auto max-w-7xl px-4 grid lg:grid-cols-[240px_1fr] gap-6 items-start">
+        <LandingSidebar visibility={v} />
+        <div className="min-w-0">
       <div id="home"><ParallaxHero /></div>
       <LandingQuickNav visibility={v} />
       <div id="tools">{(v?.showHomeAIBanner ?? true) && <AIFeaturesBanner />}</div>
@@ -284,6 +288,9 @@ export default function Home() {
 
       {(v?.showTools ?? true) && <AIContentShowcase />}
       {(v?.showNewsletter ?? true) && <div id="contact"><NewsletterSignup /></div>}
+
+        </div>
+      </div>
 
       <WhatsAppButton />
       <FloatingCTA />
