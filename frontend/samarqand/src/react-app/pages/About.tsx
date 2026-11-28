@@ -5,8 +5,6 @@ import TopBar from "@/react-app/components/TopBar";
 import Navigation from "@/react-app/components/Navigation";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import Footer from "@/react-app/components/Footer";
-import InteractiveTeam from "@/react-app/components/InteractiveTeam";
-import AIChatbot from "@/react-app/components/AIChatbot";
 
 import {
   fetchCompany,
@@ -146,12 +144,10 @@ export default function About() {
             </div>
           </section>
 
-          {(v?.showTeam ?? true) && <InteractiveTeam />}
         </>
       )}
 
       <WhatsAppButton />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );

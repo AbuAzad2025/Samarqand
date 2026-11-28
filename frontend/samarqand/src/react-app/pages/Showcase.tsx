@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Images, MessageSquare, Star } from "lucide-react";
+import { Images } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useSiteContent, heading } from "@/react-app/utils/content";
@@ -8,12 +8,10 @@ import Navigation from "@/react-app/components/Navigation";
 import TopBar from "@/react-app/components/TopBar";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
-import AIChatbot from "@/react-app/components/AIChatbot";
 import BeforeAfterSlider from "@/react-app/components/BeforeAfterSlider";
-import InteractiveTeam from "@/react-app/components/InteractiveTeam";
 import NewsletterSignup from "@/react-app/components/NewsletterSignup";
 
-import { fetchSiteConfig, fetchTestimonials, type SiteConfigPayload, type TestimonialPayload } from "@/react-app/api/site";
+import { fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
 
 /** Existing sample assets only — no new images are introduced here. */
 const galleryItems = [
@@ -69,25 +67,11 @@ function Notice({
 
 export default function ShowcasePage() {
   const content = useSiteContent();
-  const [testimonials, setTestimonials] = useState<TestimonialPayload[]>([]);
-  const [testimonialsStatus, setTestimonialsStatus] = useState<"loading" | "ready" | "error">("loading");
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [galleryReady, setGalleryReady] = useState<boolean[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
-    setTestimonialsStatus("loading");
-    fetchTestimonials()
-      .then((data) => {
-        if (!cancelled) {
-          setTestimonials(data);
-          setTestimonialsStatus("ready");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setTestimonialsStatus("error");
-      });
 
     fetchSiteConfig()
       .then((data) => {
@@ -133,7 +117,7 @@ export default function ShowcasePage() {
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "showcase", "معرض الأعمال")}</h1>
           <p className="text-xl max-w-3xl mx-auto">
-            شاهد التحولات وآراء العملاء وفريق العمل
+            شاهد التحولات
           </p>
         </div>
       </section>
@@ -195,80 +179,12 @@ export default function ShowcasePage() {
             </div>
           </section>
 
-          {(v?.showTeam ?? true) && <InteractiveTeam />}
-
-          {(v?.showTestimonials ?? true) && (
-            <section className="py-16 bg-white" id="testimonials" aria-labelledby="testimonials-heading">
-              <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                  <h2 id="testimonials-heading" className="text-3xl md:text-4xl font-bold text-gray-800">
-                    آراء عملائنا
-                  </h2>
-                  <p className="text-gray-600 max-w-2xl mx-auto mt-3">
-                    ما يقوله عملاؤنا عن خدماتنا
-                  </p>
-                </div>
-
-                {testimonialsStatus === "loading" ? (
-                  <p role="status" className="text-center text-sm text-gray-600">
-                    جارٍ تحميل الآراء…
-                  </p>
-                ) : testimonialsStatus === "error" ? (
-                  <Notice
-                    icon={<MessageSquare size={24} aria-hidden="true" />}
-                    title="تعذّر تحميل الآراء"
-                    message="يمكنك المحاولة مرة أخرى لاحقاً أو التواصل معنا."
-                    withContact
-                    role="alert"
-                  />
-                ) : testimonials.length === 0 ? (
-                  <Notice
-                    icon={<MessageSquare size={24} aria-hidden="true" />}
-                    title="لا توجد آراء لعرضها حالياً"
-                    message="ستظهر هنا آراء العملاء عند توفرها."
-                  />
-                ) : (
-                  <div className="grid md:grid-cols-3 gap-8">
-                    {testimonials.map((testimonial) => {
-                      const rating = Math.max(
-                        0,
-                        Math.min(5, Math.round(Number(testimonial.rating) || 0)),
-                      );
-                      return (
-                        <figure key={testimonial.id} className="card-corp flex flex-col p-6">
-                          <div className="flex gap-1 mb-4" aria-hidden="true">
-                            {Array.from({ length: rating }, (_, index) => (
-                              <Star
-                                key={index}
-                                size={20}
-                                className="fill-yellow-400 text-yellow-400"
-                              />
-                            ))}
-                          </div>
-                          <span className="sr-only">تقييم {rating} من 5</span>
-                          <blockquote className="mb-4 flex-1 text-gray-600 italic">
-                            "{testimonial.text}"
-                          </blockquote>
-                          <figcaption className="border-t pt-4">
-                            <p className="font-bold text-gray-800">{testimonial.name}</p>
-                            <p className="text-sm text-gray-600">{testimonial.project}</p>
-                          </figcaption>
-                        </figure>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
           {(v?.showNewsletter ?? true) && <NewsletterSignup />}
         </>
       )}
 
       <WhatsAppButton />
       <FloatingCTA />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );

@@ -5,7 +5,6 @@ import TopBar from "@/react-app/components/TopBar";
 import Navigation from "@/react-app/components/Navigation";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import Footer from "@/react-app/components/Footer";
-import AIChatbot from "@/react-app/components/AIChatbot";
 import {
   fetchCompany,
   fetchSiteConfig,
@@ -577,7 +576,6 @@ export default function Contact() {
       )}
 
       <WhatsAppButton />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );

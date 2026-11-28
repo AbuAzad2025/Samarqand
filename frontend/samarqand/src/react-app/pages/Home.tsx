@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Building2, Calendar, MapPin, RefreshCw, Star } from "lucide-react";
+import { Building2, Calendar, MapPin, RefreshCw } from "lucide-react";
 
 import { useSiteContent, heading } from "@/react-app/utils/content";
 import TopBar from "@/react-app/components/TopBar";
@@ -12,17 +12,13 @@ import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
 import Footer from "@/react-app/components/Footer";
 import AnimatedStats from "@/react-app/components/AnimatedStats";
-import AIChatbot from "@/react-app/components/AIChatbot";
-import AIFeaturesBanner from "@/react-app/components/AIFeaturesBanner";
 import Services from "@/react-app/components/Services";
 
 import {
   fetchProjects,
   fetchSiteConfig,
-  fetchTestimonials,
   type ProjectPayload,
   type SiteConfigPayload,
-  type TestimonialPayload,
 } from "@/react-app/api/site";
 import { groupRfqTemplatesByCategory, RFQ_TEMPLATES } from "@/react-app/rfqTemplates";
 
@@ -33,8 +29,6 @@ import { groupRfqTemplatesByCategory, RFQ_TEMPLATES } from "@/react-app/rfqTempl
 const TrustBadges = lazy(() => import("@/react-app/components/TrustBadges"));
 const ProcessTimeline = lazy(() => import("@/react-app/components/ProcessTimeline"));
 const BeforeAfterSlider = lazy(() => import("@/react-app/components/BeforeAfterSlider"));
-const InteractiveTeam = lazy(() => import("@/react-app/components/InteractiveTeam"));
-const AIContentShowcase = lazy(() => import("@/react-app/components/AIContentShowcase"));
 const NewsletterSignup = lazy(() => import("@/react-app/components/NewsletterSignup"));
 
 // Minimal accessible placeholder. The min-height mirrors the real section so
@@ -55,13 +49,10 @@ type LoadState = "loading" | "ready" | "error";
 export default function Home() {
   const content = useSiteContent();
   const [projects, setProjects] = useState<ProjectPayload[]>([]);
-  const [testimonials, setTestimonials] = useState<TestimonialPayload[]>([]);
   const [projectsState, setProjectsState] = useState<LoadState>("loading");
-  const [testimonialsState, setTestimonialsState] = useState<LoadState>("loading");
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [showAllRfq, setShowAllRfq] = useState(false);
   const projectRequest = useRef(0);
-  const testimonialRequest = useRef(0);
   const location = useLocation();
 
   const loadProjects = useCallback(() => {
@@ -78,27 +69,12 @@ export default function Home() {
       });
   }, []);
 
-  const loadTestimonials = useCallback(() => {
-    const id = ++testimonialRequest.current;
-    setTestimonialsState("loading");
-    fetchTestimonials()
-      .then((data) => {
-        if (id !== testimonialRequest.current) return;
-        setTestimonials(Array.isArray(data) ? data : []);
-        setTestimonialsState("ready");
-      })
-      .catch(() => {
-        if (id === testimonialRequest.current) setTestimonialsState("error");
-      });
-  }, []);
-
   useEffect(() => {
     loadProjects();
-    loadTestimonials();
     let active = true;
     fetchSiteConfig().then((data) => { if (active) setConfig(data); }).catch(() => {});
     return () => { active = false; };
-  }, [loadProjects, loadTestimonials]);
+  }, [loadProjects]);
 
   useEffect(() => {
     const hash = (location.hash || "").replace("#", "").trim();
@@ -138,15 +114,6 @@ export default function Home() {
         <div id="home"><ParallaxHero /></div>
 
         {(v?.showHomeQuickLinks ?? true) && <LandingQuickNav visibility={v} />}
-
-        {(v?.showHomeAIBanner ?? true) && (
-          <div id="tools">
-            <AIFeaturesBanner />
-            <p className="border-b border-slate-200 bg-[var(--corp-surface)] px-4 py-2 text-center text-xs text-[var(--corp-muted)]">
-              عرض تعريفي لإمكانيات الأدوات الرقمية؛ قد لا تكون بعض الميزات مُفعّلة في هذه النسخة.
-            </p>
-          </div>
-        )}
 
         {(v?.showHomeTrustBadges ?? true) && (
           <Suspense fallback={<SectionFallback className="min-h-[9rem]" />}>
@@ -358,91 +325,6 @@ export default function Home() {
           </section>
         )}
 
-        {(v?.showTeam ?? true) && (
-          <Suspense fallback={<SectionFallback className="min-h-[28rem]" />}>
-            <InteractiveTeam />
-          </Suspense>
-        )}
-
-        {(v?.showTestimonials ?? true) && (
-          <section id="testimonials" className="section-corp" aria-labelledby="testimonials-heading">
-            <div className="container mx-auto px-4" dir="rtl">
-              <div className="mb-10 text-center">
-                <h2 id="testimonials-heading" className="mb-3 text-3xl font-bold text-gray-800">
-                  {heading(content, "testimonials", "آراء عملائنا")}
-                </h2>
-                <p className="mx-auto max-w-2xl text-gray-600">
-                  {content.headings.testimonials?.subtitle || "ما يقوله عملاؤنا عن خدماتنا"}
-                </p>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-3">
-                {testimonialsState === "loading" && (
-                  <p role="status" className="rounded-xl border border-[var(--corp-border)] bg-[var(--corp-surface)] p-6 text-center text-sm text-[var(--corp-muted)] md:col-span-3">
-                    جارٍ تحميل الآراء...
-                  </p>
-                )}
-                {testimonialsState === "error" && (
-                  <div role="alert" className="rounded-xl border border-[var(--corp-border)] bg-[var(--corp-surface)] p-6 text-center md:col-span-3">
-                    <p className="text-sm text-[var(--corp-muted)]">تعذّر عرض آراء العملاء حالياً.</p>
-                    <button
-                      type="button"
-                      onClick={loadTestimonials}
-                      className="btn-corp-secondary mt-3 inline-flex items-center gap-2 text-sm focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2"
-                    >
-                      <RefreshCw size={15} aria-hidden="true" />
-                      إعادة المحاولة
-                    </button>
-                  </div>
-                )}
-                {testimonialsState === "ready" && testimonials.length === 0 && (
-                  <p className="rounded-xl border border-[var(--corp-border)] bg-[var(--corp-surface)] p-6 text-center text-sm text-[var(--corp-muted)] md:col-span-3">
-                    لا توجد آراء معروضة حالياً.
-                  </p>
-                )}
-                {testimonialsState === "ready" &&
-                  testimonials.slice(0, 3).map((testimonial) => (
-                    <article key={testimonial.id} className="rounded-lg bg-white p-6 shadow-lg transition hover:shadow-xl">
-                      <div
-                        role="img"
-                        aria-label={`تقييم ${Math.min(Math.max(Number(testimonial.rating) || 0, 0), 5)} من 5`}
-                        className="mb-4 flex gap-1"
-                      >
-                        {Array.from({ length: Math.min(Math.max(Number(testimonial.rating) || 0, 0), 5) }).map((_, i) => (
-                          <Star key={i} size={20} className="fill-yellow-400 text-yellow-400" aria-hidden="true" />
-                        ))}
-                      </div>
-                      <p className="mb-4 leading-loose text-slate-600">"{testimonial.text}"</p>
-                      <div className="border-t pt-4">
-                        <p className="font-bold text-gray-800">{testimonial.name}</p>
-                        <p className="text-sm text-gray-600">{testimonial.project}</p>
-                      </div>
-                    </article>
-                  ))}
-              </div>
-
-              {testimonials.length > 0 && (
-                <div className="mt-10 text-center">
-                  <Link to="/showcase" className="btn-corp-primary font-semibold hover:shadow-lg transition">
-                    قراءة المزيد
-                  </Link>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {(v?.showTools ?? true) && (
-          <div>
-            <p className="border-b border-slate-200 bg-[var(--corp-surface)] px-4 py-2 text-center text-xs text-[var(--corp-muted)]">
-              عرض تعريفي لأدوات الذكاء الاصطناعي؛ تشغيلها الفعلي يعتمد على إعدادات الموقع.
-            </p>
-            <Suspense fallback={<SectionFallback className="min-h-[28rem]" />}>
-              <AIContentShowcase />
-            </Suspense>
-          </div>
-        )}
-
         {(v?.showNewsletter ?? true) && (
           <div id="contact">
             <Suspense fallback={<SectionFallback className="min-h-[24rem]" />}>
@@ -454,7 +336,6 @@ export default function Home() {
 
       <WhatsAppButton />
       <FloatingCTA />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );

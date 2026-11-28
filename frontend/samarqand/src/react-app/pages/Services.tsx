@@ -9,7 +9,6 @@ import Services from "@/react-app/components/Services";
 import TopBar from "@/react-app/components/TopBar";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
-import AIChatbot from "@/react-app/components/AIChatbot";
 
 import { fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
 
@@ -85,7 +84,6 @@ export default function ServicesPage() {
 
       <WhatsAppButton />
       <FloatingCTA />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );

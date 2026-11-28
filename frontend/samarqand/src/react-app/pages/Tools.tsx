@@ -4,29 +4,19 @@ import Navigation from "@/react-app/components/Navigation";
 import TopBar from "@/react-app/components/TopBar";
 import WhatsAppButton from "@/react-app/components/WhatsAppButton";
 import FloatingCTA from "@/react-app/components/FloatingCTA";
-import AIChatbot from "@/react-app/components/AIChatbot";
-import AIDesignAnalyzer from "@/react-app/components/AIDesignAnalyzer";
-import AIContentShowcase from "@/react-app/components/AIContentShowcase";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertCircle,
-  Brain,
   Calculator,
-  FileText,
-  Image as ImageIcon,
-  Lock,
   RefreshCw,
 } from "lucide-react";
 
-import { fetchAuthAccess, fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
+import { fetchSiteConfig, type SiteConfigPayload } from "@/react-app/api/site";
 
-// Split into separate chunks and mounted only when the user approaches the
-// section, so neither file is fetched/parsed during the initial page load.
+// Split into a separate chunk and mounted only when the user approaches the
+// section, so the file is not fetched/parsed during the initial page load.
 const ConstructionCalculator = lazy(
   () => import("@/react-app/components/ConstructionCalculator"),
-);
-const ArchitecturalVisualizer = lazy(
-  () => import("@/react-app/components/ArchitecturalVisualizer"),
 );
 
 function ToolLoadingFallback({ label }: { label: string }) {
@@ -94,45 +84,19 @@ type ToolOverview = {
   title: string;
   description: string;
   icon: typeof Calculator;
-  restricted?: boolean;
-  ai?: boolean;
 };
 
 const toolOverviews: ToolOverview[] = [
-  {
-    id: "ai-analyzer",
-    title: "محلل التصاميم",
-    description: "أدخل مواصفات مشروعك للحصول على تحليل منظّم للتكلفة والمدة والمواد.",
-    icon: Brain,
-    ai: true,
-  },
   {
     id: "calculator",
     title: "حاسبة الكميات والتكاليف",
     description: "حساب تقديري للكميات والتكاليف حسب نوع المشروع والمساحة وعدد الطوابق.",
     icon: Calculator,
   },
-  {
-    id: "visualizer",
-    title: "تخيّل مشروعك",
-    description: "اطلب تصوراً بصرياً لواجهة مشروعك أو تصميمه الداخلي وفق الطراز الذي تختاره.",
-    icon: ImageIcon,
-    restricted: true,
-    ai: true,
-  },
-  {
-    id: "content-generator",
-    title: "مولّد المحتوى",
-    description: "صياغة مسودة لمقالة أو منشور تسويقي حول موضوع تختاره.",
-    icon: FileText,
-    restricted: true,
-    ai: true,
-  },
 ];
 
 export default function ToolsPage() {
   const content = useSiteContent();
-  const [canUseRestrictedTools, setCanUseRestrictedTools] = useState(false);
   const [config, setConfig] = useState<SiteConfigPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -143,20 +107,17 @@ export default function ToolsPage() {
     setIsLoading(true);
     setLoadError(false);
 
-    Promise.all([
-      fetchAuthAccess()
-        .then((data) => Boolean(data.canUseRestrictedTools))
-        .catch(() => null),
-      fetchSiteConfig().catch(() => null),
-    ])
-      .then(([access, siteConfig]) => {
+    fetchSiteConfig()
+      .then((siteConfig) => {
         if (!active) return;
-        if (access === null || siteConfig === null) {
+        if (siteConfig === null) {
           setLoadError(true);
           return;
         }
-        setCanUseRestrictedTools(access);
         setConfig(siteConfig);
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -176,9 +137,9 @@ export default function ToolsPage() {
 
       <section className="relative bg-[var(--corp-dark)] text-white py-14">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "tools", "الأدوات الذكية")}</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{heading(content, "tools", "الأدوات")}</h1>
           <p className="text-xl max-w-3xl mx-auto">
-            أدوات تساعدك على اتخاذ قرارات أسرع وأكثر دقة قبل التنفيذ
+            أدوات تساعد في تقدير الكميات والتكاليف
           </p>
         </div>
       </section>
@@ -220,7 +181,7 @@ export default function ToolsPage() {
                 هذا القسم مخفي حالياً
               </h2>
               <p className="text-gray-600 max-w-2xl mx-auto">
-                تم إخفاء صفحة الأدوات الذكية من لوحة التحكم.
+                تم إخفاء صفحة الأدوات من لوحة التحكم.
               </p>
             </div>
           </div>
@@ -236,7 +197,6 @@ export default function ToolsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {toolOverviews.map((tool) => {
                   const Icon = tool.icon;
-                  const locked = Boolean(tool.restricted && !canUseRestrictedTools);
                   return (
                     <article
                       key={tool.id}
@@ -249,73 +209,27 @@ export default function ToolsPage() {
                       <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-600">
                         {tool.description}
                       </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {tool.ai ? (
-                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                            غير مُفعّل حالياً
-                          </span>
-                        ) : null}
-                        {locked ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                            <Lock size={12} aria-hidden="true" />
-                            تتطلب صلاحية
-                          </span>
-                        ) : (
-                          <a
-                            href={`#${tool.id}`}
-                            className="text-sm font-semibold text-[var(--corp-green)] hover:underline"
-                          >
-                            انتقل إلى الأداة ↓
-                          </a>
-                        )}
-                      </div>
+                      <a
+                        href={`#${tool.id}`}
+                        className="text-sm font-semibold text-[var(--corp-green)] hover:underline"
+                      >
+                        انتقل إلى الأداة ↓
+                      </a>
                     </article>
                   );
                 })}
               </div>
-              <p className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-relaxed text-amber-800">
-                الأدوات التي تعتمد على الذكاء الاصطناعي غير مُفعّلة حالياً؛ حاسبة الكميات والتكاليف تعمل بشكل طبيعي.
-              </p>
             </div>
           </section>
 
-          <AIDesignAnalyzer />
           <DeferredSection id="calculator" fallbackLabel="جارٍ تجهيز الحاسبة...">
             <ConstructionCalculator />
           </DeferredSection>
-          {canUseRestrictedTools ? (
-            <>
-              <DeferredSection id="visualizer" fallbackLabel="جارٍ تجهيز المصوّر المعماري...">
-                <ArchitecturalVisualizer />
-              </DeferredSection>
-              <AIContentShowcase />
-            </>
-          ) : (
-            <section className="py-16 bg-white">
-              <div className="container mx-auto px-4">
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                    أدوات مخصصة للمدراء
-                  </h2>
-                  <p className="text-gray-600 max-w-2xl mx-auto">
-                    مولّد المحتوى وتخيل مشروعك مخصصان للمدراء والسوبر أدمن، وهما غير مُفعّلين حالياً.
-                  </p>
-                  <a
-                    href="/control/login"
-                    className="inline-block mt-6 bg-gradient-to-r from-sq-green via-sq-black to-sq-red text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition"
-                  >
-                    تسجيل الدخول للإدارة
-                  </a>
-                </div>
-              </div>
-            </section>
-          )}
         </>
       )}
 
       <WhatsAppButton />
       <FloatingCTA />
-      {(v?.showAIChatbot ?? true) && <AIChatbot />}
       <Footer />
     </div>
   );
