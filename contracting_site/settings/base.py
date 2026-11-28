@@ -57,7 +57,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # Save pages to cache. Must be FIRST.
+    # API responses must never be stored by browsers or proxies.
+    "contracting_site.middleware.ApiNoStoreMiddleware",
+    # Save pages to cache.
     "wagtailcache.cache.UpdateCacheMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "contracting_site.middleware.BlockStaticDirectoryMiddleware",

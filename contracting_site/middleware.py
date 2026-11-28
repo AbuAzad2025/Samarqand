@@ -145,3 +145,25 @@ class AdminApiRateLimitMiddleware:
         if limited:
             return limited
         return self.get_response(request)
+
+
+class ApiNoStoreMiddleware:
+    """Keep dynamic API responses fresh in browsers and shared caches.
+
+    Placed before the page-cache middleware so its response header wins. Wagtail
+    page caching is left intact for ordinary HTML pages.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        is_api = str(getattr(request, "path_info", "") or "").startswith(
+            "/api/"
+        )
+        response = self.get_response(request)
+        if is_api and hasattr(response, "headers"):
+            response["Cache-Control"] = "no-store"
+            if "Expires" in response:
+                del response["Expires"]
+        return response

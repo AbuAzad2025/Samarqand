@@ -172,7 +172,7 @@ export function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function loadJson<T>(url: string): Promise<T> {
-  const res = await apiFetch(url);
+  const res = await apiFetch(url, { cache: "no-store" });
   if (!res.ok) {
     const failed = await readApiResponse<unknown>(res);
     if (typeof window !== "undefined") {
