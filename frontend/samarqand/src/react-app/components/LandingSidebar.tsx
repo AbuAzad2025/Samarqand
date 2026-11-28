@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
+  ArrowDown,
+  ArrowUp,
   ArrowUpRight,
   BriefcaseBusiness,
   ChevronDown,
@@ -98,7 +100,9 @@ export default function LandingSidebar({
 }) {
   const [active, setActive] = useState("#home");
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<string[]>([]);
+  // The longest group starts collapsed so the guide fits most screens.
+  const [collapsed, setCollapsed] = useState<string[]>(["استكشف الموقع"]);
+  const navRef = useRef<HTMLElement>(null);
   const [auth, setAuth] = useState<AuthState>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -213,7 +217,7 @@ export default function LandingSidebar({
         aria-label="فتح دليل الصفحة"
         aria-expanded={open}
         aria-controls="landing-sidebar"
-        className="fixed inset-inline-start-4 top-32 z-40 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-md transition hover:border-sq-green hover:text-sq-green focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2 md:top-36"
+        className="fixed right-4 top-32 z-40 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-md transition hover:border-sq-green hover:text-sq-green focus-visible:ring-2 focus-visible:ring-sq-green focus-visible:ring-offset-2 md:top-36"
       >
         <Menu size={16} aria-hidden="true" />
         <span className="hidden sm:inline">دليل الصفحة</span>
@@ -233,7 +237,7 @@ export default function LandingSidebar({
             role="dialog"
             aria-modal="true"
             aria-labelledby="landing-sidebar-title"
-            className="fixed inset-block-0 inset-inline-end-0 z-50 flex w-[min(22rem,90vw)] flex-col bg-white text-slate-900 shadow-2xl"
+            className="fixed inset-y-0 right-0 z-[70] flex h-[100dvh] max-h-[100dvh] w-[min(22rem,90vw)] flex-col bg-white text-slate-900 shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
@@ -252,7 +256,11 @@ export default function LandingSidebar({
                 <X size={18} aria-hidden="true" />
               </button>
             </div>
-            <nav aria-label="أقسام الصفحة" className="flex-1 space-y-4 overflow-y-auto p-4">
+            <nav
+              ref={navRef}
+              aria-label="أقسام الصفحة"
+              className="sidebar-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4"
+            >
               {groups.map((group, groupIndex) => {
                 const isCollapsed = collapsed.includes(group.title);
                 const groupId = `landing-sidebar-group-${groupIndex}`;
@@ -308,8 +316,28 @@ export default function LandingSidebar({
                 );
               })}
             </nav>
-            <div className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
-              سياسة الخصوصية · شروط الاستخدام في تذييل الموقع.
+            <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
+              <span className="text-xs text-slate-500">
+                سياسة الخصوصية · شروط الاستخدام في تذييل الموقع.
+              </span>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => navRef.current?.scrollBy({ top: -320, behavior: "smooth" })}
+                  aria-label="التمرير إلى أعلى القائمة"
+                  className="rounded-lg border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-sq-green"
+                >
+                  <ArrowUp size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navRef.current?.scrollBy({ top: 320, behavior: "smooth" })}
+                  aria-label="التمرير إلى أسفل القائمة"
+                  className="rounded-lg border border-slate-200 p-2 text-slate-700 transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-sq-green"
+                >
+                  <ArrowDown size={16} aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </aside>
         </>

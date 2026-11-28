@@ -346,6 +346,17 @@ textarea::placeholder {
   background: transparent;
 }
 
+/* Keep the page-guide scrollbar clearly visible on every platform. */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  touch-action: pan-y;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border: 2px solid #f1f5f9;
+}
+
 @keyframes sq-spin {
   to { transform: rotate(360deg); }
 }
